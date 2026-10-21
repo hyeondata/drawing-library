@@ -11,8 +11,8 @@ const kinds = [
   { key: 'OBJ', name: '설비', desc: '위생 · 주방 설비 짝' },
 ];
 const groupNames: Record<string, string> = { syntax: '공간구문', area: '면적 구성', shape: '형태', rules: '정합성', profile: '구성 분포' };
-const refIndex = new Map(REFERENCES.map((r, i) => [r.id, i + 1]));
-const cite = (refs?: string[]) => (refs?.length ? `[${refs.map((id) => refIndex.get(id)).join(', ')}]` : '');
+const refById = new Map(REFERENCES.map((r, i) => [r.id, { ...r, n: i + 1 }]));
+const refsOf = (ids?: readonly string[]) => (ids ?? []).map((id) => refById.get(id)).filter((r) => r !== undefined);
 ---
 
 <Base title="평면 평가 랩" description="AI 허브 아파트 평면도 샘플을 정답지로 삼아, 도면을 누르면 스페이스 신택스와 시공 정합성 점수를 매기는 평가 서비스">
@@ -119,7 +119,16 @@ const cite = (refs?: string[]) => (refs?.length ? `[${refs.map((id) => refIndex.
                 <li>
                   {f.label}
                   {'direction' in f && f.direction === 'higher' ? ' ↑' : ''}
-                  {'weight' in f && f.weight !== undefined ? ` (×${f.weight})` : ''} <span class="note">{cite('refs' in f ? f.refs : undefined)}</span>
+                  {'weight' in f && f.weight !== undefined ? ` (×${f.weight})` : ''}
+                  {'refs' in f && (
+                    <span class="cites">
+                      {refsOf(f.refs).map((r) => (
+                        <a class="cite" href={r.url} target="_blank" rel="noopener" title={`[${r.n}] ${r.text}`}>
+                          {r.short}<span aria-hidden="true"> ↗</span>
+                        </a>
+                      ))}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -135,7 +144,7 @@ const cite = (refs?: string[]) => (refs?.length ? `[${refs.map((id) => refIndex.
           한 도면에 여러 세대가 있으면 현관마다 벽 두께를 비용으로 한 최단경로로 세대를 나눕니다.
         </p>
         <p>
-          문헌이 확인한 한국 아파트의 <b>거실 중심 유전형</b>(통합도 {GENOTYPE_ORDER.join(' > ')})에 얼마나 부합하는지를 봅니다 {cite(['choi2014', 'byun2016'])}.
+          문헌이 확인한 한국 아파트의 <b>거실 중심 유전형</b>(통합도 {GENOTYPE_ORDER.join(' > ')})에 얼마나 부합하는지를 봅니다 <span class="cites">{refsOf(['choi2014', 'byun2016']).map((r) => (<a class="cite" href={r.url} target="_blank" rel="noopener" title={`[${r.n}] ${r.text}`}>{r.short}<span aria-hidden="true"> ↗</span></a>))}</span>.
           이 점수는 '좋은 평면'이 아니라 '한국 실거주 평면 유형과의 거리'입니다. 공간구문 값이 거주 만족도를 예측한다는 SCI 근거는 아직 없습니다.
         </p>
       </article>
@@ -143,7 +152,7 @@ const cite = (refs?: string[]) => (refs?.length ? `[${refs.map((id) => refIndex.
       <article>
         <h3>정합성 규칙</h3>
         <ul class="tight">
-          <li><b>공간</b> 필수 실 구성, 현관에서 모든 실 도달, 거실이 가장 통합된 기능실 {cite(['choi2014'])}, 거실이 현관에서 2단계 이내 {cite(['seo2007'])}, 현관–거실/복도 연결, 주방–거실 연계, 침실 비통과, 공용 화장실</li>
+          <li><b>공간</b> 필수 실 구성, 현관에서 모든 실 도달, 거실이 가장 통합된 기능실 <span class="cites">{refsOf(['choi2014']).map((r) => (<a class="cite" href={r.url} target="_blank" rel="noopener" title={`[${r.n}] ${r.text}`}>{r.short}<span aria-hidden="true"> ↗</span></a>))}</span>, 거실이 현관에서 2단계 이내 <span class="cites">{refsOf(['seo2007']).map((r) => (<a class="cite" href={r.url} target="_blank" rel="noopener" title={`[${r.n}] ${r.text}`}>{r.short}<span aria-hidden="true"> ↗</span></a>))}</span>, 현관–거실/복도 연결, 주방–거실 연계, 침실 비통과, 공용 화장실</li>
           <li><b>관문 규칙</b> 필수 실 누락·끊긴 실·침실 통과 동선이 있으면 다른 점수와 상관없이 총점을 {GATE_CAP}점으로 묶습니다.</li>
           <li><b>구조</b> 벽·문·창 존재, 모든 개구부가 벽에 붙음({THRESHOLDS.openingToWall}px), 문·창 겹침 없음</li>
           <li><b>설비</b> 변기–세면대, 가스레인지–싱크대, 욕조–변기 짝({THRESHOLDS.fixturePair}px 이내)</li>
@@ -167,7 +176,7 @@ const cite = (refs?: string[]) => (refs?.length ? `[${refs.map((id) => refIndex.
         <h3>참고 문헌</h3>
         <ol class="refs">
           {REFERENCES.map((r) => (
-            <li>
+            <li id={`ref-${r.id}`}>
               {r.url ? <a href={r.url} rel="noopener" target="_blank">{r.text}</a> : r.text}
               <span class="note"> · {r.index} — {r.usedFor}</span>
             </li>
