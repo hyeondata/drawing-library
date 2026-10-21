@@ -31,7 +31,7 @@ npm run build
 npm run deploy
 ```
 
-배포 대상은 `wrangler.worker.jsonc`의 사용자 계정과 `drawing-library` Worker입니다. 생성되는 `dist`에 도면·라벨 데이터가 포함되며, 이 사이트는 URL로 접근할 수 있습니다. Drive와 실시간 동기화하지 않습니다.
+배포 대상은 `wrangler.jsonc`의 사용자 계정과 `drawing-library` Worker입니다. 생성되는 `dist`에 도면·라벨 데이터가 포함되며, 이 사이트는 URL로 접근할 수 있습니다. Drive와 실시간 동기화하지 않습니다.
 
 ## Git 관리와 자동 배포
 
@@ -80,7 +80,7 @@ git push
 
 이미지와 라벨은 유형 및 정확한 파일명으로 연결합니다. COCO 메타데이터의 좌표계를 사용하며, PNG가 1px 차이 나는 경우 그 좌표계에 맞춰 표시합니다. 원본 PNG는 `../Sample`에 보관합니다.
 
-`wrangler.jsonc`는 별도 Cloudflare Pages 배포를 위한 보조 설정입니다. 대시보드 업로드용 `cloudflare-upload.zip`도 포함되어 있습니다.
+`npm run build`가 생성하는 `dist` 폴더를 Cloudflare Workers Static Assets로 배포합니다.
 
 공식 문서:
 - https://docs.astro.build/en/guides/deploy/cloudflare/

@@ -7,8 +7,7 @@
     "data:prepare": "python3 scripts/build.py",
     "dev": "astro dev --host 127.0.0.1 --port 8788",
     "preview": "astro preview --host 127.0.0.1 --port 8788",
-    "deploy": "wrangler deploy --config wrangler.worker.jsonc",
-    "deploy:pages": "wrangler pages deploy dist --project-name drawing-library --branch main",
+    "deploy": "wrangler deploy",
     "check": "node scripts/check-assets.mjs && node --check src/scripts/viewer.js"
   },
   "devDependencies": {

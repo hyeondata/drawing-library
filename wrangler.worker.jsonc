@@ -1,7 +1,0 @@
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "drawing-library",
-  "account_id": "4df6deaafe1246e12b9504b68d416ae6",
-  "compatibility_date": "2026-10-21",
-  "assets": { "directory": "./dist" }
-}
