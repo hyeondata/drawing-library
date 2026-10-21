@@ -1,0 +1,41 @@
+---
+import '../styles/global.css';
+import { execFileSync } from 'node:child_process';
+
+// 배포된 커밋 확인용: Cloudflare 빌드 → GitHub Actions → 로컬 Git 순서로 기록한다.
+let buildRevision = process.env.WORKERS_CI_COMMIT_SHA || process.env.GITHUB_SHA;
+if (!buildRevision) {
+  try {
+    buildRevision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch {
+    buildRevision = 'local';
+  }
+}
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="build-revision" content={buildRevision} />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

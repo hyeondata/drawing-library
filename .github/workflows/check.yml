@@ -1,4 +1,4 @@
-name: Validate Astro site
+name: Test and build
 
 on: [push, pull_request, workflow_dispatch]
 
@@ -19,6 +19,15 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npm run check
-      - run: npm run build
+      - run: npm test
+      - name: Baseline is up to date
+        run: |
+          npm run baseline
+          git diff --exit-code -- public/data/baseline.json public/data/catalog.json || {
+            echo "::error::평가 모델이 바뀌었는데 기준 분포가 갱신되지 않았습니다. npm run baseline 후 커밋하세요."
+            exit 1
+          }
+      - run: npx astro build
       - run: npm run deploy -- --dry-run
+      - name: Score table
+        run: npm run evaluate >> "$GITHUB_STEP_SUMMARY"

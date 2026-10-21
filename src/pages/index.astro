@@ -1,18 +1,176 @@
 ---
-import LibraryLayout from '../layouts/LibraryLayout.astro';
-import Header from '../components/Header.astro';
-import LibraryPanel from '../components/LibraryPanel.astro';
-import DrawingCanvas from '../components/DrawingCanvas.astro';
-import AnnotationPanel from '../components/AnnotationPanel.astro';
+import Base from '../layouts/Base.astro';
+import { FEATURES, GRADES, MODEL_VERSION, REFERENCES, THRESHOLDS, WEIGHTS, Z_ZERO_SCORE } from '../model/config.js';
+import baseline from '../../public/data/baseline.json';
+
+const counts = baseline.counts;
+const kinds = [
+  { key: 'SPA', name: '공간', desc: '실 배치 · 스페이스 신택스' },
+  { key: 'STR', name: '구조', desc: '벽 · 문 · 창 정합성' },
+  { key: 'OBJ', name: '설비', desc: '위생 · 주방 설비 짝' },
+];
+const groupNames: Record<string, string> = { syntax: '공간구문', area: '면적 구성', rules: '정합성', profile: '구성 분포' };
 ---
-<LibraryLayout>
-  <Header />
-  <main>
-    <LibraryPanel />
-    <DrawingCanvas />
-    <AnnotationPanel />
+
+<Base title="평면 평가 랩" description="AI 허브 아파트 평면도 샘플을 정답지로 삼아, 도면을 누르면 스페이스 신택스와 시공 정합성 점수를 매기는 평가 서비스">
+  <header class="topbar">
+    <a class="brand" href="./">
+      <img src="favicon.svg" alt="" width="28" height="28" />
+      <span>평면 평가 랩</span>
+    </a>
+    <nav class="topnav" aria-label="주요 메뉴">
+      <a href="#workspace">평가하기</a>
+      <a href="#method">평가 방법</a>
+      <span class="chip mono">model v{MODEL_VERSION}</span>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <p class="eyebrow">Space Syntax · 시공 정합성 · AI 허브 정답지</p>
+    <h1>도면을 누르면, <span class="gradient-text">모델이 채점합니다</span></h1>
+    <p class="lede">
+      실제 준공된 AI 허브 아파트 평면도를 정답지로 삼아, 고른 도면이 그 분포에 얼마나 가깝고 시공 가능한 구성인지 점수로 보여 줍니다.
+      채점은 브라우저 안에서 라벨 JSON으로 바로 계산합니다.
+    </p>
+    <ul class="hero-stats">
+      {kinds.map((k) => (
+        <li>
+          <strong>{counts[k.key].drawings}</strong>
+          <span>{k.name} 도면 <small class="mono">{k.key}</small></span>
+        </li>
+      ))}
+      <li>
+        <strong>{counts.SPA.units}</strong>
+        <span>분리된 세대</span>
+      </li>
+    </ul>
+  </section>
+
+  <main class="workspace" id="workspace">
+    <aside class="gallery" aria-label="샘플 도면">
+      <div class="tabs" role="tablist" aria-label="데이터 종류">
+        {kinds.map((k, i) => (
+          <button role="tab" class="tab" id={`tab-${k.key}`} data-kind={k.key} aria-selected={i === 0 ? 'true' : 'false'}>
+            <span class="tab-name">{k.name}</span>
+            <span class="tab-desc">{k.desc}</span>
+          </button>
+        ))}
+      </div>
+      <div class="gallery-tools">
+        <label class="search">
+          <span class="sr-only">도면 번호 검색</span>
+          <input id="search" type="search" inputmode="numeric" placeholder="도면 번호 검색" autocomplete="off" />
+        </label>
+        <label class="upload button-ghost">
+          <input id="upload" type="file" accept=".json,application/json" />
+          JSON 올려 평가
+        </label>
+      </div>
+      <p class="gallery-count" id="gallery-count" aria-live="polite"></p>
+      <div class="cards" id="cards" role="list"></div>
+    </aside>
+
+    <section class="report" id="report" aria-live="polite">
+      <div class="empty" id="empty">
+        <div class="empty-mark" aria-hidden="true"></div>
+        <h2>왼쪽에서 도면을 고르세요</h2>
+        <p>도면을 누르면 평가 모델이 그 자리에서 라벨을 분석하고, 나머지 샘플 분포와 비교해 점수를 냅니다.</p>
+      </div>
+      <div class="result" id="result" hidden></div>
+    </section>
   </main>
-</LibraryLayout>
-<script>
-  import '../scripts/viewer.js';
-</script>
+
+  <section class="method" id="method">
+    <h2>평가 방법</h2>
+    <p class="method-lede">
+      회의 결정에 따라 PNG 대신 라벨 JSON을 입력으로 쓰고, AI 허브 실제 도면을 정답지(기준 분포)로 삼습니다.
+      주관적인 '좋은 도면' 대신 <strong>실제 도면 분포와의 근접도</strong>와 <strong>시공 가능성(정합성)</strong>을 봅니다.
+    </p>
+
+    <div class="method-grid">
+      <article>
+        <h3>점수 구성</h3>
+        <table class="plain">
+          <thead><tr><th>종류</th><th>영역</th><th class="num">가중치</th></tr></thead>
+          <tbody>
+            {Object.entries(WEIGHTS).flatMap(([kind, groups]) =>
+              Object.entries(groups).map(([g, w], i) => (
+                <tr>
+                  <td>{i === 0 ? kind : ''}</td>
+                  <td>{groupNames[g]}</td>
+                  <td class="num">{w}</td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+        <p class="note">
+          등급: {GRADES.map(([min, g]) => `${g} ${min}+`).join(' · ')}. 여러 세대가 있는 도면은 세대별 점수의 평균입니다.
+        </p>
+      </article>
+
+      <article>
+        <h3>분포 근접도</h3>
+        <p>
+          지표마다 기준 분포의 중앙값과 강건 척도(MAD×1.4826)로 z를 구하고, z=0이면 100점, |z|≥{Z_ZERO_SCORE}이면 0점으로 선형 환산합니다.
+          평가하는 도면 자신은 기준 분포에서 빼고 비교합니다.
+        </p>
+        <ul class="tight">
+          {[...FEATURES.syntax, ...FEATURES.area].map((f) => <li>{f.label}</li>)}
+        </ul>
+      </article>
+
+      <article>
+        <h3>공간구문 그래프</h3>
+        <p>
+          라벨링된 실 하나를 노드로, 벽 하나를 사이에 두고 {THRESHOLDS.minContact}px 이상 맞닿은 실을 링크로 봅니다(내벽 {THRESHOLDS.adjacencyGap}px, 외벽 {THRESHOLDS.exteriorGap}px 이내).
+          현관을 뿌리로 한 깊이, Hillier &amp; Hanson의 RA·RRA(D값 정규화)와 통합도(1/RRA)를 계산합니다.
+          한 도면에 여러 세대가 있으면 현관마다 벽 두께를 비용으로 한 최단경로로 세대를 나눕니다.
+        </p>
+      </article>
+
+      <article>
+        <h3>정합성 규칙</h3>
+        <ul class="tight">
+          <li><b>공간</b> 필수 실 구성, 현관에서 모든 실 도달, 현관–거실/복도 연결, 주방–거실 연계, 침실 비통과, 공용 화장실</li>
+          <li><b>구조</b> 벽·문·창 존재, 모든 개구부가 벽에 붙음({THRESHOLDS.openingToWall}px), 문·창 겹침 없음</li>
+          <li><b>설비</b> 변기–세면대, 가스레인지–싱크대, 욕조–변기 짝({THRESHOLDS.fixturePair}px 이내)</li>
+        </ul>
+      </article>
+    </div>
+
+    <div class="method-grid two">
+      <article>
+        <h3>한계</h3>
+        <ul class="tight">
+          <li>공간 라벨에는 문 정보가 없어, 링크는 실제 출입 관계가 아니라 <b>인접 관계</b>입니다. 그래서 깊이가 실제보다 얕게 나올 수 있습니다.</li>
+          <li>샘플은 공간·구조·설비가 서로 다른 도면이라 한 도면을 세 측면으로 함께 평가하지 못합니다. 원본 PNG는 설비(OBJ) 12장만 있습니다.</li>
+          <li>기준 분포는 샘플 {counts.SPA.drawings}건({counts.SPA.units}세대)뿐입니다. 평형별 기준을 세우려면 전체 데이터에서 최다 빈도 평형을 골라 다시 만들어야 합니다.</li>
+          <li>홍콩대 SCI 논문의 세부 항목·가중치는 서지가 확정되면 <code>src/model/config.js</code>에 반영합니다.</li>
+        </ul>
+      </article>
+      <article>
+        <h3>참고 문헌</h3>
+        <ol class="refs">
+          {REFERENCES.map((r) => (
+            <li>
+              {r.url ? <a href={r.url} rel="noopener" target="_blank">{r.text}</a> : r.text}
+              <span class="note"> — {r.usedFor}</span>
+            </li>
+          ))}
+        </ol>
+      </article>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <span>평면 평가 랩 · model v{MODEL_VERSION}</span>
+    <span>데이터: AI 허브 건축 도면 샘플 · Astro로 제작</span>
+  </footer>
+
+  <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
+
+  <script>
+    import '../scripts/app.js';
+  </script>
+</Base>

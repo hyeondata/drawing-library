@@ -1,9 +1,0 @@
----
-import records from '../../public/catalog.json';
-const imageCount = records.filter(record => record.image).length;
----
-<header class="topbar">
-  <a class="brand" href="./"><span class="mark">▱</span><span>도면 서재<small>DRAWING LIBRARY</small></span></a>
-  <span class="collection">도면_논문 <span>/</span> Sample collection</span>
-  <span class="live"><i></i> Sample collection</span>
-<div class="dataset-summary"><span><b>{imageCount}</b> 도면 이미지</span><span><b>{records.length}</b> 라벨 파일</span></div></header>
