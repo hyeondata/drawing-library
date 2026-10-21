@@ -1,0 +1,12 @@
+node_modules/
+.wrangler/
+*.log
+__pycache__/
+.astro/
+dist/
+cloudflare-upload.zip
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*

@@ -1,0 +1,18 @@
+---
+import LibraryLayout from '../layouts/LibraryLayout.astro';
+import Header from '../components/Header.astro';
+import LibraryPanel from '../components/LibraryPanel.astro';
+import DrawingCanvas from '../components/DrawingCanvas.astro';
+import AnnotationPanel from '../components/AnnotationPanel.astro';
+---
+<LibraryLayout>
+  <Header />
+  <main>
+    <LibraryPanel />
+    <DrawingCanvas />
+    <AnnotationPanel />
+  </main>
+</LibraryLayout>
+<script>
+  import '../scripts/viewer.js';
+</script>

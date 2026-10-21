@@ -1,0 +1,20 @@
+---
+import '../styles/global.css';
+---
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#193d35" />
+    <meta name="description" content="도면과 라벨을 한 화면에서 탐색하는 도면 서재. 번호 검색, 확대 및 라벨 영역 선택을 지원합니다." />
+    <meta name="generator" content={Astro.generator} />
+    <title>도면 서재 · Drawing Library</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <slot />
+    <div id="fatal" class="fatal" hidden role="alert"></div>
+    <noscript><div class="fatal">도면을 선택하고 라벨을 살펴보려면 브라우저에서 JavaScript를 켜 주세요.</div></noscript>
+  </body>
+</html>
