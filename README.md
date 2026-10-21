@@ -52,6 +52,8 @@ Cloudflare에서 기존 Worker의 Settings → Builds → Connect에서 이 저�
 
 이 대시보드 연결을 완료해야 push에 따른 자동 배포가 활성화됩니다. Cloudflare의 빌드 토큰 생성/선택 절차는 대시보드에서 처리하며, 로컬 Wrangler OAuth 자격 증명은 GitHub에 저장하지 않습니다.
 
+배포된 커밋은 페이지 HTML의 `build-revision` 메타 정보로 확인합니다. Cloudflare 빌드의 `WORKERS_CI_COMMIT_SHA`, GitHub Actions의 `GITHUB_SHA`, 로컬 Git 커밋 순서로 기록합니다.
+
 ## 데이터 업데이트
 
 원본 PNG는 Git에 포함하지 않고 Drive 및 인접한 `../Sample` 폴더에 보관합니다. 표시용 무손실 WebP와 라벨은 약 8MB의 샘플로 저장소에 포함합니다. 데이터 규모가 커지면 별도 객체 저장소로 이전할 수 있습니다.
