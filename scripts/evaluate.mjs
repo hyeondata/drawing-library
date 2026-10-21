@@ -12,7 +12,13 @@ const args = process.argv.slice(2);
 const asJson = args.includes('--json');
 let files = args.filter((a) => a !== '--json');
 const labelsDir = path.join(root, 'public', 'data', 'labels');
-if (!files.length) files = fs.readdirSync(labelsDir).filter((f) => f.endsWith('.json')).sort().map((f) => path.join(labelsDir, f));
+// OCR 라벨은 예시 도면으로만 쓰고 채점하지 않는다.
+if (!files.length)
+  files = fs
+    .readdirSync(labelsDir)
+    .filter((f) => f.endsWith('.json') && !f.startsWith('APT_FP_OCR_'))
+    .sort()
+    .map((f) => path.join(labelsDir, f));
 
 const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public', 'data', 'baseline.json'), 'utf8'));
 const results = [];

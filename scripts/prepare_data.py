@@ -1,6 +1,6 @@
 """../Sample(AI 허브 샘플)에서 화면용 데이터를 만든다.
 
-- 라벨: SPA·STR·OBJ JSON을 public/data/labels/에 공백 없이 복사한다(OCR은 평가 대상이 아니라 제외).
+- 라벨: SPA·STR·OBJ·OCR JSON을 public/data/labels/에 공백 없이 복사한다(OCR은 평가하지 않고 예시 도면으로만 보여 준다).
 - 이미지: 원천 PNG를 화면용 WebP(긴 변 2000px)와 썸네일(긴 변 360px)로 만든다.
 
 사용: python3 scripts/prepare_data.py [Sample 경로]
@@ -16,6 +16,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "Sample"
 KINDS = ("SPA", "STR", "OBJ")
+LABEL_KINDS = KINDS + ("OCR",)
 
 
 def main() -> None:
@@ -33,7 +34,7 @@ def main() -> None:
             old.unlink()
 
     n_labels = 0
-    for kind in KINDS:
+    for kind in LABEL_KINDS:
         for src in sorted((labels_dir / kind).glob("*.json")):
             data = json.loads(src.read_text(encoding="utf-8"))
             (out_labels / src.name).write_text(

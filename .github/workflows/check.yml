@@ -27,6 +27,13 @@ jobs:
             echo "::error::평가 모델이 바뀌었는데 기준 분포가 갱신되지 않았습니다. npm run baseline 후 커밋하세요."
             exit 1
           }
+      - name: Example drawings are up to date
+        run: |
+          npm run drawings
+          git diff --exit-code -- public/drawings public/data/examples.json || {
+            echo "::error::예시 도면이 라벨과 다릅니다. npm run drawings 후 커밋하세요."
+            exit 1
+          }
       - run: npx astro build
       - run: npm run deploy -- --dry-run
       - name: Score table

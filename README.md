@@ -36,6 +36,12 @@ npm run evaluate -- path/to/plan.json   # 생성한 도면 JSON 채점
 npm run evaluate -- --json plan.json    # 상세 결과 JSON
 ```
 
+## 예시 도면
+
+`/examples/` 페이지에서 Sample 80장(공간·구조·설비·글자 각 20장)을 모두 볼 수 있습니다.
+원본 PNG는 설비 12장뿐이라, 나머지 68장은 `scripts/build-drawings.mjs`가 라벨 좌표로 SVG(`public/drawings/`)를 그립니다.
+도면을 누르면 확대·이동할 수 있는 뷰어가 열리고, 공간·구조·설비 도면은 바로 평가 화면으로 넘어갑니다. 색은 `src/model/drawing-style.js`에 있습니다.
+
 화면의 **JSON 올려 평가** 버튼으로도 COCO 형식 도면 JSON을 바로 채점할 수 있습니다(SPA/STR/OBJ 자동 판별).
 
 ## 평가 모델 (v0.1.0)
@@ -71,8 +77,9 @@ npm run evaluate -- --json plan.json    # 상세 결과 JSON
 원본 `../Sample` 폴더가 있을 때만 실행합니다(Python 3 + Pillow 필요).
 
 ```bash
-npm run data:prepare   # 라벨 복사, PNG → WebP
+npm run data:prepare   # 라벨(OCR 포함) 복사, PNG → WebP
 npm run baseline       # 기준 분포·목록 재생성
+npm run drawings       # 예시 도면 SVG·목록 재생성
 ```
 
 `public/`에는 화면용 데이터 약 2.4MB가 들어 있어, 저장소만 복제해도 바로 빌드할 수 있습니다.

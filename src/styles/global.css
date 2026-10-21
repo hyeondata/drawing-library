@@ -209,6 +209,20 @@ input {
 .topnav a:hover {
   color: var(--text-primary);
 }
+.topnav a[aria-current='page'] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.hero-link {
+  margin: 18px 0 0;
+  font-weight: 600;
+}
+.hero-link a {
+  text-decoration: none;
+}
+.hero-link a:hover {
+  text-decoration: underline;
+}
 
 .hero {
   position: relative;
@@ -940,6 +954,387 @@ table.plain td.num {
   font-size: 13px;
 }
 
+/* ===== 예시 도면 ===== */
+.hero-compact {
+  padding-bottom: 12px;
+}
+.examples {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 8px clamp(16px, 4vw, 40px) 40px;
+}
+.ex-toolbar {
+  position: sticky;
+  top: 57px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 10px 0;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+}
+.seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.seg button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+}
+.seg button .mono {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.seg button:hover {
+  color: var(--text-primary);
+}
+.seg button[aria-pressed='true'] {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+}
+.toggle input {
+  accent-color: var(--accent);
+  width: 16px;
+  height: 16px;
+}
+.ex-count {
+  margin: 0 0 0 auto;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.ex-group {
+  margin-top: 22px;
+}
+.ex-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 8px 24px;
+  margin-bottom: 12px;
+}
+.ex-group-head h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.ex-group-head h2 .mono {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.ex-group-head p {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.ex-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.ex-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ex-legend i {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 2px solid;
+}
+.ex-legend.vertical {
+  flex-direction: column;
+}
+.ex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ex-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.ex-card:hover,
+.ex-card:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.ex-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ex-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  padding: 8px;
+  /* 도면은 흰 종이 위에 그렸으므로 테마와 상관없이 흰 바탕 */
+  background: #ffffff;
+  border-bottom: 1px solid var(--line);
+}
+.ex-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.ex-thumb .card-tag {
+  top: 8px;
+  left: 8px;
+  background: #ffffff;
+  border-color: #dcdae5;
+  color: #4b4958;
+}
+.ex-thumb .card-tag.is-original {
+  background: #5b3ff0;
+  border-color: #5b3ff0;
+  color: #ffffff;
+}
+.ex-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px 12px;
+}
+.ex-num {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.ex-sum {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* 크게 보기 */
+.viewer {
+  width: min(1400px, calc(100vw - 32px));
+  height: min(920px, calc(100dvh - 32px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.viewer[open] {
+  display: flex;
+  flex-direction: column;
+}
+.viewer::backdrop {
+  background: rgba(10, 10, 20, 0.6);
+  backdrop-filter: blur(4px);
+}
+.viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.viewer-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.viewer-title h2 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 17px;
+}
+.viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.viewer-sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 6px;
+  background: var(--line);
+}
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.icon-btn:hover {
+  border-color: var(--accent);
+}
+.zoom-level {
+  min-width: 48px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.button-ghost.small {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.viewer-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  flex: 1;
+  min-height: 0;
+}
+.viewer-stage {
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  cursor: grab;
+  touch-action: none;
+}
+.viewer-stage.dragging {
+  cursor: grabbing;
+}
+.viewer-stage img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  user-select: none;
+  transition: opacity 0.15s;
+}
+.viewer-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #dcdae5;
+  color: #6f6c7e;
+  font-size: 11px;
+  pointer-events: none;
+}
+.viewer-info {
+  padding: 16px;
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.viewer-info h3 {
+  margin: 18px 0 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.viewer-info p {
+  margin: 0 0 6px;
+}
+.viewer-links {
+  font-size: 13px;
+}
+.button-primary {
+  display: block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--brand-gradient);
+  color: #ffffff;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+.button-primary:hover {
+  filter: brightness(1.08);
+}
+.ex-texts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ex-texts span {
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+@media (max-width: 860px) {
+  .ex-toolbar {
+    top: 53px;
+  }
+  .ex-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+  .viewer {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  .viewer-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .viewer-info {
+    max-height: 38dvh;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .viewer-sep,
+  .zoom-level {
+    display: none;
+  }
+}
+
 /* ===== 반응형 ===== */
 @media (max-width: 1100px) {
   .panel-grid {
@@ -958,7 +1353,11 @@ table.plain td.num {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     max-height: 460px;
   }
-  .topnav a {
+  .topnav {
+    gap: 12px;
+    font-size: 13px;
+  }
+  .topnav .nav-optional {
     display: none;
   }
 }
@@ -966,7 +1365,8 @@ table.plain td.num {
   html {
     scroll-behavior: auto;
   }
-  .card {
+  .card,
+  .ex-card {
     transition: none;
   }
 }

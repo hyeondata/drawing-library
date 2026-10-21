@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Topbar from '../components/Topbar.astro';
 import { FEATURES, GRADES, MODEL_VERSION, REFERENCES, THRESHOLDS, WEIGHTS, Z_ZERO_SCORE } from '../model/config.js';
 import baseline from '../../public/data/baseline.json';
 
@@ -13,17 +14,7 @@ const groupNames: Record<string, string> = { syntax: '공간구문', area: '면�
 ---
 
 <Base title="평면 평가 랩" description="AI 허브 아파트 평면도 샘플을 정답지로 삼아, 도면을 누르면 스페이스 신택스와 시공 정합성 점수를 매기는 평가 서비스">
-  <header class="topbar">
-    <a class="brand" href="./">
-      <img src="favicon.svg" alt="" width="28" height="28" />
-      <span>평면 평가 랩</span>
-    </a>
-    <nav class="topnav" aria-label="주요 메뉴">
-      <a href="#workspace">평가하기</a>
-      <a href="#method">평가 방법</a>
-      <span class="chip mono">model v{MODEL_VERSION}</span>
-    </nav>
-  </header>
+  <Topbar current="evaluate" />
 
   <section class="hero">
     <p class="eyebrow">Space Syntax · 시공 정합성 · AI 허브 정답지</p>
@@ -44,6 +35,9 @@ const groupNames: Record<string, string> = { syntax: '공간구문', area: '면�
         <span>분리된 세대</span>
       </li>
     </ul>
+    <p class="hero-link">
+      <a href="examples/">Sample 도면 80장을 예시 도면으로 보기 →</a>
+    </p>
   </section>
 
   <main class="workspace" id="workspace">
@@ -144,7 +138,7 @@ const groupNames: Record<string, string> = { syntax: '공간구문', area: '면�
         <h3>한계</h3>
         <ul class="tight">
           <li>공간 라벨에는 문 정보가 없어, 링크는 실제 출입 관계가 아니라 <b>인접 관계</b>입니다. 그래서 깊이가 실제보다 얕게 나올 수 있습니다.</li>
-          <li>샘플은 공간·구조·설비가 서로 다른 도면이라 한 도면을 세 측면으로 함께 평가하지 못합니다. 원본 PNG는 설비(OBJ) 12장만 있습니다.</li>
+          <li>샘플은 공간·구조·설비가 서로 다른 도면이라 한 도면을 세 측면으로 함께 평가하지 못합니다. 원본 PNG는 설비(OBJ) 12장만 있어, 나머지는 <a href="examples/">예시 도면</a>에서 라벨로 다시 그려 보여 줍니다.</li>
           <li>기준 분포는 샘플 {counts.SPA.drawings}건({counts.SPA.units}세대)뿐입니다. 평형별 기준을 세우려면 전체 데이터에서 최다 빈도 평형을 골라 다시 만들어야 합니다.</li>
           <li>홍콩대 SCI 논문의 세부 항목·가중치는 서지가 확정되면 <code>src/model/config.js</code>에 반영합니다.</li>
         </ul>
