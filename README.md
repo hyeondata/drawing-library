@@ -15,7 +15,7 @@ Astro 7로 구성한 도면 탐색 웹앱입니다. Cloudflare Workers Static As
 
 ## 실행과 배포
 
-Node.js 22.12 이상이 필요합니다. 화면 표시용 WebP, 라벨과 목록이 `public`에 포함되어 있어 저장소를 복제한 뒤 바로 빌드할 수 있습니다.
+Node.js 24 이상이 필요합니다. 화면 표시용 WebP, 라벨과 목록이 `public`에 포함되어 있어 저장소를 복제한 뒤 바로 빌드할 수 있습니다.
 
 ```bash
 npm ci
@@ -48,7 +48,7 @@ Cloudflare에서 기존 Worker의 Settings → Builds → Connect에서 이 저�
 | 루트 디렉터리 | `/` |
 | 빌드 명령 | `npm run build` |
 | 배포 명령 | `npm run deploy` |
-| Node.js 버전 | `22` (`.nvmrc`) |
+| Node.js 버전 | `24` (`.nvmrc`) |
 
 이 대시보드 연결을 완료해야 push에 따른 자동 배포가 활성화됩니다. Cloudflare의 빌드 토큰 생성/선택 절차는 대시보드에서 처리하며, 로컬 Wrangler OAuth 자격 증명은 GitHub에 저장하지 않습니다.
 
