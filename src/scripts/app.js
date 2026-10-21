@@ -217,11 +217,15 @@ function renderUnit() {
     )
     .join('')}</ul>`;
 
+  const gateNote = unit.capped
+    ? `<div class="error-box"><b>관문 규칙 미충족:</b> ${esc(unit.failedGates.join(', '))}. 다른 점수와 상관없이 총점을 ${unit.score.toFixed(0)}점으로 묶었습니다(원점수 ${unit.rawScore.toFixed(1)}).</div>`
+    : '';
   const featureGroups = groups.filter((g) => g !== unit.groups.rules);
   const featuresHtml = featureTable(featureGroups);
   const extra = result.kind === 'SPA' ? syntaxPanel(result.analysis.units[state.unit], result.analysis) : summaryPanel(result.analysis);
 
   $('#unit-body').innerHTML = `
+    ${gateNote}
     ${groupHtml}
     <div class="panel-grid">
       <div class="panel"><h3>도면 분석<small>${planCaption(result.kind)}</small></h3>${plan}</div>
@@ -383,7 +387,7 @@ function featureTable(groups) {
         g.items
           .map((it) => {
             const tip = it.stats
-              ? `${it.label}\n이 도면 ${fmtValue(it.key, it.value)} · 기준 중앙값 ${fmtValue(it.key, it.stats.median)}\n기준 범위 ${fmtValue(it.key, it.stats.min)} ~ ${fmtValue(it.key, it.stats.max)} (n=${it.stats.n})\nz = ${it.z === null ? '–' : it.z.toFixed(2)}`
+              ? `${it.label}\n이 도면 ${fmtValue(it.key, it.value)} · 기준 중앙값 ${fmtValue(it.key, it.stats.median)}\n기준 범위 ${fmtValue(it.key, it.stats.min)} ~ ${fmtValue(it.key, it.stats.max)} (n=${it.stats.n})\nz = ${it.z === null ? '–' : it.z.toFixed(2)}${it.direction === 'higher' ? '\n높을수록 유리: 중앙값보다 크면 감점 없음' : ''}`
               : it.label;
             return `<tr data-tip="${esc(tip)}">
               <td>${esc(it.label)}</td>
@@ -446,7 +450,7 @@ function syntaxPanel(unit, analysis) {
     .map((n) => {
       const [x, y, stagger] = pos.get(n.l);
       const fill = n.depth === null ? 'var(--surface-3)' : depthVar(n.depth);
-      const tip = `${n.type}\n깊이 ${n.depth ?? '끊김'} · 연결도 ${n.connectivity}\n통합도 ${n.integration ? n.integration.toFixed(2) : '–'} · 평균깊이 ${n.meanDepth ? n.meanDepth.toFixed(2) : '–'}`;
+      const tip = `${n.type}${n.duct ? ' (덕트로 보고 구문 계산에서 제외)' : ''}\n깊이 ${n.depth ?? '끊김'} · 연결도 ${n.connectivity}\n통합도 ${n.integration ? n.integration.toFixed(2) : '–'} · 평균깊이 ${n.meanDepth ? n.meanDepth.toFixed(2) : '–'}`;
       const r = n.l === local.get(unit.rootSpace) ? 10 : 8;
       return `<g data-tip="${esc(tip)}"><circle class="node" cx="${x}" cy="${y}" r="${r + 6}" fill="transparent" stroke="none"/><circle class="node" cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>
         <text x="${x}" y="${y + (stagger ? 34 : 22)}" text-anchor="middle">${esc(n.type)}</text></g>`;
@@ -456,7 +460,7 @@ function syntaxPanel(unit, analysis) {
   const table = `<div class="table-scroll"><table class="node-table"><thead><tr><th>실</th><th class="num">깊이</th><th class="num">연결도</th><th class="num">통합도</th><th class="num">평균깊이</th></tr></thead><tbody>
     ${sorted
       .map(
-        (n) => `<tr><td><span class="swatch" style="background:${n.depth === null ? 'var(--surface-3)' : depthVar(n.depth)}"></span>${esc(n.type)}</td>
+        (n) => `<tr><td><span class="swatch" style="background:${n.depth === null ? 'var(--surface-3)' : depthVar(n.depth)}"></span>${esc(n.type)}${n.duct ? ' <span class="note">덕트</span>' : ''}</td>
         <td class="num">${n.depth ?? '–'}</td><td class="num">${n.connectivity}</td>
         <td class="num">${n.integration ? n.integration.toFixed(2) : '–'}</td><td class="num">${n.meanDepth ? n.meanDepth.toFixed(2) : '–'}</td></tr>`,
       )

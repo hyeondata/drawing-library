@@ -1,5 +1,5 @@
 // 도면 평가 모델 진입점. 브라우저와 Node(CLI·테스트)에서 같은 코드를 쓴다.
-import { FEATURES, GRADES, MODEL_VERSION, WEIGHTS, Z_ZERO_SCORE } from './config.js';
+import { FEATURES, GATE_CAP, GATE_RULES, GRADES, MODEL_VERSION, WEIGHTS, Z_ZERO_SCORE } from './config.js';
 import { detectKind, parseLabel } from './labels.js';
 import { analyzeOBJ } from './obj.js';
 import { analyzeSPA } from './spa.js';
@@ -36,8 +36,12 @@ export function robustStats(values, minScale = 1e-6) {
   return { n: v.length, median: med, scale: Math.max(mad || sd, minScale), min: v[0], max: v[v.length - 1] };
 }
 
-/** z가 0이면 100점, |z|가 Z_ZERO_SCORE 이상이면 0점. */
-export function closenessScore(z) {
+/**
+ * z가 0이면 100점, |z|가 Z_ZERO_SCORE 이상이면 0점.
+ * direction이 'higher'면 중앙값보다 큰 쪽(z>0)은 감점하지 않고, 'lower'면 작은 쪽을 감점하지 않는다.
+ */
+export function closenessScore(z, direction) {
+  if ((direction === 'higher' && z > 0) || (direction === 'lower' && z < 0)) return 100;
   return 100 * Math.max(0, 1 - Math.abs(z) / Z_ZERO_SCORE);
 }
 
@@ -47,10 +51,11 @@ function scoreFeatures(defs, features, pool) {
     const stats = robustStats(pool.map((f) => f[def.key]), def.minScale);
     if (value === null || value === undefined || !stats) return { ...def, value: value ?? null, stats, z: null, score: null };
     const z = (value - stats.median) / stats.scale;
-    return { ...def, value, stats, z, score: closenessScore(z) };
+    return { ...def, value, stats, z, score: closenessScore(z, def.direction) };
   });
   const scored = items.filter((i) => i.score !== null);
-  return { score: scored.length ? scored.reduce((s, i) => s + i.score, 0) / scored.length : 0, items };
+  const w = scored.reduce((s, i) => s + (i.weight ?? 1), 0);
+  return { score: w ? scored.reduce((s, i) => s + (i.weight ?? 1) * i.score, 0) / w : 0, items };
 }
 
 function scoreRules(rules) {
@@ -78,13 +83,17 @@ export function evaluate(label, { baseline, drawingId = null, kind = detectKind(
     if (kind === 'SPA') {
       groups.syntax = { label: '공간구문', ...scoreFeatures(FEATURES.syntax, u.features, pool) };
       groups.area = { label: '면적 구성', ...scoreFeatures(FEATURES.area, u.features, pool) };
+      groups.shape = { label: '형태', ...scoreFeatures(FEATURES.shape, u.features, pool) };
     } else {
       groups.profile = { label: '구성 분포', ...scoreFeatures(FEATURES.profile[kind], u.features, pool) };
     }
     groups.rules = { label: '정합성', ...scoreRules(u.rules) };
     for (const [key, g] of Object.entries(groups)) g.weight = weights[key];
-    const total = Object.values(groups).reduce((s, g) => s + (g.weight * g.score) / 100, 0);
-    return { index: u.index, score: total, grade: gradeOf(total), groups };
+    const raw = Object.values(groups).reduce((s, g) => s + (g.weight * g.score) / 100, 0);
+    // 관문 규칙을 어기면 다른 점수로 메울 수 없다(비보상형 상한).
+    const failedGates = u.rules.filter((r) => GATE_RULES.has(r.id) && !r.pass).map((r) => r.label);
+    const total = failedGates.length ? Math.min(raw, GATE_CAP) : raw;
+    return { index: u.index, score: total, rawScore: raw, capped: total < raw, failedGates, grade: gradeOf(total), groups };
   });
 
   const score = units.length ? units.reduce((s, u) => s + u.score, 0) / units.length : 0;

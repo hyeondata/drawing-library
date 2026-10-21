@@ -3,8 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { analyze, detectKind, evaluate, robustStats } from '../src/model/index.js';
-import { diamondValue, nodeMetrics } from '../src/model/syntax.js';
+import { GATE_CAP } from '../src/model/config.js';
+import { analyze, closenessScore, detectKind, evaluate, robustStats } from '../src/model/index.js';
+import { diamondValue, kendallTauB, nodeMetrics } from '../src/model/syntax.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (p) => JSON.parse(fs.readFileSync(path.join(root, p), 'utf8'));
@@ -87,6 +88,42 @@ test('짝 없는 변기·가스레인지를 찾아낸다', () => {
   const byId = Object.fromEntries(a.units[0].rules.map((r) => [r.id, r]));
   assert.equal(byId.toiletBasin.pass, false);
   assert.equal(byId.stoveSink.pass, false);
+});
+
+test('Kendall τ_b: 같은 순서 1, 뒤집힌 순서 -1, 동점 보정', () => {
+  assert.equal(kendallTauB([5, 4, 3, 2, 1], [5, 4, 3, 2, 1]), 1);
+  assert.equal(kendallTauB([1, 2, 3, 4, 5], [5, 4, 3, 2, 1]), -1);
+  const t = kendallTauB([3, 3, 1], [3, 2, 1]);
+  assert.ok(t > 0.8 && t < 1);
+});
+
+test('방향이 정해진 지표는 유리한 쪽으로 벗어나도 감점하지 않는다', () => {
+  assert.equal(closenessScore(2, 'higher'), 100);
+  assert.ok(closenessScore(-1.5, 'higher') < 60);
+  assert.equal(closenessScore(1.5), 50);
+});
+
+test('공간구문 그래프는 작은 기타(덕트)를 빼고 외부 노드를 붙인다', () => {
+  const duct = { name: '공간_기타', x: 0, y: 230, w: 60, h: 60 }; // 3,600px² < ductMaxArea, 화장실과 맞닿음
+  const names = [...NAMES, '공간_기타'];
+  const label = coco(goodPlan);
+  label.categories = names.map((name, i) => ({ id: i + 1, name }));
+  label.annotations.push({ id: 99, image_id: 1, category_id: names.length, segmentation: [[0, 230, 60, 230, 60, 290, 0, 290]], bbox: [0, 230, 60, 60], area: 3600, attributes: {} });
+  const u = analyze(label, 'SPA').units[0];
+  const ductNode = u.nodes.find((n) => n.type === '기타');
+  assert.equal(ductNode.duct, true);
+  assert.equal(ductNode.integration, null);
+  // 거실이 가장 통합된 기능실이고, 유전형 순서와 양의 상관
+  assert.equal(u.rules.find((r) => r.id === 'livingCentral').pass, true);
+  assert.ok(u.features.genotypeTau > 0);
+  assert.ok(u.features.livingBedroomRatio > 1);
+});
+
+test('관문 규칙을 어기면 총점이 상한에 묶인다', () => {
+  const plan = [...goodPlan, rect('공간_침실', 645, 165, 150, 135)]; // 침실 통과 동선
+  const r = evaluate(coco(plan), { baseline, kind: 'SPA' });
+  assert.ok(r.units[0].failedGates.length > 0);
+  assert.ok(r.units[0].score <= GATE_CAP);
 });
 
 test('강건 통계는 한 값으로 모인 분포에서 최소 척도를 쓴다', () => {

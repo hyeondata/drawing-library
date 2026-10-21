@@ -1,7 +1,7 @@
 // SPA(공간) 라벨 분석: 인접 그래프 → 세대 분리 → 공간구문 지표·면적 구성·평면 정합성.
-import { COMMON_TYPES, MAIN_TYPES, THRESHOLDS } from './config.js';
-import { bboxGap, contactLength, polygonDistance } from './geometry.js';
-import { bfs, nodeMetrics, ringiness } from './syntax.js';
+import { COMMON_TYPES, GENOTYPE_ORDER, LIVING_RANK_EXCLUDE, MAIN_TYPES, THRESHOLDS } from './config.js';
+import { bboxGap, bboxOf, contactLength, polygonDistance } from './geometry.js';
+import { bfs, kendallTauB, nodeMetrics, ringiness } from './syntax.js';
 
 const AREA_TYPES = ['거실', '주방', '침실', '화장실', '발코니', '드레스룸', '현관', '기타'];
 // 외벽 쪽 공간. 외벽은 단열층 때문에 더 두꺼워 별도 기준을 쓴다.
@@ -141,10 +141,29 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
   }
   const root = local.get(unit.root);
   const depth = bfs(adj, root);
-  const metrics = nodeMetrics(adj);
   const typeOf = (l) => spaces[members[l]].type;
   const locals = members.map((g, l) => l);
   const ofType = (t) => locals.filter((l) => typeOf(l) === t);
+  const isCut = (l) => depth[l] === Infinity || stranded.has(members[l]);
+
+  // ---- 공간구문 그래프 ----
+  // 덕트·PS(작거나 현관에서 닿지 않는 '기타')는 빼고, 현관에 세대 밖(외부) 노드를 붙인다.
+  // 외부 노드는 Byun & Choi(2016) 등 문헌 값과 같은 규약으로 비교하기 위해서다.
+  const isDuct = (l) => typeOf(l) === '기타' && (isCut(l) || spaces[members[l]].area < THRESHOLDS.ductMaxArea);
+  const inSyntax = locals.map((l) => !isDuct(l) && !isCut(l));
+  const ext = members.length; // 외부 노드 번호
+  const sAdj = [...adj.map((ns, l) => (inSyntax[l] ? ns.filter((n) => inSyntax[n]) : [])), []];
+  if (!rootless) {
+    sAdj[root].push(ext);
+    sAdj[ext].push(root);
+  }
+  const allMetrics = nodeMetrics(sAdj);
+  const metrics = locals.map((l) =>
+    inSyntax[l]
+      ? allMetrics[l]
+      : { connectivity: adj[l].length, meanDepth: null, ra: null, rra: null, integration: null, control: null, reach: 0, isolated: true },
+  );
+  const sDepth = bfs(sAdj, root);
 
   // ---- 면적 구성 ----
   const totalArea = members.reduce((s, g) => s + spaces[g].area, 0);
@@ -158,26 +177,66 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
   // ---- 공간구문 특징 ----
   const finite = (arr) => arr.filter((v) => v !== null && Number.isFinite(v));
   const mean = (arr) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null);
+  const integ = metrics.map((m) => m.integration);
+  const meanInteg = (t) => mean(finite(ofType(t).map((l) => integ[l])));
+  const ratio = (a, b) => (a !== null && b ? a / b : null);
   const livingNodes = ofType('거실');
   const bedNodes = ofType('침실');
-  const integ = metrics.map((m) => m.integration);
-  let livingIntegrationPct = null;
-  if (livingNodes.length && finite(integ).length > 1) {
-    const best = Math.max(...livingNodes.map((l) => integ[l] ?? -Infinity));
-    const rank = finite(integ).filter((v) => v > best).length; // 0 = 가장 통합
-    livingIntegrationPct = rank / (finite(integ).length - 1);
-  }
+  const livingI = livingNodes.length ? Math.max(...finite(livingNodes.map((l) => integ[l])), -Infinity) : null;
+  const bedI = meanInteg('침실');
+
+  // 유전형 부합도: 기능실 평균 통합도 순서와 기준 순서(GENOTYPE_ORDER)의 Kendall τ_b.
+  const geno = GENOTYPE_ORDER.map((t, k) => [meanInteg(t), GENOTYPE_ORDER.length - k]).filter(([v]) => v !== null);
+  const genotypeTau = geno.length >= 3 ? kendallTauB(geno.map((g) => g[0]), geno.map((g) => g[1])) : null;
+
+  // 공·사 깊이 차: 개인 공간이 공용 공간보다 몇 단계 더 깊은가.
+  const depthOf = (types) => mean(finite(locals.filter((l) => types.includes(typeOf(l)) && inSyntax[l]).map((l) => sDepth[l])));
+  const privDepth = depthOf(['침실', '드레스룸']);
+  const pubDepth = depthOf(['거실', '주방']);
+
+  // 기능실: '기타'·공용 공간을 뺀 실.
+  const functional = locals.filter((l) => inSyntax[l] && typeOf(l) !== '기타' && !COMMON_TYPES.has(typeOf(l)));
+
+  // 거실 통제값(Ostwald 2011: 깊이 계열과 다른 순위를 주는 유일한 지표).
+  const livingControl = livingNodes.length ? Math.max(...livingNodes.map((l) => metrics[l].control ?? 0)) : null;
+
+  // ---- 면적·형태 특징 ----
+  const areaOf = (types) => locals.filter((l) => types.includes(typeOf(l))).reduce((s, l) => s + spaces[members[l]].area, 0);
+  const publicArea = areaOf(['거실', '주방', '현관']);
+  const privateArea = areaOf(['침실', '드레스룸']);
+  const bedAreas = bedNodes.map((l) => spaces[members[l]].area).sort((a, b) => b - a);
+  const masterBedroomRatio = bedAreas.length >= 2 ? bedAreas[0] / mean(bedAreas.slice(1)) : null;
+
+  // 실 직사각형도: 거실·침실·주방의 면적 / 외접 사각형 면적(면적 가중 평균).
+  const rectRooms = locals.filter((l) => ['거실', '침실', '주방'].includes(typeOf(l))).map((l) => spaces[members[l]]);
+  const rectArea = rectRooms.reduce((s, r) => s + r.area, 0);
+  const roomRectangularity = rectArea
+    ? rectRooms.reduce((s, r) => {
+        const [x0, y0, x1, y1] = bboxOf(r.polys);
+        return s + r.area * Math.min(1, r.area / Math.max(1, (x1 - x0) * (y1 - y0)));
+      }, 0) / rectArea
+    : null;
+
   const features = {
-    nodeCount: members.length,
+    nodeCount: functional.length,
+    // 화면 참고용(채점 제외): v0.1 지표
     livingDepth: livingNodes.length ? Math.min(...livingNodes.map((l) => depth[l])) : null,
-    bedroomMeanDepth: mean(finite(bedNodes.map((l) => depth[l]))),
-    meanDepthFromEntrance: mean(finite(locals.filter((l) => l !== root).map((l) => depth[l]))),
-    meanIntegration: mean(finite(integ)),
-    livingIntegrationPct,
     ringiness: ringiness(members.length, localEdges.length),
+    // 공간구문
+    livingBedroomRatio: ratio(livingI === -Infinity ? null : livingI, bedI),
+    kitchenBedroomRatio: ratio(meanInteg('주방'), bedI),
+    genotypeTau,
+    privacyDepthGap: privDepth !== null && pubDepth !== null ? privDepth - pubDepth : null,
+    meanIntegration: mean(finite(functional.map((l) => integ[l]))),
+    livingControl,
+    // 면적
+    publicPrivateRatio: privateArea ? publicArea / privateArea : null,
+    masterBedroomRatio,
+    // 형태
+    roomRectangularity,
   };
   for (const t of AREA_TYPES) features[`ratio_${t}`] = totalArea ? areaByType[t] / totalArea : 0;
-  for (const k of Object.keys(features)) if (features[k] === Infinity) features[k] = null;
+  for (const k of Object.keys(features)) if (features[k] === Infinity || features[k] === -Infinity) features[k] = null;
 
   // ---- 평면 정합성 규칙 ----
   const rules = [];
@@ -190,13 +249,27 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
     missing.length ? `없음: ${missing.join(', ')}` : '모두 있음');
 
   // 닿지 않는 '기타'는 덕트·PS 같은 비출입 공간으로 보고 판정에서 뺀다.
-  const isCut = (l) => depth[l] === Infinity || stranded.has(members[l]);
   const habitable = locals.filter((l) => typeOf(l) !== '기타');
   const unreached = habitable.filter(isCut);
   const ducts = locals.filter((l) => typeOf(l) === '기타' && isCut(l)).length;
   rule('reachable', '모든 실이 현관에서 이어짐', 2, habitable.length ? 1 - unreached.length / habitable.length : 0,
     (unreached.length ? `끊긴 실: ${unreached.map((l) => typeOf(l)).join(', ')}` : '모두 연결') +
       (ducts ? ` · 비출입 기타 ${ducts}곳 제외` : ''));
+
+  // 거실 중심성(관문형 순위 규칙): 복도성·외부·공용 공간을 뺀 기능실 가운데 거실 통합도 순위.
+  if (livingNodes.length && livingI !== null && livingI !== -Infinity) {
+    const rivals = locals.filter((l) => inSyntax[l] && !LIVING_RANK_EXCLUDE.has(typeOf(l)) && typeOf(l) !== '거실' && integ[l] !== null);
+    const above = rivals.filter((l) => integ[l] > livingI + 1e-9);
+    const ok = above.length === 0 ? 1 : above.length === 1 && typeOf(above[0]) === '주방' ? 0.5 : 0;
+    rule('livingCentral', '거실이 가장 통합된 기능실', 2, ok,
+      above.length ? `거실보다 통합된 실: ${above.map(typeOf).join(', ')}` : '거실이 1위');
+  } else {
+    rule('livingCentral', '거실이 가장 통합된 기능실', 2, 0, '거실 없음');
+  }
+
+  const livingDepth = features.livingDepth;
+  rule('livingNear', '거실이 현관에서 2단계 이내', 1, livingDepth !== null && livingDepth <= 2 ? 1 : 0,
+    livingDepth === null ? '거실에 닿지 않음' : `현관→거실 ${livingDepth}단계`);
 
   const entryNeighbors = rootless ? [] : adj[root].map(typeOf);
   const entryOk = entryNeighbors.some((t) => ['거실', '주방', '기타', '다목적공간'].includes(t));
@@ -238,6 +311,7 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
       space: members[l],
       type: typeOf(l),
       depth: depth[l] === Infinity ? null : depth[l],
+      duct: isDuct(l),
       ...metrics[l],
     })),
     features,
