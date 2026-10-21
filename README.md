@@ -75,6 +75,8 @@ npm run evaluate -- --json plan.json    # 상세 결과 JSON
 
 가중치, 기준값, 지표 목록, 근거 문헌(등재 상태 포함)은 모두 `src/model/config.js`에 있습니다.
 
+**지표별 근거 문서**: 각 지표를 어떤 논문을 근거로 왜 쓰는지, 표본 값과 한계까지 [`evidence/`](evidence/README.md)에 정리했습니다.
+
 ## 한계
 
 - 공간(SPA) 라벨에는 문이 없습니다. 그래서 링크는 출입 관계가 아니라 **인접 관계**이고, 깊이가 실제보다 얕게 나올 수 있습니다.
@@ -123,5 +125,6 @@ src/scripts/     화면 동작(목록, 클릭 평가, 시각화)
 src/styles/      스타일
 scripts/         데이터 준비, 기준 분포 생성, CLI 채점
 test/            모델 테스트
+evidence/        지표별 근거 문서(논문·이유·타당성)
 public/data/     라벨 JSON, baseline.json, catalog.json
 ```
