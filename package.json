@@ -11,7 +11,7 @@
     "data:prepare": "python3 scripts/prepare_data.py",
     "baseline": "node scripts/build-baseline.mjs",
     "evaluate": "node scripts/evaluate.mjs",
-    "test": "node --test test/",
+    "test": "node --test \"test/**/*.test.js\"",
     "check": "npm test && npm run baseline",
     "deploy": "wrangler deploy"
   },
