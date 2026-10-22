@@ -158,8 +158,8 @@ lines.push(`조건 ${CASES.length}개 × 시드 ${SEEDS}개 = 블록 ${N}개. �
 lines.push('');
 lines.push('## 요약');
 lines.push('');
-lines.push('| 알고리즘 | QUBO 최적 도달률 | 에너지 차 중앙값 | 순위 점수 중앙값 (IQR) | 모델 점수 중앙값 (IQR) | 유효 평면 | 문 동선 문제 0 | 평균 순위 |');
-lines.push('| --- | --- | --- | --- | --- | --- | --- | --- |');
+lines.push('| 알고리즘 | QUBO 최적 도달률 | TTS₉₉ | 에너지 차 중앙값 | 순위 점수 중앙값 (IQR) | 모델 점수 중앙값 (IQR) | 유효 평면 | 문 동선 문제 0 | 평균 순위 |');
+lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
 for (const a of ALGOS) {
   const rs = rows.filter((r) => r.algo === a);
   // 풀이기 성능: 템플릿마다 그 풀이기가 찾은 최저 에너지와 최적값의 차(큰 쪽). 모든 템플릿에서 최적이면 도달.
@@ -171,12 +171,16 @@ for (const a of ALGOS) {
   const gaps = rs.map((r) => (a === 'model' ? (r.energy === null || optOf(r) === null ? null : r.energy - optOf(r)) : gapOf(r)));
   const obj = rs.map((r) => r.objective);
   const mod = rs.map((r) => r.model);
+  // TTS99 = t_run · ln(0.01) / ln(1 − p_s) (Rønnow et al. 2014). t_run = 예산(ms).
+  const ps = rs.length ? hits / rs.length : 0;
+  const tts = a === 'model' ? '—' : ps >= 1 ? `${BUDGET}ms` : ps <= 0 ? `> ${BUDGET}ms` : `${Math.round((BUDGET * Math.log(0.01)) / Math.log(1 - ps))}ms`;
   lines.push(
-    `| ${NAME[a]}${a === 'sa' ? ' (QPU 대체, 잠정)' : a === 'sqa' ? ' (QPU 대리, 잠정)' : ''} | ${a === 'model' ? '—' : `${((100 * hits) / rs.length).toFixed(0)}%`} | ${fmt(q(gaps, 0.5), 2)} | ${fmt(q(obj, 0.5))} (${fmt(q(obj, 0.25))}–${fmt(q(obj, 0.75))}) | ${fmt(q(mod, 0.5))} (${fmt(q(mod, 0.25))}–${fmt(q(mod, 0.75))}) | ${rs.filter((r) => r.valid).length}/${rs.length} | ${rs.filter((r) => r.doorIssues === 0).length}/${rs.length} | ${meanRank[a].toFixed(2)} |`,
+    `| ${NAME[a]}${a === 'sa' ? ' (QPU 대체, 잠정)' : a === 'sqa' ? ' (QPU 대리, 잠정)' : ''} | ${a === 'model' ? '—' : `${((100 * hits) / rs.length).toFixed(0)}%`} | ${tts} | ${fmt(q(gaps, 0.5), 2)} | ${fmt(q(obj, 0.5))} (${fmt(q(obj, 0.25))}–${fmt(q(obj, 0.75))}) | ${fmt(q(mod, 0.5))} (${fmt(q(mod, 0.25))}–${fmt(q(mod, 0.75))}) | ${rs.filter((r) => r.valid).length}/${rs.length} | ${rs.filter((r) => r.doorIssues === 0).length}/${rs.length} | ${meanRank[a].toFixed(2)} |`,
   );
 }
 lines.push('');
 lines.push(`- Friedman 검정(순위 점수, 블록 ${N}개, 알고리즘 ${k}개): χ² = ${chi2.toFixed(2)}, 자유도 ${df}, p ≈ ${pFriedman < 1e-4 ? pFriedman.toExponential(1) : pFriedman.toFixed(4)} (Wilson–Hilferty 근사).`);
+lines.push(`- TTS₉₉ = 실행 한 번의 예산(${BUDGET}ms) × ln(0.01)/ln(1 − 최적 도달률): 99% 확률로 한 번은 최적에 닿는 데 드는 시간(Rønnow et al. 2014). 정확해(열거)의 실제 열거 시간은 예산보다 훨씬 짧습니다.`);
 lines.push(`- QUBO 에너지와 순위 점수의 스피어만 ρ = ${fmt(rho, 2)} (QUBO 풀이기 해 ${pairs.length}개). 음수일수록 에너지가 낮은 해가 좋은 평면입니다.`);
 lines.push('- 최적 도달률·에너지 차는 풀이기 성능입니다: 풀이기는 앞 띠 침실 수가 다른 템플릿 2개를 예산을 나눠 풀고, 템플릿마다 찾은 최저 에너지와 전수 열거 최적값의 차 가운데 큰 쪽을 씁니다(모든 템플릿에서 최적이면 도달). \'기존\'의 에너지 차는 그 평면의 배치를 QUBO 변수로 옮겨 잰 값입니다.');
 lines.push('');
@@ -201,7 +205,7 @@ lines.push('평가 횟수의 단위는 풀이기마다 다릅니다(SA·PT: 스�
 lines.push('');
 lines.push('## 해석할 때');
 lines.push('');
-lines.push('- 변수 25~60개의 작은 QUBO라 전수 열거로 최적값을 알 수 있습니다. 풀이기 사이 차이는 최적 도달률·에너지 차로 보고, 평면 품질은 순위 점수로 따로 봅니다.');
+lines.push('- 변수 18~45개의 작은 QUBO라 전수 열거로 최적값을 알 수 있습니다. 풀이기 사이 차이는 최적 도달률·에너지 차로 보고, 평면 품질은 순위 점수로 따로 봅니다.');
 lines.push('- 순위 점수는 평가 모델(기준 35세대)·목표 면적·선호 점수의 합이라 QUBO 에너지의 대리 관계가 약하면 에너지 최적이 곧 최고 평면은 아닙니다.');
 lines.push('- SA는 D-Wave QPU 결과가 나오기 전의 임시 대체입니다. 양자 어닐링 결과로 보고하지 않습니다. SQA는 고전 컴퓨터에서 돌린 경로적분 양자 몬테카를로로, SA보다 양자 어닐링에 가까운 대리일 뿐 QPU 결과가 아닙니다.');
 const outDir = path.join(root, 'evidence', 'results');

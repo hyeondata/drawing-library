@@ -217,9 +217,38 @@ function renderCompare() {
         QUBO 템플릿 ${cmp.qubo.templates.length}개(앞 띠 침실 수가 다름): ${cmp.qubo.templates.map((t) => `앞 침실 ${t.k + 1}개 — 변수 ${t.n}개(앞 ${t.front.length}실×${t.front.length}칸, 뒤 ${t.back.length}실×${t.back.length}칸), 벌점 ${t.penalty}${optOf(t.k) !== null ? `, 최적 에너지 ${optOf(t.k).toFixed(2)}` : ''}`).join(' / ')}. 에너지는 같은 템플릿끼리만 비교합니다.
         풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 연속값을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
         에너지와 순위 점수의 순위상관 ρ = ${cmp.rho === null ? '—' : cmp.rho.toFixed(2)}(후보 ${cmp.points}개; 음수일수록 에너지가 낮은 해가 좋은 평면).
-        한 번 실행한 결과라 어느 알고리즘이 낫다고 말할 수 없습니다. 시드를 바꿔 다시 돌려 보세요. SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
+        <b>n = 1(한 번 실행), 통계적 비교 불가</b> — 어느 알고리즘이 낫다고 말할 수 없습니다(시드 30개 비교는 evidence/results/qubo-benchmark.md). 시드를 바꿔 다시 돌려 보세요. SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
       </p>
+      <button type="button" class="button-ghost small" id="gen-record">실행 기록 JSON</button>
     </div>`;
+  $('#gen-record').addEventListener('click', () => {
+    const record = {
+      generatedAt: new Date().toISOString(),
+      spec: state.spec,
+      seed: cmp.seed,
+      budgetMsPerSolver: cmp.budgetMs,
+      qubo: cmp.qubo,
+      rho: cmp.rho,
+      results: cmp.results.map((r) => ({
+        algorithm: r.name,
+        key: r.key,
+        family: r.family,
+        provisional: Boolean(r.provisional),
+        energy: r.energy,
+        template: r.template,
+        perTemplate: r.perTemplate,
+        feasible: r.feasible,
+        ms: r.ms,
+        evals: r.evals,
+        modelScore: r.best?.model ?? null,
+        objective: r.best?.objective ?? null,
+        valid: r.best?.unit.validity.valid ?? null,
+        doorIssues: r.best?.doorIssues ?? null,
+        order: r.best ? { front: r.best.params?.frontOrder, back: r.best.params?.backOrder } : null,
+      })),
+    };
+    download(new Blob([JSON.stringify(record, null, 1)], { type: 'application/json' }), `qubo_compare_${state.spec.area}m2_seed${cmp.seed}.json`);
+  });
   box.querySelectorAll('[data-row]').forEach((tr) =>
     tr.addEventListener('click', () => {
       const i = Number(tr.dataset.row);
