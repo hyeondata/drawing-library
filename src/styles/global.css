@@ -2046,3 +2046,93 @@ table.plain td.num {
   background: #ffffff;
   color: #4b4958;
 }
+.gen-algos {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+}
+.gen-algos legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+.gen-algos > .note {
+  margin: 0;
+}
+.gen-algo-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 6px;
+}
+.gen-algo {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.gen-algo:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.gen-algo input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.gen-algo > span {
+  display: grid;
+  gap: 2px;
+}
+.gen-badge {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(250, 178, 25, 0.18);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+}
+.gen-algo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.gen-inline {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.gen-inline select,
+.gen-inline input {
+  font: inherit;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  width: auto;
+  max-width: 90px;
+}
+.gen-cmp {
+  margin: 12px 0;
+  overflow-x: auto;
+}
+.gen-cmp-table td {
+  vertical-align: top;
+}
+.gen-cmp-table tbody tr {
+  cursor: pointer;
+}
+.gen-cmp-table tbody tr:hover,
+.gen-cmp-table tbody tr.on {
+  background: var(--accent-soft);
+}

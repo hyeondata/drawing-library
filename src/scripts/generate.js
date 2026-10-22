@@ -10,7 +10,7 @@ const HANDOFF_KEY = 'floorplan-eval:image';
 const RESULT = steps.length - 1;
 const PREF = Object.fromEntries([...data.syntax, ...data.lifestyle].map((c) => [c.key, c]));
 
-const state = { view: 'full', step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
+const state = { view: 'full', compare: null, step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
 
 // ---------- 선택 읽기 ----------
 const radio = (name) => form.querySelector(`input[name="${name}"]:checked`);
@@ -139,6 +139,7 @@ async function run(seed = state.seed) {
     if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
     if (m.done) {
       state.top = m.top;
+      state.compare = null;
       state.current = 0;
       state.ms = performance.now() - t0;
       $('#gen-progress').hidden = true;
@@ -147,6 +148,110 @@ async function run(seed = state.seed) {
   };
   w.postMessage({ id, spec, baseline, seed });
 }
+
+// ---------- 알고리즘 비교(QUBO 풀이기) ----------
+const ALGO_NAME = Object.fromEntries([...document.querySelectorAll('input[name="algo"]')].map((i) => [i.value, i.closest('label').querySelector('strong').textContent]));
+const selectedAlgos = () => [...document.querySelectorAll('input[name="algo"]:checked')].map((i) => i.value);
+
+async function runCompare(algorithms, seed) {
+  const spec = buildSpec();
+  const budgetMs = Number($('#gen-budget').value);
+  state.spec = spec;
+  state.seed = seed;
+  const id = ++state.runId;
+  $('#gen-result').hidden = true;
+  $('#gen-progress').hidden = false;
+  setProgress(0, '기준 분포를 읽는 중…');
+  const baseline = await loadBaseline();
+  const w = getWorker();
+  const t0 = performance.now();
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m.id !== state.runId) return;
+    if (m.progress !== undefined) setProgress(m.progress, `${ALGO_NAME[m.key] || ''} 실행 중… (${Math.round(m.progress * algorithms.length) + 1}/${algorithms.length})`);
+    if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
+    if (m.done) {
+      state.compare = { ...m.compare, budgetMs, seed };
+      state.top = m.compare.results.filter((r) => r.best).map((r) => ({ ...r.best, tabLabel: r.name, algo: r }));
+      state.current = 0;
+      state.ms = performance.now() - t0;
+      $('#gen-progress').hidden = true;
+      renderResult();
+    }
+  };
+  w.postMessage({ type: 'compare', id, spec, baseline, seed, algorithms, budgetMs });
+}
+
+function renderCompare() {
+  const box = $('#gen-compare');
+  const cmp = state.compare;
+  if (!cmp) {
+    box.innerHTML = '';
+    return;
+  }
+  const optOf = (k) => cmp.qubo.optimum?.[k] ?? null;
+  const rows = cmp.results
+    .map((r, i) => {
+      const b = r.best;
+      const opt = optOf(r.template);
+      const isOpt = opt !== null && r.energy !== null && Math.abs(r.energy - opt) < 1e-6;
+      const idx = state.top.findIndex((c) => c.algo?.key === r.key);
+      return `<tr data-row="${idx}"${idx === state.current ? ' class="on"' : ''}>
+        <td><b>${esc(r.name)}</b>${r.provisional ? ' <em class="gen-badge">QPU 대체·잠정</em>' : ''}<br><span class="note">${esc(r.family || '')}</span></td>
+        <td class="mono">${r.energy === null ? '—' : r.energy.toFixed(2)}${isOpt ? ' <span class="good-text">최적</span>' : ''}${r.template !== null && r.template !== undefined ? `<br><span class="note">템플릿 앞 침실 ${r.template + 1}개</span>` : ''}</td>
+        <td>${r.key === 'model' ? '—' : r.feasible ? '지킴' : '<span class="error-text">어김(복구)</span>'}</td>
+        <td class="mono">${r.key === 'model' ? r.budget : `${Math.round(r.ms)}ms`}</td>
+        <td class="mono">${b ? b.model.toFixed(1) : '—'}</td>
+        <td class="mono">${b ? b.objective.toFixed(1) : '—'}</td>
+        <td>${b ? (b.doorIssues ? `<span class="error-text">${b.doorIssues}</span>` : '0') : '—'}</td>
+      </tr>`;
+    })
+    .join('');
+  box.innerHTML = `
+    <div class="gen-cmp">
+      <table class="gen-table gen-cmp-table">
+        <thead><tr><th>알고리즘</th><th>QUBO 에너지 ↓</th><th>원-핫 제약</th><th>시간</th><th>모델 점수</th><th>순위 점수</th><th>문 동선 문제</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="note">
+        QUBO 템플릿 ${cmp.qubo.templates.length}개(앞 띠 침실 수가 다름): ${cmp.qubo.templates.map((t) => `앞 침실 ${t.k + 1}개 — 변수 ${t.n}개(앞 ${t.front.length}실×${t.front.length}칸, 뒤 ${t.back.length}실×${t.back.length}칸), 벌점 ${t.penalty}${optOf(t.k) !== null ? `, 최적 에너지 ${optOf(t.k).toFixed(2)}` : ''}`).join(' / ')}. 에너지는 같은 템플릿끼리만 비교합니다.
+        풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 연속값을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
+        에너지와 순위 점수의 순위상관 ρ = ${cmp.rho === null ? '—' : cmp.rho.toFixed(2)}(후보 ${cmp.points}개; 음수일수록 에너지가 낮은 해가 좋은 평면).
+        한 번 실행한 결과라 어느 알고리즘이 낫다고 말할 수 없습니다. 시드를 바꿔 다시 돌려 보세요. SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
+      </p>
+    </div>`;
+  box.querySelectorAll('[data-row]').forEach((tr) =>
+    tr.addEventListener('click', () => {
+      const i = Number(tr.dataset.row);
+      if (i >= 0) {
+        state.current = i;
+        renderResult();
+      }
+    }),
+  );
+}
+
+$('#gen-all').addEventListener('click', () => document.querySelectorAll('input[name="algo"]').forEach((i) => (i.checked = true)));
+$('#gen-run').addEventListener('click', () => {
+  const algos = selectedAlgos();
+  const seed = Math.max(1, Number($('#gen-seed').value) || 1);
+  if (!algos.length) return setProgress(0, '알고리즘을 하나 이상 고르세요.');
+  if (algos.length === 1 && algos[0] === 'model') {
+    state.top = [];
+    return run(seed);
+  }
+  runCompare(algos, seed);
+});
+$('#gen-qubo').addEventListener('click', () => {
+  const w = getWorker();
+  const id = ++state.runId;
+  w.onmessage = (e) => {
+    if (e.data.id !== id || !e.data.done) return;
+    const spec = buildSpec();
+    download(new Blob([JSON.stringify({ spec: { area: spec.area, bedrooms: spec.bedrooms, prefs: spec.prefs }, ...e.data.bqm }, null, 1)], { type: 'application/json' }), `floorplan_qubo_${spec.area}m2_${spec.bedrooms}bed.json`);
+  };
+  w.postMessage({ type: 'qubo', id, spec: buildSpec() });
+});
 function setProgress(p, text) {
   $('#gen-bar').style.width = `${Math.round(p * 100)}%`;
   $('#gen-progress-text').textContent = text;
@@ -156,7 +261,7 @@ function setProgress(p, text) {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cites = (ids) => (ids?.length ? `<span class="cites">${ids.map((id) => `<a class="cite" href="${refs[id].url}" target="_blank" rel="noopener">${esc(refs[id].short)}</a>`).join('')}</span>` : '');
 const bar = (score) => `<span class="gen-meter" role="img" aria-label="${Math.round(score)}점"><i style="width:${Math.max(0, Math.min(100, score))}%"></i></span>`;
-const titleOf = (spec, i) => `${spec.area}㎡ · 방 ${spec.bedrooms}개 · ${i + 1}안`;
+const titleOf = (spec, i) => `${spec.area}㎡ · 방 ${spec.bedrooms}개 · ${state.top[i]?.tabLabel || `${i + 1}안`}`;
 
 function renderResult() {
   const { top, spec } = state;
@@ -167,7 +272,7 @@ function renderResult() {
     return;
   }
   $('#gen-tabs').innerHTML = top
-    .map((c, i) => `<button type="button" role="tab" data-cand="${i}" aria-pressed="${i === state.current}" aria-selected="${i === state.current}">${i + 1}안 <span class="mono">${c.unit.score.toFixed(0)}점</span></button>`)
+    .map((c, i) => `<button type="button" role="tab" data-cand="${i}" aria-pressed="${i === state.current}" aria-selected="${i === state.current}">${esc(c.tabLabel || `${i + 1}안`)} <span class="mono">${c.unit.score.toFixed(0)}점</span></button>`)
     .join('');
   $('#gen-tabs').querySelectorAll('[data-cand]').forEach((b) =>
     b.addEventListener('click', () => {
@@ -175,6 +280,7 @@ function renderResult() {
       renderResult();
     }),
   );
+  renderCompare();
   const c = top[state.current];
   const legend = state.view === 'full'
     ? `<ul class="ex-legend gen-legend" aria-label="범례">${FULL_LEGEND.map((l) => `<li><i style="background:${l.fill};border-color:${l.stroke ?? l.fill}"></i>${esc(l.label)}</li>`).join('')}</ul>`
@@ -247,7 +353,13 @@ document.querySelectorAll('[data-view]').forEach((b) =>
   }),
 );
 $('#gen-svg').addEventListener('click', () => download(new Blob([currentSvg()], { type: 'image/svg+xml' }), `${fileBase()}.svg`));
-$('#gen-more').addEventListener('click', () => run(state.seed + 1));
+$('#gen-more').addEventListener('click', () => {
+  if (state.compare) {
+    $('#gen-seed').value = state.seed + 1;
+    return runCompare(state.compare.results.map((r) => r.key), state.seed + 1);
+  }
+  run(state.seed + 1);
+});
 $('#gen-open').addEventListener('click', () => {
   const c = state.top[state.current];
   const payload = { name: titleOf(state.spec, state.current), label: c.label, preview: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(currentSvg())}`, source: 'generate' };

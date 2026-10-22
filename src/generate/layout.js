@@ -138,12 +138,21 @@ export function buildLayout(spec, p) {
   const beds = program.filter((room) => room.type === '침실');
   const master = by.master;
   const regular = beds.filter((b) => b !== master);
-  const frontRegular = regular.slice(0, Math.max(0, p.frontBeds - 1));
-  const backBeds = regular.slice(frontRegular.length);
-  const front = [...frontRegular];
-  front.splice(Math.min(p.livingPos, front.length), 0, by.living);
-  if (p.masterEnd === 'left') front.unshift(master);
-  else front.push(master);
+  // p.frontOrder·p.backOrder가 있으면(QUBO 해) 그 순서를 그대로 쓰고, 없으면 매개변수로 정한다.
+  let frontRegular;
+  let front;
+  if (p.frontOrder) {
+    front = p.frontOrder.map((key) => by[key]);
+    frontRegular = front.filter((room) => room.type === '침실' && room !== master);
+    p.masterEnd = front[0] === master ? 'left' : 'right';
+  } else {
+    frontRegular = regular.slice(0, Math.max(0, p.frontBeds - 1));
+    front = [...frontRegular];
+    front.splice(Math.min(p.livingPos, front.length), 0, by.living);
+    if (p.masterEnd === 'left') front.unshift(master);
+    else front.push(master);
+  }
+  const backBeds = regular.filter((b) => !frontRegular.includes(b));
   // 작은방은 폭(bedWidth)을 먼저 정하고 깊이는 면적에서 구한다. 거실보다 얕으면 그 뒤를 복도(기타)로 쓴다.
   // 남는 깊이가 0.4m 미만이면 앞 띠 깊이에 맞추고, 1.1m 미만이면 복도 폭 1.1m를 확보한다.
   const other = frontRegular[0];
@@ -231,24 +240,46 @@ export function buildLayout(spec, p) {
     }
   } else if (suite.length === 2) add(p.suiteOrder ? [...suite].reverse() : suite, (anchors.bathMaster + anchors.dress) / 2);
   else for (const s of suite) add([s], anchors[s.key]);
+  if (p.backOrder) {
+    // QUBO 해: 뒤 띠 칸 순서대로 한 칸에 한 실(좁은 실은 아래에서 옆 열과 쌓는다)
+    columns.length = 0;
+    used.clear();
+    if (suiteInBay) for (const s of suite) used.add(s.key);
+    else if (suite.length === 2) add(p.suiteOrder ? [...suite].reverse() : suite, -1), suite.forEach((s) => used.add(s.key));
+    p.backOrder.forEach((key, i) => {
+      const room = take(key);
+      if (room) add([room], i);
+    });
+    if (!suiteInBay && suite.length === 2) {
+      // 쌓은 부속실 열은 안방 쪽 끝에 둔다.
+      const col = columns.find((c) => c.anchor === -1);
+      col.anchor = p.masterEnd === 'left' ? -1 : 1e9;
+    }
+  }
   const entrance = take('entrance');
   const bathPublic = take('bathPublic');
   // 현관은 위(뒤쪽 바깥 벽)에 둬야 현관문을 낼 수 있다.
-  if (p.stackService) add([entrance, bathPublic], anchors.entrance);
-  else {
-    add([entrance], anchors.entrance);
-    add([bathPublic], anchors.bathPublic);
+  if (entrance || bathPublic) {
+    if (p.stackService && entrance && bathPublic) add([entrance, bathPublic], anchors.entrance);
+    else {
+      if (entrance) add([entrance], anchors.entrance);
+      if (bathPublic) add([bathPublic], anchors.bathPublic);
+    }
   }
   const multi = take('multi');
   if (multi) add([multi], anchors.multi);
-  for (const b of backBeds) add([take(b.key)], anchors[b.key]);
-  columns.forEach((c, i) => (c.anchor += (p.jitter[i % p.jitter.length] || 0) * 1.2));
+  for (const b of backBeds) {
+    const room = take(b.key);
+    if (room) add([room], anchors[b.key]);
+  }
+  if (!p.backOrder) columns.forEach((c, i) => (c.anchor += (p.jitter[i % p.jitter.length] || 0) * 1.2));
   columns.sort((a, b) => a.anchor - b.anchor);
   // 너비가 최소 폭에 못 미치는 작은 실(욕실·현관·드레스룸 등)은 옆 열(침실 제외)과 위아래로 쌓는다.
   for (let guard = 0; guard < 6; guard++) {
     const i = columns.findIndex((c) => c.items.length === 1 && !['침실', '주방'].includes(c.items[0].type) && c.items[0].area / Db < (MIN_SIDE[c.items[0].type] || 0));
     if (i < 0) break;
-    const ok = (j) => j >= 0 && j < columns.length && columns[j].items.length < 3 && columns[j].items.every((it) => it.type !== '침실');
+    // 침실·주방 열에는 쌓지 않는다(주방 아래에 쌓으면 주방이 거실과 떨어진다).
+    const ok = (j) => j >= 0 && j < columns.length && columns[j].items.length < 3 && columns[j].items.every((it) => it.type !== '침실' && it.type !== '주방');
     const j = [i - 1, i + 1].filter(ok).sort((a, b) => columns[a].items.length - columns[b].items.length)[0];
     if (j === undefined) break;
     columns[j].items.push(...columns[i].items);

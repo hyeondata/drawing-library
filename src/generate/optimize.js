@@ -9,7 +9,7 @@ import { ALL_CHOICES } from './preferences.js';
 /** 목적함수 가중치: 모델 점수·목표 부합·선호. 선호를 고르지 않으면 나머지로 나눈다. */
 export const OBJECTIVE = { model: 0.45, fit: 0.25, prefs: 0.3 };
 
-function scoreLayout(spec, layout, baseline) {
+export function scoreLayout(spec, layout, baseline) {
   const label = toLabel(layout);
   let result;
   try {
@@ -66,7 +66,7 @@ function stripUnit(unit) {
 
 /** 앞 띠 순서와 뒤 띠 순서로 만든 배치 서명(비슷한 안을 한 번만 보여 주려고). */
 // 위아래로 쌓은 순서만 다른 안은 같은 배치로 본다.
-const signature = (layout) => {
+export const signature = (layout) => {
   const rooms = layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실' && r.type !== '기타');
   const front = rooms.filter((r) => r.y + r.h > layout.D - 1e-6).sort((a, b) => a.x - b.x).map((r) => r.key);
   const back = rooms.filter((r) => r.y < 1e-6).sort((a, b) => a.x - b.x || a.key.localeCompare(b.key)).map((r) => r.key);

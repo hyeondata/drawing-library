@@ -6,6 +6,12 @@ import Topbar from '../components/Topbar.astro';
 import { REFERENCES } from '../model/config.js';
 import { buildChoices } from '../generate/choices.js';
 import { LIFESTYLE_CHOICES, SYNTAX_CHOICES } from '../generate/preferences.js';
+import { SOLVERS } from '../generate/solvers.js';
+
+const algos = [
+  { key: 'model', name: '기존: 모델 직접 탐색', family: '평가 모델로 바로 최적화(무작위 + 국소 탐색, 평가 800회)', cite: '' },
+  ...SOLVERS.map((s) => ({ key: s.key, name: s.name, family: s.family, cite: s.cite, provisional: Boolean(s.provisional) })),
+];
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const dir = path.join(process.cwd(), 'public', 'data', 'labels');
@@ -175,6 +181,41 @@ const steps = [
         <!-- 8. 결과 -->
         <div class="gen-step" data-step="7" hidden>
           <h2>{steps[7].q}</h2>
+          <fieldset class="gen-algos" id="gen-algos">
+            <legend>생성 알고리즘</legend>
+            <p class="note">
+              '기존'은 평가 모델 점수로 바로 최적화합니다. 나머지는 실 배치를 <b>QUBO</b>(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들어 각 풀이기로 푼 뒤,
+              해를 평면으로 풀어 같은 평가 모델로 채점합니다. 여러 개를 고르면 같은 시간 예산·같은 시드로 한 번에 돌려 비교합니다.
+            </p>
+            <div class="gen-algo-list">
+              {algos.map((a) => (
+                <label class="gen-algo">
+                  <input type="checkbox" name="algo" value={a.key} checked={a.key === 'model'} />
+                  <span>
+                    <strong>{a.name}</strong>{a.provisional && <em class="gen-badge">QPU 대체·잠정</em>}
+                    <span class="note">{a.family}{a.cite && a.cite !== '—' ? ` · ${a.cite}` : ''}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div class="gen-algo-actions">
+              <button type="button" class="button-ghost small" id="gen-all">전부 선택</button>
+              <label class="gen-inline">풀이기당 시간
+                <select id="gen-budget">
+                  <option value="150">0.15초</option>
+                  <option value="300" selected>0.3초</option>
+                  <option value="1000">1초</option>
+                </select>
+              </label>
+              <label class="gen-inline">시드 <input type="number" id="gen-seed" value="1" min="1" max="9999" /></label>
+              <button type="button" class="button-primary" id="gen-run">선택한 알고리즘으로 생성</button>
+              <button type="button" class="button-ghost small" id="gen-qubo">QUBO 내보내기(D-Wave·Gurobi용)</button>
+            </div>
+            <p class="note">
+              내보낸 QUBO JSON은 <a href={`${base}qubo/solve_qubo.py`} download>solve_qubo.py</a>로 D-Wave(SA·Tabu·QPU·Hybrid)·Gurobi·CP-SAT에서 풀 수 있습니다.
+              같은 QUBO에서 D-Wave SA·Tabu와 CP-SAT가 이 화면의 정확해(열거)와 같은 최적 에너지를 내는 것을 확인했습니다. QPU는 Leap 계정이 있어야 합니다.
+            </p>
+          </fieldset>
           <div class="gen-progress" id="gen-progress" hidden>
             <div class="gen-bar"><i id="gen-bar"></i></div>
             <p class="note" id="gen-progress-text">평면을 만드는 중…</p>
@@ -187,6 +228,7 @@ const steps = [
                 <button type="button" data-view="space" aria-pressed="false">실만</button>
               </div>
             </div>
+            <div id="gen-compare"></div>
             <div class="gen-result">
               <figure class="gen-plan" id="gen-plan"></figure>
               <div class="gen-detail" id="gen-detail"></div>

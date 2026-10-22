@@ -317,3 +317,32 @@ test('도면 생성: 84㎡ 방 3개는 유효하고 규칙을 모두 통과하�
   const names = toFullLabel(best.layout).categories.map((c) => c.name);
   assert.ok(names.includes('구조_출입문') && names.includes('구조_창호') && names.includes('객체_변기') && names.includes('공간_거실'));
 });
+
+test('QUBO: 벌점이 유효하고(최적해가 제약을 지킴) 풀이기가 최적에 닿으며 시드로 재현된다', async () => {
+  const { buildQubo, decode, encode, energy, feasible, toBqmJson } = await import('../src/generate/qubo.js');
+  const { SOLVERS, runSolver } = await import('../src/generate/solvers.js');
+  const targets = { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877, bath: 0.032, entrance: 0.0389, dress: 0.0499, multi: 0.0303 };
+  const spec = { area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true, targets, prefs: ['livingCentral'] };
+  const q = buildQubo(spec);
+  const ex = runSolver('exact', q, { seed: 1 });
+  assert.ok(ex.info.optimal && ex.feasible);
+  // 제약을 어긴 해는 최적보다 에너지가 높다: 최적해에서 한 변수를 끄거나 켜면 에너지가 오른다.
+  const x = ex.samples[0].x;
+  for (let i = 0; i < q.n; i++) {
+    const y = Uint8Array.from(x);
+    y[i] ^= 1;
+    assert.ok(!feasible(q, y) && energy(q, y) > ex.energy, `변수 ${i}`);
+  }
+  // 해 ↔ 순서 왕복
+  const order = decode(q, x);
+  assert.deepEqual(Array.from(encode(q, order.front, order.back)), Array.from(x));
+  for (const s of SOLVERS) {
+    const a = runSolver(s.key, q, { seed: 2, maxEvals: 300000 });
+    const b = runSolver(s.key, q, { seed: 2, maxEvals: 300000 });
+    assert.equal(a.energy, b.energy, `${s.key} 재현`);
+    if (['d2ts', 'pr', 'memetic', 'pt', 'exact'].includes(s.key)) assert.ok(Math.abs(a.energy - ex.energy) < 1e-9, `${s.key} 최적 도달`);
+  }
+  const bqm = toBqmJson(q);
+  assert.equal(Object.keys(bqm.linear).length, q.n);
+  assert.equal(bqm.vartype, 'BINARY');
+});
