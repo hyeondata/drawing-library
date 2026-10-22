@@ -6,6 +6,42 @@
 // 너무 큰 벌점은 해의 질을 떨어뜨린다). 너비·깊이처럼 연속인 값과 공간구문 통합도는 QUBO에 넣지 않고,
 // 해를 판상형 문법(layout.js)으로 풀어 낸 뒤 평가 모델이 채점한다.
 import { programOf } from './layout.js';
+import { CALIBRATED } from './qubo-weights.js';
+
+/**
+ * QUBO 항 목록. hand = 처음 손으로 정한 가중치(근거: 평가 규칙·문헌), pref = 그 선호를 고르면 곱하는 배수.
+ * 에너지 = Σ_t w_t · φ_t(x) + 원-핫 벌점이라 가중치에 대해 선형이다. 그래서 평가 모델 점수로 w를 회귀해 다시 맞출 수 있다
+ * (scripts/qubo-calibrate.mjs → qubo-weights.js). hand가 0인 항은 보정에서만 쓰는 후보 항이다.
+ */
+export const TERMS = [
+  { id: 'kitchenLiving', hand: -8, pref: ['kitchenLink', 1.6], label: '주방–거실 맞닿음', why: '규칙 kitchenLiving; Byun & Choi 2016' },
+  { id: 'entranceLiving', hand: -5, pref: ['entryNear', 1.6], label: '현관–거실 맞닿음', why: '규칙 livingNear·entry; Seo 2007' },
+  { id: 'entranceKitchen', hand: -5, pref: ['entryNear', 1.6], label: '현관–주방 옆', why: '현관이 공용 공간으로 열림' },
+  { id: 'bathKitchen', hand: -3, label: '공용욕실–주방 옆', why: '규칙 publicBath' },
+  { id: 'bathEntrance', hand: -3, label: '공용욕실–현관 옆', why: '규칙 publicBath' },
+  { id: 'bathLiving', hand: -2, label: '공용욕실–거실 맞닿음', why: '공용욕실이 공용 공간에 닿음' },
+  { id: 'multiKitchen', hand: -3, label: '다목적실–주방 옆', why: '팬트리' },
+  { id: 'bedEntrance', hand: 4, pref: ['privacy', 1.6], label: '침실–현관 맞닿음(피함)', why: '공·사 깊이; Park et al. 2024' },
+  { id: 'backBedEntrance', hand: 3, pref: ['privacy', 1.6], label: '뒤 침실–현관 옆(피함)', why: '사생활' },
+  { id: 'backBedUnderBed', hand: -2, label: '뒤 침실이 앞 침실 뒤', why: '복도로 묶임' },
+  { id: 'backBedKitchen', hand: 2, pref: ['quiet', 1.6], label: '뒤 침실–주방 옆(피함)', why: '방음' },
+  { id: 'bedLiving', hand: 1.5, pref: ['quiet', 2], label: '침실–거실 옆(피함)', why: '방음 근사' },
+  { id: 'bedBed', hand: 0.8, pref: ['quiet', 2], label: '침실끼리 옆(피함)', why: '방음 근사' },
+  { id: 'livingOffCenter', hand: 6, pref: ['livingCentral', 1.6], label: '거실이 가운데에서 먼 정도', why: '거실 중심형; Hillier 1987, Choi 2014' },
+  { id: 'masterNotEnd', hand: 6, label: '안방이 끝 칸이 아님', why: '부속실을 뒤에 붙임' },
+  { id: 'entranceEnd', hand: 1.5, label: '현관이 끝 칸', why: '거실·주방과 가깝게' },
+  { id: 'kitchenEnd', hand: 0, label: '주방이 끝 칸', why: '보정 후보' },
+  { id: 'backBedEnd', hand: 0, label: '뒤 침실이 끝 칸', why: '보정 후보(외기 접면)' },
+  { id: 'masterKitchen', hand: 0, label: '안방–주방 맞닿음', why: '보정 후보' },
+  { id: 'bedOverBath', hand: 0, label: '앞 침실–공용욕실 맞닿음', why: '보정 후보' },
+];
+
+/** 가중치 세트: 'calibrated'(평가 모델로 보정, 기본) | 'hand' | { id: w }. */
+export function weightsOf(set = 'calibrated') {
+  if (set && typeof set === 'object') return set;
+  if (set === 'calibrated' && CALIBRATED) return CALIBRATED.weights;
+  return Object.fromEntries(TERMS.map((t) => [t.id, t.hand]));
+}
 
 /** 선호(사양의 prefs)에 따라 커지는 항의 배수. */
 const boost = (spec, key, k = 1.6) => (spec.prefs.includes(key) ? k : 1);
@@ -23,7 +59,8 @@ export function frontBedCount(spec) {
  * 반환: { n, vars: [{ room, slot, band }], diag: Float64Array, M: Float64Array(n*n, 대칭, 대각 0), offset,
  *         bands: { front: { rooms, slots }, back: { rooms, slots } }, groups: 원-핫 묶음 목록, penalty, terms }
  */
-export function buildQubo(spec, { frontBeds = null } = {}) {
+export function buildQubo(spec, { frontBeds = null, weights = 'calibrated' } = {}) {
+  const W = weightsOf(weights);
   const program = programOf(spec);
   const by = Object.fromEntries(program.map((r) => [r.key, r]));
   const kFront = frontBeds ?? frontBedCount(spec);
@@ -50,56 +87,83 @@ export function buildQubo(spec, { frontBeds = null } = {}) {
     M[a * n + b] += w;
     M[b * n + a] += w;
   };
-  const terms = [];
+  // 항마다 단위 기여(가중치 1, 선호 배수 포함)를 따로 모은다: φ_t(x) = Σ lin·x + Σ quad·x·x.
+  const unit = Object.fromEntries(TERMS.map((t) => [t.id, { lin: new Map(), quad: new Map() }]));
+  const mult = (id) => {
+    const t = TERMS.find((d) => d.id === id);
+    return t.pref ? boost(spec, t.pref[0], t.pref[1]) : 1;
+  };
+  const addLin = (id, i, w) => {
+    if (i === undefined || !w) return;
+    const u = unit[id].lin;
+    u.set(i, (u.get(i) || 0) + w * mult(id));
+  };
+  const addQuad = (id, a, b, w) => {
+    if (a === undefined || b === undefined || a === b || !w) return;
+    const key = a < b ? a * n + b : b * n + a;
+    const u = unit[id].quad;
+    u.set(key, (u.get(key) || 0) + w * mult(id));
+  };
 
   // 칸의 기하(0~1 폭으로 정규화): 앞 칸 i는 [i/m, (i+1)/m], 뒤 칸 j는 [j/k, (j+1)/k]. 위아래로 겹치는 비율 = 맞닿음.
   const ov = (i, j) => Math.max(0, Math.min((i + 1) / m, (j + 1) / k) - Math.max(i / m, j / k)) / Math.min(1 / m, 1 / k);
   const beds = frontRooms.filter((r) => r !== 'living');
   const backBeds = backRooms.filter((r) => r.startsWith('bed'));
-
-  // ---- 이차 항: 앞–뒤(위아래로 맞닿음) ----
-  const vertical = (front, back, w, why) => {
-    terms.push({ kind: 'vertical', front, back, w, why });
-    for (let i = 0; i < m; i++) for (let j = 0; j < k; j++) if (ov(i, j) > 0) addPair(v(front, 'front', i), v(back, 'back', j), w * ov(i, j));
+  const vertical = (id, front, back) => {
+    for (let i = 0; i < m; i++) for (let j = 0; j < k; j++) if (ov(i, j) > 0) addQuad(id, v(front, 'front', i), v(back, 'back', j), ov(i, j));
   };
-  // ---- 이차 항: 같은 띠에서 옆 칸 ----
-  const beside = (band, a, b, w, why) => {
-    terms.push({ kind: 'beside', band, a, b, w, why });
+  const beside = (id, band, a, b) => {
     const slots = band === 'front' ? m : k;
     for (let s = 0; s + 1 < slots; s++) {
-      addPair(v(a, band, s), v(b, band, s + 1), w);
-      addPair(v(a, band, s + 1), v(b, band, s), w);
+      addQuad(id, v(a, band, s), v(b, band, s + 1), 1);
+      addQuad(id, v(a, band, s + 1), v(b, band, s), 1);
     }
   };
-  // ---- 일차 항 ----
-  const at = (band, r, f, why) => {
-    terms.push({ kind: 'position', band, room: r, why });
+  const at = (id, band, r, f) => {
     const slots = band === 'front' ? m : k;
-    for (let s = 0; s < slots; s++) {
-      const i = v(r, band, s);
-      if (i !== undefined) diag[i] += f(s, slots);
-    }
+    for (let s = 0; s < slots; s++) addLin(id, v(r, band, s), f(s, slots));
   };
+  const isEnd = (s, S) => s === 0 || s === S - 1;
 
-  vertical('living', 'kitchen', -8 * boost(spec, 'kitchenLink'), '주방–거실 맞닿음(규칙 kitchenLiving; Byun & Choi 2016)');
-  vertical('living', 'entrance', -5 * boost(spec, 'entryNear'), '현관–거실(규칙 livingNear·entry; Seo 2007)');
-  beside('back', 'entrance', 'kitchen', -5 * boost(spec, 'entryNear'), '현관–주방 옆(현관이 공용 공간으로 열림)');
-  beside('back', 'bathPublic', 'kitchen', -3, '공용욕실이 공용 공간에 닿음(규칙 publicBath)');
-  beside('back', 'bathPublic', 'entrance', -3, '공용욕실이 현관에 닿음(규칙 publicBath)');
-  vertical('living', 'bathPublic', -2, '공용욕실이 거실에 닿음');
-  if (by.multi) beside('back', 'multi', 'kitchen', -3, '다목적실(팬트리)이 주방 옆');
-  for (const b of beds) vertical(b, 'entrance', 4 * boost(spec, 'privacy'), '침실이 현관과 맞닿지 않게(공·사 깊이; Park et al. 2024)');
+  vertical('kitchenLiving', 'living', 'kitchen');
+  vertical('entranceLiving', 'living', 'entrance');
+  beside('entranceKitchen', 'back', 'entrance', 'kitchen');
+  beside('bathKitchen', 'back', 'bathPublic', 'kitchen');
+  beside('bathEntrance', 'back', 'bathPublic', 'entrance');
+  vertical('bathLiving', 'living', 'bathPublic');
+  if (by.multi) beside('multiKitchen', 'back', 'multi', 'kitchen');
+  for (const b of beds) vertical('bedEntrance', b, 'entrance');
   for (const bb of backBeds) {
-    beside('back', bb, 'entrance', 3 * boost(spec, 'privacy'), '뒤쪽 침실이 현관 옆이 아니게');
-    for (const b of beds) vertical(b, bb, -2, '뒤쪽 침실이 다른 침실 뒤(복도로 묶임)');
-    beside('back', bb, 'kitchen', 2 * boost(spec, 'quiet'), '뒤쪽 침실이 주방 옆이 아니게(방음)');
+    beside('backBedEntrance', 'back', bb, 'entrance');
+    for (const b of beds) vertical('backBedUnderBed', b, bb);
+    beside('backBedKitchen', 'back', bb, 'kitchen');
+    at('backBedEnd', 'back', bb, (s, S) => (isEnd(s, S) ? 1 : 0));
   }
-  for (const b of beds) beside('front', b, 'living', 1.5 * boost(spec, 'quiet', 2), '침실이 거실과 벽을 덜 맞대게(방음 근사)');
-  for (let a = 0; a < beds.length; a++) for (let b = a + 1; b < beds.length; b++) beside('front', beds[a], beds[b], 0.8 * boost(spec, 'quiet', 2), '침실끼리 벽을 덜 맞대게(방음 근사)');
+  for (const b of beds) if (b !== 'master') vertical('bedOverBath', b, 'bathPublic');
+  for (const b of beds) beside('bedLiving', 'front', b, 'living');
+  for (let a = 0; a < beds.length; a++) for (let b = a + 1; b < beds.length; b++) beside('bedBed', 'front', beds[a], beds[b]);
+  vertical('masterKitchen', 'master', 'kitchen');
+  at('livingOffCenter', 'front', 'living', (s, S) => Math.abs((s + 0.5) / S - 0.5));
+  at('masterNotEnd', 'front', 'master', (s, S) => (isEnd(s, S) ? 0 : 1));
+  at('entranceEnd', 'back', 'entrance', (s, S) => (isEnd(s, S) ? 1 : 0));
+  at('kitchenEnd', 'back', 'kitchen', (s, S) => (isEnd(s, S) ? 1 : 0));
 
-  at('front', 'living', (s, S) => 6 * boost(spec, 'livingCentral') * Math.abs((s + 0.5) / S - 0.5), '거실이 가운데(거실 중심형; Hillier 1987, Choi 2014)');
-  at('front', 'master', (s, S) => (s === 0 || s === S - 1 ? 0 : 6), '안방은 끝 칸(부속실을 뒤에 붙임)');
-  at('back', 'entrance', (s, S) => (s === 0 || s === S - 1 ? 1.5 : 0), '현관은 가운데 쪽(거실·주방과 가깝게)');
+  // 가중치를 곱해 합친다.
+  const terms = [];
+  for (const t of TERMS) {
+    const w = W[t.id] ?? 0;
+    const u = unit[t.id];
+    if (!u.lin.size && !u.quad.size) continue;
+    terms.push({ id: t.id, label: t.label, w, why: t.why });
+    if (!w) continue;
+    for (const [i, val] of u.lin) diag[i] += w * val;
+    for (const [key, val] of u.quad) {
+      const a = Math.floor(key / n);
+      const b = key % n;
+      M[a * n + b] += w * val;
+      M[b * n + a] += w * val;
+    }
+  }
 
   // ---- 원-핫 벌점: 실마다 칸 하나, 칸마다 실 하나 ----
   // 벌점 계수 = 1 + 한 변수가 받는 목적함수 계수 절댓값 합의 최댓값(뒤집기 한 번으로 얻을 수 있는 최대 이득).
@@ -124,7 +188,19 @@ export function buildQubo(spec, { frontBeds = null } = {}) {
     for (let p = 0; p < g.length; p++) for (let q = p + 1; q < g.length; q++) addPair(g[p], g[q], 2 * penalty);
     offset += penalty;
   }
-  return { n, vars, diag, M, offset, bands: { front: { rooms: frontRooms, slots: m }, back: { rooms: backRooms, slots: k } }, groups, penalty, terms, frontBeds: kFront };
+  return { n, vars, diag, M, offset, bands: { front: { rooms: frontRooms, slots: m }, back: { rooms: backRooms, slots: k } }, groups, penalty, terms, unit, weights: W, frontBeds: kFront };
+}
+
+/** 해 x의 항별 단위 값 φ_t(x) (TERMS 순서). 에너지(벌점 제외) = Σ w_t φ_t. */
+export function features(q, x) {
+  const { n } = q;
+  return TERMS.map((t) => {
+    const u = q.unit[t.id];
+    let f = 0;
+    for (const [i, val] of u.lin) if (x[i]) f += val;
+    for (const [key, val] of u.quad) if (x[Math.floor(key / n)] && x[key % n]) f += val;
+    return f;
+  });
 }
 
 /** 에너지 E(x) = offset + Σ diag·x + Σ_{i<j} M_ij x_i x_j */

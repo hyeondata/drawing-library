@@ -19,7 +19,8 @@
     "validate": "node scripts/validate.mjs",
     "results": "node scripts/validate.mjs && node scripts/sensitivity.mjs",
     "ocr": "node scripts/copy-ocr.mjs",
-    "qubo:bench": "node scripts/qubo-benchmark.mjs --seeds 30 --budget 100"
+    "qubo:bench": "node scripts/qubo-benchmark.mjs --seeds 30 --budget 100 && node scripts/qubo-benchmark.mjs --seeds 30 --budget 100 --hand",
+    "qubo:calibrate": "node scripts/qubo-calibrate.mjs"
   },
   "dependencies": {
     "@tesseract.js-data/kor": "^1.0.0",

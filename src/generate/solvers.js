@@ -351,6 +351,100 @@ function sqa(q, { r, deadline, pool, count, slices = 16, PT = 0.5, sweeps = 300,
   } while (now() < deadline);
 }
 
+function dwaveTabu(q, { r, deadline, pool, count }) {
+  // D-Wave dwave-samplers TabuSampler 방식(MST2 다중 시작 tabu, Palubeckis 2004)을 다시 구현한 것:
+  // tenure = min(20, ⌊n/4⌋), 읽기마다 무작위 시작 또는 지금까지 최고해에서 출발, 읽기 하나에 시간 상한(기본 20ms)을 두고 되풀이.
+  // D²TS와는 다른 알고리즘이다(섭동·엘리트 풀 없음).
+  const { n } = q;
+  const tenure = Math.min(20, Math.floor(n / 4));
+  let best = null;
+  let read = 0;
+  while (now() < deadline) {
+    const start = !best || read % 2 === 0 ? randomX(n, r) : Uint8Array.from(best.x);
+    const readDeadline = Math.min(deadline, now() + 20);
+    const res = tabu(q, start, r, readDeadline, { c: Math.max(0, tenure - 5.5), alpha: 10000, onEval: count });
+    if (!best || res.e < best.e) best = res;
+    pool.add(res.x, res.e);
+    read++;
+  }
+}
+
+function cpBranchAndBound(q, { deadline, pool, count }) {
+  // 제약 프로그래밍식 분기한정(CP-SAT의 브라우저 안 대체). 칸을 차례로 채우며 실마다 한 번만(AllDifferent),
+  // 부분 에너지 + 낙관적 하한(남은 칸마다 가능한 최소 기여 + 남은 칸 쌍의 음수 결합 최솟값)이 최고해 이상이면 가지를 자른다.
+  // 진짜 CP-SAT(OR-Tools)는 내보낸 QUBO로 Python에서 돌린다(public/qubo/solve_qubo.py --solver cpsat).
+  const { n, diag, M } = q;
+  const slots = [];
+  for (const band of ['front', 'back']) for (let s = 0; s < q.bands[band].slots; s++) slots.push({ band, s, rooms: q.bands[band].rooms });
+  const varOf = new Map(q.vars.map((v, i) => [`${v.room}@${v.band}${v.slot}`, i]));
+  const cand = slots.map((sl) => sl.rooms.map((room) => varOf.get(`${room}@${sl.band}${sl.s}`)));
+  const S = slots.length;
+  // 칸 쌍마다 가능한 가장 작은(음수) 결합
+  const pairMin = Array.from({ length: S }, () => new Float64Array(S));
+  for (let a = 0; a < S; a++)
+    for (let b = a + 1; b < S; b++) {
+      let mn = 0;
+      for (const i of cand[a]) for (const j of cand[b]) mn = Math.min(mn, M[i * n + j]);
+      pairMin[a][b] = mn;
+    }
+  let bestE = Infinity;
+  const chosen = [];
+  const used = new Set();
+  let nodes = 0;
+  let aborted = false;
+  const dfs = (depth, cur) => {
+    if (aborted) return;
+    if (++nodes % 2048 === 0 && now() > deadline + 5000) {
+      aborted = true;
+      return;
+    }
+    count();
+    if (depth === S) {
+      const e = cur + q.offset;
+      if (e < bestE - 1e-12) bestE = e;
+      const x = new Uint8Array(n);
+      for (const i of chosen) x[i] = 1;
+      pool.add(x, e);
+      return;
+    }
+    // 하한: 남은 칸마다 (가능한 실 중) 일차 + 이미 고른 변수와의 결합의 최솟값, 더하기 남은 칸 쌍의 음수 결합
+    let lb = cur;
+    for (let a = depth; a < S; a++) {
+      let mn = Infinity;
+      for (let ri = 0; ri < cand[a].length; ri++) {
+        if (used.has(slots[a].band + slots[a].rooms[ri])) continue;
+        const i = cand[a][ri];
+        let v = diag[i];
+        for (const j of chosen) v += M[i * n + j];
+        if (v < mn) mn = v;
+      }
+      lb += mn;
+      for (let b = a + 1; b < S; b++) lb += pairMin[a][b];
+    }
+    if (lb + q.offset >= bestE - 1e-12 && pool.items.length >= pool.size) return;
+    // 값 순서: 기여가 작은 실부터
+    const opts = [];
+    for (let ri = 0; ri < cand[depth].length; ri++) {
+      const key = slots[depth].band + slots[depth].rooms[ri];
+      if (used.has(key)) continue;
+      const i = cand[depth][ri];
+      let v = diag[i];
+      for (const j of chosen) v += M[i * n + j];
+      opts.push([v, i, key]);
+    }
+    opts.sort((x, y) => x[0] - y[0]);
+    for (const [v, i, key] of opts) {
+      used.add(key);
+      chosen.push(i);
+      dfs(depth + 1, cur + v);
+      chosen.pop();
+      used.delete(key);
+    }
+  };
+  dfs(0, 0);
+  return aborted ? { skipped: '시간 초과(부분 탐색)', nodes } : { optimal: true, nodes };
+}
+
 function* permutations(list) {
   if (list.length <= 1) {
     yield list.slice();
@@ -407,10 +501,12 @@ export const SOLVERS = [
   { key: 'd2ts', name: 'D²TS', full: 'Diversification-driven Tabu Search', family: '고전 메타휴리스틱(tabu)', cite: 'Glover, Lü & Hao 2010', run: d2ts },
   { key: 'pr', name: 'Path Relinking', full: 'Path Relinking (PR)', family: '고전 메타휴리스틱(tabu)', cite: 'Wang, Lü, Glover & Hao 2012', run: pathRelinking },
   { key: 'memetic', name: 'Memetic', full: 'Hybrid memetic (tabu 내장)', family: '고전 메타휴리스틱(진화+tabu)', cite: 'Lü, Glover & Hao 2010', run: memetic },
+  { key: 'tabu', name: 'Tabu', full: 'Tabu (D-Wave TabuSampler 방식, MST2 다중 시작)', family: '고전 메타휴리스틱(tabu)', cite: 'Palubeckis 2004; dwave-samplers', run: dwaveTabu },
   { key: 'sa', name: 'SA', full: 'Simulated Annealing (D-Wave 기본값 방식)', family: 'QPU 임시 대체(잠정)', cite: 'Kirkpatrick et al. 1983; dwave-samplers', provisional: true, run: sa },
   { key: 'pt', name: 'Parallel Tempering', full: 'Parallel Tempering (replica exchange)', family: '고전 메타휴리스틱(MCMC)', cite: 'Hukushima & Nemoto 1996', run: parallelTempering },
   { key: 'sqa', name: 'SQA', full: '경로적분 Simulated Quantum Annealing (양자 몬테카를로)', family: 'QPU 대리(고전 양자 MC)', cite: 'Santoro et al. 2002; Martoňák et al. 2002', provisional: true, run: sqa },
   { key: 'sb', name: 'Simulated Bifurcation', full: 'discrete Simulated Bifurcation (dSB)', family: '양자영감·병렬', cite: 'Goto et al. 2019, 2021', run: simulatedBifurcation },
+  { key: 'cpsat', name: 'CP-SAT 방식', full: '제약 프로그래밍 분기한정 (CP-SAT의 브라우저 대체)', family: '정확해(제약 프로그래밍)', cite: 'OR-Tools CP-SAT는 Python 스크립트', run: cpBranchAndBound },
   { key: 'exact', name: '정확해(열거)', full: '전수 열거 (Gurobi·CP-SAT 대체)', family: '정확해', cite: '—', run: exact },
 ];
 

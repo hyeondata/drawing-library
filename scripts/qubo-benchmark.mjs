@@ -16,6 +16,8 @@ const arg = (name, def) => {
   return i > 0 ? Number(process.argv[i + 1]) : def;
 };
 const SEEDS = arg('seeds', 30);
+const WEIGHTS = process.argv.includes('--hand') ? 'hand' : 'calibrated';
+const SUFFIX = WEIGHTS === 'hand' ? '-hand' : '';
 const BUDGET = arg('budget', 100);
 const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public/data/baseline.json'), 'utf8'));
 
@@ -32,10 +34,10 @@ const NAME = { model: '기존: 모델 직접 탐색', ...Object.fromEntries(SOLV
 // ---- 시간 예산 → 평가 횟수 보정(조건마다, 시드 0으로 BUDGET ms 동안 센 횟수) ----
 const calib = {};
 for (const c of CASES) {
-  const q = templates(c.spec)[0].q;
+  const q = templates(c.spec, WEIGHTS)[0].q;
   calib[c.name] = {};
   for (const s of SOLVERS) {
-    if (s.key === 'exact') continue;
+    if (s.key === 'exact' || s.key === 'cpsat') continue;
     const evals = [0, 1, 2].map((k) => runSolver(s.key, q, { seed: 1000 + k, budgetMs: BUDGET }).evals);
     calib[c.name][s.key] = Math.max(1, Math.round(evals.sort((a, b) => a - b)[1]));
   }
@@ -48,7 +50,7 @@ const t0 = Date.now();
 for (const c of CASES) {
   for (let seed = 1; seed <= SEEDS; seed++) {
     for (const algo of ALGOS) {
-      const out = compareAlgorithms(c.spec, { baseline, algorithms: [algo], seed, budgetMs: BUDGET, maxEvals: calib[c.name][algo] || null });
+      const out = compareAlgorithms(c.spec, { baseline, algorithms: [algo], seed, budgetMs: BUDGET, maxEvals: calib[c.name][algo] || null, weights: WEIGHTS });
       const r = out.results[0];
       rows.push({
         case: c.name,
@@ -80,7 +82,7 @@ const q = (v, p) => {
 };
 // 최적 에너지: 조건·템플릿마다 전수 열거 값
 const optimum = {};
-for (const c of CASES) for (const t of templates(c.spec)) {
+for (const c of CASES) for (const t of templates(c.spec, WEIGHTS)) {
   const res = runSolver('exact', t.q, { seed: 1, budgetMs: 60000 });
   optimum[`${c.name}#${t.k}`] = res.energy;
 }
@@ -150,7 +152,7 @@ posthoc.forEach((t, i) => (t.holm = Math.min(1, Math.max(...posthoc.slice(0, i +
 // ---- 결과 파일 ----
 const fmt = (v, d = 1) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
 const lines = [];
-lines.push('# QUBO 풀이기 비교 실험');
+lines.push(`# QUBO 풀이기 비교 실험 (${WEIGHTS === 'hand' ? '손으로 정한 가중치' : '평가 모델로 보정한 가중치'})`);
 lines.push('');
 lines.push(`\`node scripts/qubo-benchmark.mjs --seeds ${SEEDS} --budget ${BUDGET}\`로 만든 파일입니다. 풀이기마다 ${BUDGET}ms를 이 기계에서 평가 횟수로 보정해 고정했으므로 시드가 같으면 결과가 같습니다. '기존'은 평가 모델을 800번 부르는 직접 탐색이라 예산 단위가 다릅니다.`);
 lines.push('');
@@ -194,11 +196,11 @@ for (const t of posthoc) lines.push(`| ${NAME[t.algo]} | ${t.m} | ${fmt(t.z, 2)}
 lines.push('');
 lines.push('## 조건별 QUBO 크기와 보정된 평가 횟수');
 lines.push('');
-lines.push(`| 조건 | 변수(템플릿별) | 최적 에너지(템플릿별) | ${SOLVERS.filter((s) => s.key !== 'exact').map((s) => s.name).join(' | ')} |`);
-lines.push(`| --- | --- | --- | ${SOLVERS.filter((s) => s.key !== 'exact').map(() => '---').join(' | ')} |`);
+lines.push(`| 조건 | 변수(템플릿별) | 최적 에너지(템플릿별) | ${SOLVERS.filter((s) => s.key !== 'exact' && s.key !== 'cpsat').map((s) => s.name).join(' | ')} |`);
+lines.push(`| --- | --- | --- | ${SOLVERS.filter((s) => s.key !== 'exact' && s.key !== 'cpsat').map(() => '---').join(' | ')} |`);
 for (const c of CASES) {
-  const ts = templates(c.spec);
-  lines.push(`| ${c.name} | ${ts.map((t) => `앞 침실 ${t.k + 1}: ${t.q.n}`).join(', ')} | ${ts.map((t) => fmt(optimum[`${c.name}#${t.k}`], 2)).join(', ')} | ${SOLVERS.filter((s) => s.key !== 'exact').map((s) => calib[c.name][s.key].toLocaleString()).join(' | ')} |`);
+  const ts = templates(c.spec, WEIGHTS);
+  lines.push(`| ${c.name} | ${ts.map((t) => `앞 침실 ${t.k + 1}: ${t.q.n}`).join(', ')} | ${ts.map((t) => fmt(optimum[`${c.name}#${t.k}`], 2)).join(', ')} | ${SOLVERS.filter((s) => s.key !== 'exact' && s.key !== 'cpsat').map((s) => calib[c.name][s.key].toLocaleString()).join(' | ')} |`);
 }
 lines.push('');
 lines.push('평가 횟수의 단위는 풀이기마다 다릅니다(SA·PT: 스핀 하나의 수용 판정, tabu 계열: 한 번 뒤집기, SB: 시간 한 걸음). 그래서 같은 시간으로 보정한 횟수를 씁니다.');
@@ -210,6 +212,6 @@ lines.push('- 순위 점수는 평가 모델(기준 35세대)·목표 면적·�
 lines.push('- SA는 D-Wave QPU 결과가 나오기 전의 임시 대체입니다. 양자 어닐링 결과로 보고하지 않습니다. SQA는 고전 컴퓨터에서 돌린 경로적분 양자 몬테카를로로, SA보다 양자 어닐링에 가까운 대리일 뿐 QPU 결과가 아닙니다.');
 const outDir = path.join(root, 'evidence', 'results');
 fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(path.join(outDir, 'qubo-benchmark.md'), `${lines.join('\n')}\n`);
-fs.writeFileSync(path.join(outDir, 'qubo-benchmark.json'), JSON.stringify({ seeds: SEEDS, budgetMs: BUDGET, calib, optimum, posthoc, leader, meanRank, friedman: { chi2, df, p: pFriedman }, rho, rows }, null, 1));
+fs.writeFileSync(path.join(outDir, `qubo-benchmark${SUFFIX}.md`), `${lines.join('\n')}\n`);
+fs.writeFileSync(path.join(outDir, `qubo-benchmark${SUFFIX}.json`), JSON.stringify({ seeds: SEEDS, budgetMs: BUDGET, calib, optimum, posthoc, leader, meanRank, friedman: { chi2, df, p: pFriedman }, rho, rows }, null, 1));
 console.log(lines.slice(0, 22).join('\n'));

@@ -93,13 +93,13 @@ export function spearman(a, b) {
 /**
  * 앞 띠 작은방 수가 다른 템플릿 두 개(들어가는 최대 개수와 하나 적게). 템플릿마다 QUBO가 다르므로 에너지는 같은 템플릿끼리만 비교한다.
  */
-export function templates(spec) {
+export function templates(spec, weights = 'calibrated') {
   const kmax = frontBedCount(spec);
-  return [...new Set([kmax, kmax - 1])].filter((k) => k >= 0).map((k) => ({ k, q: buildQubo(spec, { frontBeds: k }) }));
+  return [...new Set([kmax, kmax - 1])].filter((k) => k >= 0).map((k) => ({ k, q: buildQubo(spec, { frontBeds: k, weights }) }));
 }
 
-export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, onProgress } = {}) {
-  const tpls = templates(spec);
+export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'calibrated', onProgress } = {}) {
+  const tpls = templates(spec, weights);
   const q = tpls[0].q;
   const results = [];
   const points = [];
@@ -162,7 +162,7 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
   const exactRes = results.find((x) => x.key === 'exact');
   const optimum = Object.fromEntries((exactRes?.perTemplate || []).filter((p) => p.info?.optimal).map((p) => [p.k, p.energy]));
   return {
-    qubo: { templates: tpls.map((t) => ({ k: t.k, n: t.q.n, penalty: t.q.penalty, front: t.q.bands.front.rooms, back: t.q.bands.back.rooms })), terms: q.terms.length, optimum },
+    qubo: { weights: typeof weights === 'string' ? weights : 'custom', templates: tpls.map((t) => ({ k: t.k, n: t.q.n, penalty: t.q.penalty, front: t.q.bands.front.rooms, back: t.q.bands.back.rooms })), terms: q.terms.length, optimum },
     results,
     rho: rhoN ? rhoSum / rhoN : null,
     points: points.length,

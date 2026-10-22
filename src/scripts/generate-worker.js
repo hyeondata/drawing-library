@@ -5,10 +5,10 @@ import { optimize } from '../generate/optimize.js';
 import { buildQubo, toBqmJson } from '../generate/qubo.js';
 
 self.onmessage = (e) => {
-  const { type = 'generate', spec, baseline, seed, id, algorithms, budgetMs } = e.data;
+  const { type = 'generate', spec, baseline, seed, id, algorithms, budgetMs, weights = 'calibrated' } = e.data;
   try {
     if (type === 'qubo') {
-      self.postMessage({ id, done: true, bqm: toBqmJson(buildQubo(spec)) });
+      self.postMessage({ id, done: true, bqm: toBqmJson(buildQubo(spec, { weights })) });
       return;
     }
     if (type === 'compare') {
@@ -17,6 +17,7 @@ self.onmessage = (e) => {
         algorithms,
         seed,
         budgetMs,
+        weights,
         onProgress: (p, key) => self.postMessage({ id, progress: p, key }),
       });
       self.postMessage({ id, done: true, compare: out });
