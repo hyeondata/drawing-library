@@ -521,6 +521,17 @@ export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null } 
   const wall0 = realNow();
   if (maxEvals) now = () => (evals / maxEvals) * budgetMs;
   const t0 = now();
+  // 수렴 기록: 지금까지 최저 에너지가 바뀔 때마다 [경과 ms, 평가 횟수, 에너지]
+  const trace = [];
+  let bestSoFar = Infinity;
+  const add = pool.add.bind(pool);
+  pool.add = (x, e) => {
+    add(x, e);
+    if (e < bestSoFar - 1e-12) {
+      bestSoFar = e;
+      trace.push([realNow() - wall0, evals, e]);
+    }
+  };
   let info;
   try {
     info = solver.run(q, { r, deadline: t0 + budgetMs, pool, count: () => evals++ }) || {};
@@ -530,5 +541,5 @@ export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null } 
   const ms = realNow() - wall0;
   const samples = pool.items.map((it) => ({ x: it.x, e: it.e, feasible: feasible(q, it.x) }));
   const best = samples[0];
-  return { key, energy: best ? best.e : null, feasible: best ? best.feasible : false, ms, evals, samples, info };
+  return { key, energy: best ? best.e : null, feasible: best ? best.feasible : false, ms, evals, samples, info, trace };
 }

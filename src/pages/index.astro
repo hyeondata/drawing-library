@@ -83,6 +83,7 @@ const refsOf = (ids?: readonly string[]) => (ids ?? []).map((id) => refById.get(
     <p class="method-lede">
       회의 결정에 따라 PNG 대신 라벨 JSON을 입력으로 쓰고, AI 허브 실제 도면을 정답지(기준 분포)로 삼습니다.
       주관적인 '좋은 도면' 대신 <strong>실제 도면 분포와의 근접도</strong>와 <strong>시공 가능성(정합성)</strong>을 봅니다.
+      식이 값을 어떻게 바꾸는지는 <a href="method/">계산 원리</a>에서 직접 움직여 볼 수 있습니다.
     </p>
 
     <div class="method-grid">

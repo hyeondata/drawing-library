@@ -255,4 +255,19 @@ for (const t of TERMS) md.push(`| ${t.id} | ${t.hand} | ${weights[t.id]} | ${t.l
 md.push('');
 md.push('양수는 그 배치를 피하게(에너지를 올림), 음수는 그 배치를 끌어오게 합니다. 손 가중치 0인 항은 보정에서만 쓰는 후보 항입니다.');
 fs.writeFileSync(path.join(root, 'evidence/results/qubo-calibration.md'), `${md.join('\n')}\n`);
+// 계산 원리 화면(/method/)의 시각화용: 항·가중치·교차검증과 한 조건(84㎡ 방 3, 첫 템플릿)의 배치별 항 값·점수
+const demo = groups.find((g) => specs[g.si].area === 84 && specs[g.si].bedrooms === 3) || groups[0];
+const demoSpec = specs[demo.si];
+fs.writeFileSync(
+  path.join(root, 'public/data/qubo-calibration.json'),
+  JSON.stringify({
+    terms: TERMS.map((t) => ({ id: t.id, label: t.label, hand: t.hand, calibrated: weights[t.id] })),
+    method: bestMethod,
+    cv: { hand: cv.hand, calibrated: cv[bestMethod] },
+    demo: {
+      name: `${demoSpec.area}㎡ · 방 ${demoSpec.bedrooms}개 · 앞 띠 작은방 ${demo.k}개 · 선호 ${demoSpec.prefs.join(', ') || '없음'}`,
+      points: demo.rows.map((r) => ({ phi: r.phi.map((v) => Math.round(v * 1000) / 1000), objective: Math.round(r.objective * 10) / 10 })),
+    },
+  }),
+);
 console.log(md.join('\n'));
