@@ -76,7 +76,7 @@ export const signature = (layout) => {
 /**
  * 최적화. 반환: 서로 다른 배치의 상위 count개 [{ layout, params, ...scoreLayout }]
  */
-export function optimize(spec, { baseline, seed = 1, random = 400, refine = 400, count = 3, onProgress } = {}) {
+export function optimize(spec, { baseline, seed = 1, random = 400, refine = 400, count = 3, onProgress, gallery = null } = {}) {
   const r = rng(seed);
   const total = random + refine;
   const pool = [];
@@ -89,6 +89,9 @@ export function optimize(spec, { baseline, seed = 1, random = 400, refine = 400,
     const layout = buildLayout(spec, params);
     const s = scoreLayout(spec, layout, baseline);
     tick();
+    // 탐색 과정 보기용: 일정 간격으로 만든 후보를 모은다(점수 없이 배치만).
+    if (gallery && done % Math.max(1, Math.floor(total / 24)) === 0 && gallery.length < 24)
+      gallery.push({ W: layout.W, D: layout.D, rooms: layout.rooms.map(({ key, type, name, x, y, w, h }) => ({ key, type, name, x, y, w, h })), signature: signature(layout), index: done, phase: done <= random ? '무작위' : '다듬기' });
     if (s) pool.push({ layout, params, ...s, signature: signature(layout) });
     return s;
   };

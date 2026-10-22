@@ -1,5 +1,6 @@
 // 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
+import { MIN_SIDE } from '../generate/layout.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
@@ -10,7 +11,7 @@ const HANDOFF_KEY = 'floorplan-eval:image';
 const RESULT = steps.length - 1;
 const PREF = Object.fromEntries([...data.syntax, ...data.lifestyle].map((c) => [c.key, c]));
 
-const state = { view: 'full', compare: null, step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
+const state = { view: 'full', compare: null, gallery: [], step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
 
 // ---------- 선택 읽기 ----------
 const radio = (name) => form.querySelector(`input[name="${name}"]:checked`);
@@ -139,6 +140,7 @@ async function run(seed = state.seed) {
     if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
     if (m.done) {
       state.top = m.top;
+      state.gallery = m.gallery || [];
       state.compare = null;
       state.current = 0;
       state.ms = performance.now() - t0;
@@ -172,6 +174,7 @@ async function runCompare(algorithms, seed) {
     if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
     if (m.done) {
       state.compare = { ...m.compare, budgetMs, seed };
+      state.gallery = [];
       state.top = m.compare.results.filter((r) => r.best).map((r) => ({ ...r.best, tabLabel: r.name, algo: r }));
       state.current = 0;
       state.ms = performance.now() - t0;
@@ -201,8 +204,6 @@ function renderCompare() {
         <td class="mono">${r.energy === null ? '—' : r.energy.toFixed(2)}${isOpt ? ' <span class="good-text">최적</span>' : ''}${r.template !== null && r.template !== undefined ? `<br><span class="note">템플릿 앞 침실 ${r.template + 1}개</span>` : ''}</td>
         <td>${r.key === 'model' ? '—' : r.feasible ? '지킴' : '<span class="error-text">어김(복구)</span>'}</td>
         <td class="mono">${r.key === 'model' ? r.budget : `${Math.round(r.ms)}ms`}</td>
-        <td class="mono">${b ? b.model.toFixed(1) : '—'}</td>
-        <td class="mono">${b ? b.objective.toFixed(1) : '—'}</td>
         <td>${b ? (b.doorIssues ? `<span class="error-text">${b.doorIssues}</span>` : '0') : '—'}</td>
       </tr>`;
     })
@@ -210,13 +211,12 @@ function renderCompare() {
   box.innerHTML = `
     <div class="gen-cmp">
       <table class="gen-table gen-cmp-table">
-        <thead><tr><th>알고리즘</th><th>QUBO 에너지 ↓</th><th>원-핫 제약</th><th>시간</th><th>모델 점수</th><th>순위 점수</th><th>문 동선 문제</th></tr></thead>
+        <thead><tr><th>알고리즘</th><th>QUBO 에너지 ↓</th><th>원-핫 제약</th><th>시간</th><th>문 동선 문제</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       <p class="note">
         가중치: ${cmp.qubo.weights === 'hand' ? '손으로 정한 값' : '평가 모델로 보정한 값'}. QUBO 템플릿 ${cmp.qubo.templates.length}개(앞 띠 침실 수가 다름): ${cmp.qubo.templates.map((t) => `앞 침실 ${t.k + 1}개 — 변수 ${t.n}개(앞 ${t.front.length}실×${t.front.length}칸, 뒤 ${t.back.length}실×${t.back.length}칸), 벌점 ${t.penalty}${optOf(t.k) !== null ? `, 최적 에너지 ${optOf(t.k).toFixed(2)}` : ''}`).join(' / ')}. 에너지는 같은 템플릿끼리만 비교합니다.
-        풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 연속값을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
-        에너지와 순위 점수의 순위상관 ρ = ${cmp.rho === null ? '—' : cmp.rho.toFixed(2)}(후보 ${cmp.points}개; 음수일수록 에너지가 낮은 해가 좋은 평면).
+        풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 깊이·폭을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
         <b>n = 1(한 번 실행), 통계적 비교 불가</b> — 어느 알고리즘이 낫다고 말할 수 없습니다(시드 30개 비교는 evidence/results/qubo-benchmark.md). 시드를 바꿔 다시 돌려 보세요. SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
       </p>
       <button type="button" class="button-ghost small" id="gen-record">실행 기록 JSON</button>
@@ -240,9 +240,6 @@ function renderCompare() {
         feasible: r.feasible,
         ms: r.ms,
         evals: r.evals,
-        modelScore: r.best?.model ?? null,
-        objective: r.best?.objective ?? null,
-        valid: r.best?.unit.validity.valid ?? null,
         doorIssues: r.best?.doorIssues ?? null,
         order: r.best ? { front: r.best.params?.frontOrder, back: r.best.params?.backOrder } : null,
       })),
@@ -301,7 +298,7 @@ function renderResult() {
     return;
   }
   $('#gen-tabs').innerHTML = top
-    .map((c, i) => `<button type="button" role="tab" data-cand="${i}" aria-pressed="${i === state.current}" aria-selected="${i === state.current}">${esc(c.tabLabel || `${i + 1}안`)} <span class="mono">${c.unit.score.toFixed(0)}점</span></button>`)
+    .map((c, i) => `<button type="button" role="tab" data-cand="${i}" aria-pressed="${i === state.current}" aria-selected="${i === state.current}">${esc(c.tabLabel || `${i + 1}안`)}</button>`)
     .join('');
   $('#gen-tabs').querySelectorAll('[data-cand]').forEach((b) =>
     b.addEventListener('click', () => {
@@ -316,17 +313,6 @@ function renderResult() {
     : '';
   $('#gen-plan').innerHTML = `${layoutSvg(c.layout, { title: titleOf(spec, state.current), mode: state.view })}${legend}<figcaption class="note">전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡ (${(c.layout.W).toFixed(2)} × ${c.layout.D.toFixed(2)}m) · ${top.length}안 중 ${state.current + 1}번째 · 후보 ${state.ms ? `${Math.round(state.ms / 100) / 10}초` : ''}</figcaption>`;
 
-  const u = c.unit;
-  const groups = Object.entries(u.groups)
-    .map(([, g]) => `<li><span>${esc(g.label)}</span><b class="mono">${Math.round(g.score)}</b></li>`)
-    .join('');
-  const failed = u.groups.rules.items.filter((r) => !r.pass);
-  const prefRows = c.prefs
-    .map((p) => {
-      const d = PREF[p.key];
-      return `<li><div class="gen-pref-head"><b>${esc(d.title)}</b><span class="mono">${Math.round(p.score)}</span></div>${bar(p.score)}<p class="note">${esc(d.metrics.join(' · '))}${cites(d.refs)}</p>${d.note ? `<p class="note">${esc(d.note)}</p>` : ''}</li>`;
-    })
-    .join('');
   const m2 = (share) => share * spec.area;
   const rows = [
     ['거실', m2(spec.targets.living), c.actual.living],
@@ -336,23 +322,31 @@ function renderResult() {
   ]
     .map(([n, t, a]) => `<tr><td>${n}</td><td class="mono">${t.toFixed(1)}</td><td class="mono">${a.toFixed(1)}</td></tr>`)
     .join('');
-
+  const indoor = c.layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실');
+  const roomRows = [...c.layout.rooms]
+    .sort((a, b) => b.w * b.h - a.w * a.h)
+    .map((r) => `<tr><td>${esc(r.name)}</td><td class="mono">${(r.w * r.h).toFixed(1)}</td><td class="mono">${r.w.toFixed(2)} × ${r.h.toFixed(2)}</td></tr>`)
+    .join('');
+  const applied = [...spec.prefs.map((k) => PREF[k].title), spec.baths >= 2 ? '화장실 2개' : '화장실 1개', spec.dress ? '드레스룸' : null, spec.multi ? '다목적실' : null, spec.balcony ? '전면 발코니' : '확장형', spec.outdoorUnit ? '실외기실' : null].filter(Boolean);
+  const opens = c.layout.openings || [];
+  const cnt = (k) => opens.filter((o) => o.kind === k).length;
   $('#gen-detail').innerHTML = `
-    <div class="gen-score">
-      <div><span class="gen-big mono">${u.score.toFixed(1)}</span><span class="gen-grade">${u.grade}</span></div>
-      <p>평가 모델 점수 · <span class="${u.validity.valid ? 'good-text' : 'error-text'}">${u.validity.valid ? '유효한 평면' : `유효하지 않음: ${esc(u.validity.failed.join(', '))}`}</span></p>
+    <div class="gen-sumgrid">
+      <div><span class="gen-k">전용면적</span><b class="mono">${(c.layout.W * c.layout.D).toFixed(1)}㎡</b></div>
+      <div><span class="gen-k">폭 × 깊이</span><b class="mono">${c.layout.W.toFixed(2)} × ${c.layout.D.toFixed(2)}m</b></div>
+      <div><span class="gen-k">실</span><b class="mono">${indoor.length}개</b></div>
+      <div><span class="gen-k">문 · 창</span><b class="mono">${cnt('door')} · ${cnt('window') + cnt('sliding')}</b></div>
     </div>
-    <ul class="gen-groups">${groups}</ul>
+    <p class="gen-applied">${applied.map((t) => `<span class="chip">${esc(t)}</span>`).join(' ')}</p>
     ${c.doorIssues ? `<p class="note error-text">문 동선 문제 ${c.doorIssues}개: ${esc([...c.layout.doorCheck.unreachable.map((k) => `현관에서 문으로 갈 수 없음(${k})`), ...c.layout.doorCheck.throughBedroom.map((k) => `침실을 지나야 함(${k})`)].join(', '))}</p>` : '<p class="note">문 동선: 현관에서 모든 실에 문으로 갈 수 있고, 침실을 지나야 하는 실이 없습니다.</p>'}
-    ${c.narrow ? `<p class="note error-text">최소 폭(욕실 1.5m·침실 2.4m·안방 3.0m·거실 3.6m)보다 좁은 실이 ${c.narrow}개 있습니다. 평수에 비해 방이나 실이 많으면 생기니, 방 개수나 구성을 줄여 보세요.</p>` : ''}
-    ${failed.length ? `<p class="note">통과하지 못한 규칙: ${failed.map((r) => `${esc(r.label)}(${esc(r.detail)})`).join(', ')}</p>` : '<p class="note">정합성 규칙을 모두 통과했습니다.</p>'}
-    <h3>고른 조건에 얼마나 맞나</h3>
-    <ul class="gen-prefs">
-      <li><div class="gen-pref-head"><b>목표 면적 부합</b><span class="mono">${Math.round(c.fit)}</span></div>${bar(c.fit)}
-        <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th></tr></thead><tbody>${rows}</tbody></table></li>
-      ${prefRows}
-    </ul>
-    <p class="note">순위 점수 ${c.objective.toFixed(1)} = 모델 ${u.score.toFixed(1)} × ${c.prefs.length ? '0.45' : '0.64'} + 면적 부합 ${Math.round(c.fit)} × ${c.prefs.length ? '0.25' : '0.36'}${c.prefs.length ? ` + 선호 평균 ${Math.round(c.prefScore)} × 0.30` : ''}${c.narrow ? ` − 좁은 실 ${c.narrow}개 감점` : ''}</p>`;
+    ${c.narrow ? `<p class="note error-text">최소 폭(욕실 1.5m·침실 2.4m·안방 3.0m·거실 3.6m)보다 좁은 실이 ${c.narrow}개 있습니다. 방 개수나 구성을 줄여 보세요.</p>` : ''}
+    <h3>목표 면적과 생성 면적</h3>
+    <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th></tr></thead><tbody>${rows}</tbody></table>
+    <details class="gen-rooms"><summary>실 목록(${c.layout.rooms.length}개)</summary>
+      <table class="gen-table"><thead><tr><th>실</th><th>면적 ㎡</th><th>폭 × 깊이 m</th></tr></thead><tbody>${roomRows}</tbody></table>
+    </details>`;
+  renderProcess();
+  renderGallery();
   $('#gen-result').hidden = false;
 }
 
@@ -394,16 +388,142 @@ $('#gen-more').addEventListener('click', () => {
   }
   run(state.seed + 1);
 });
-$('#gen-open').addEventListener('click', () => {
-  const c = state.top[state.current];
-  const payload = { name: `APT_FP_SPA_${numberOf()}`, label: aihub('SPA'), preview: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(currentSvg())}`, source: 'generate' };
-  try {
-    sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(payload));
-  } catch {
-    return saveAihub('SPA');
+
+
+// ---------- 생성 과정 ----------
+const STAGES = [
+  ['전용면적', '사각형 잡기'],
+  ['앞·뒤 띠', '남북 두 띠로 나누기'],
+  ['실 배치', '어느 실이 어느 칸에'],
+  ['폭 나누기', '최소 폭 먼저, 남는 폭은 비례'],
+  ['복도·부속실', '얕은 방 뒤 복도, 안방 뒤 욕실·드레스룸'],
+  ['문·개구부', '들어갈 쪽을 정해 문 달기'],
+  ['창·발코니 문', '바깥 벽에 창'],
+  ['설비', '욕실·주방 설비 놓기'],
+];
+const proc = { stage: 1, timer: null };
+const bandsOf = (layout) => {
+  const indoor = layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실');
+  const front = indoor.filter((r) => Math.abs(r.y + r.h - layout.D) < 1e-6 && r.type !== '기타').sort((a, b) => a.x - b.x);
+  const back = indoor.filter((r) => r.y < 1e-6).sort((a, b) => a.x - b.x || a.y - b.y);
+  const living = layout.rooms.find((r) => r.key === 'living');
+  return { front, back, Df: living ? living.h : layout.D / 2, Db: living ? living.y : layout.D / 2 };
+};
+const minOf = (r) => (r.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[r.type] || 0);
+function matrixSvg(rooms, label) {
+  // 행 = 실, 열 = 칸(왼쪽부터). 칠한 칸 = 배정(x = 1). 위아래로 쌓인 실은 같은 칸.
+  const cols = [];
+  for (const r of rooms) if (!cols.some((c) => Math.abs(c - r.x) < 1e-6)) cols.push(r.x);
+  const cw = 26;
+  const rh = 20;
+  const L = 74;
+  const W = L + cols.length * cw + 4;
+  const H = 18 + rooms.length * rh + 4;
+  let g = `<text x="${L}" y="12" font-size="11" fill="var(--text-muted)">${label} 칸 →</text>`;
+  rooms.forEach((r, i) => {
+    g += `<text x="${L - 6}" y="${18 + i * rh + 14}" font-size="11" text-anchor="end" fill="var(--text-secondary)">${esc(r.name)}</text>`;
+    cols.forEach((cx, j) => {
+      const on = Math.abs(cx - r.x) < 1e-6;
+      g += `<rect x="${L + j * cw + 1}" y="${18 + i * rh + 1}" width="${cw - 2}" height="${rh - 2}" rx="3" fill="${on ? 'var(--accent)' : 'var(--surface-2)'}"><title>${esc(r.name)} · ${j + 1}번 칸${on ? ' (배정)' : ''}</title></rect>`;
+      if (on) g += `<text x="${L + j * cw + cw / 2}" y="${18 + i * rh + 14}" font-size="11" text-anchor="middle" fill="#fff" font-weight="700">1</text>`;
+    });
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" class="gen-matrix" role="img" aria-label="${label} 배정 행렬">${g}</svg>`;
+}
+function widthSvg(rooms, total, label) {
+  // 한 띠의 폭 나누기: 진한 부분 = 최소 폭, 옅은 부분 = 남는 폭에서 받은 몫
+  const cols = [];
+  for (const r of rooms) if (!cols.some((c) => Math.abs(c.x - r.x) < 1e-6)) cols.push(r);
+  const Wpx = 560;
+  const k = Wpx / total;
+  const H = 46;
+  let g = `<text x="0" y="11" font-size="11" fill="var(--text-muted)">${label} · 전체 ${total.toFixed(2)}m</text>`;
+  cols.forEach((r, i) => {
+    const x = r.x * k;
+    const w = r.w * k;
+    const m = Math.min(r.w, minOf(r)) * k;
+    const col = `var(--series-${(i % 5) + 1})`;
+    g += `<rect x="${x + 1}" y="16" width="${Math.max(1, w - 2)}" height="18" fill="${col}" fill-opacity="0.35"><title>${esc(r.name)} 폭 ${r.w.toFixed(2)}m = 최소 ${minOf(r).toFixed(1)}m + 남는 몫 ${Math.max(0, r.w - minOf(r)).toFixed(2)}m</title></rect>`;
+    g += `<rect x="${x + 1}" y="16" width="${Math.max(1, m - 2)}" height="18" fill="${col}"><title>${esc(r.name)} 최소 폭 ${minOf(r).toFixed(1)}m</title></rect>`;
+    if (w > 34) g += `<text x="${x + w / 2}" y="45" font-size="10" text-anchor="middle" fill="var(--text-secondary)">${esc(r.name)} ${r.w.toFixed(1)}</text>`;
+  });
+  return `<svg viewBox="-2 0 ${Wpx + 4} ${H + 4}" class="gen-widths" role="img" aria-label="${label} 폭 나누기">${g}</svg>`;
+}
+function stageText(c, stage) {
+  const L = c.layout;
+  const { front, back, Df, Db } = bandsOf(L);
+  const opens = L.openings || [];
+  const cnt = (k) => opens.filter((o) => o.kind === k).length;
+  const fx = (L.fixtures || []).reduce((m, f) => ((m[f.type] = (m[f.type] || 0) + 1), m), {});
+  const halls = L.rooms.filter((r) => r.type === '기타');
+  const suite = L.rooms.filter((r) => r.key === 'bathMaster' || r.key === 'dress');
+  const qubo = c.algo && c.algo.key !== 'model';
+  switch (stage) {
+    case 1:
+      return `<p>전용 <b>${state.spec.area}㎡</b>를 폭 × 깊이 사각형으로 잡습니다. 깊이는 평형에 맞춘 범위(7.0~9.8m)에서 탐색으로 정하고, 폭 = 면적 ÷ 깊이입니다.</p><p class="mth-formula">폭 ${L.W.toFixed(2)}m = ${state.spec.area}㎡ ÷ 깊이 ${L.D.toFixed(2)}m</p><p class="note">${state.spec.balcony ? '앞(남)쪽에 깊이 1.5m 발코니를 붙입니다.' : '확장형이라 발코니를 두지 않습니다.'}</p>`;
+    case 2:
+      return `<p>사각형을 <b>앞 띠(남)</b>와 <b>뒤 띠(북)</b>로 나눕니다. 앞 띠에는 거실·안방·작은방, 뒤 띠에는 주방·현관·욕실·드레스룸이 갑니다(한국 판상형의 거실 중심 배치).</p><p class="mth-formula">앞 띠 ${Df.toFixed(2)}m + 뒤 띠 ${Db.toFixed(2)}m = 깊이 ${L.D.toFixed(2)}m (앞 띠 비율 ${(Df / L.D).toFixed(2)})</p>`;
+    case 3:
+      return `<p>각 띠에서 실의 순서(어느 실이 몇 번째 칸에 가는가)를 정합니다. 행 = 실, 열 = 칸이고 칠한 칸이 배정입니다(x = 1). ${qubo ? `이 안은 <b>${esc(c.algo.name)}</b>가 QUBO(실마다 칸 하나, 칸마다 실 하나 + 실 쌍 인접 항)를 풀어 나온 순서입니다.` : '이 안은 순서를 무작위로 바꿔 가며 찾은 것입니다.'}</p><div class="gen-matrices">${matrixSvg(front, '앞 띠')}${matrixSvg(back, '뒤 띠')}</div>`;
+    case 4:
+      return `<p>칸마다 <b>최소 폭을 먼저</b> 주고(욕실 1.5·현관 1.2·침실 2.4·안방 3.0·거실 3.6m), 남는 폭은 원하는 폭(목표 면적 ÷ 깊이)이 최소 폭을 넘는 만큼에 비례해 나눕니다. 진한 부분이 최소 폭, 옅은 부분이 남는 몫입니다.</p><p class="mth-formula">폭 = 최소 폭 + (전체 − Σ최소 폭) × 초과분 ÷ Σ초과분</p>${widthSvg(front, L.W, '앞 띠')}${widthSvg(back, L.W, '뒤 띠')}`;
+    case 5:
+      return `<p>${halls.length ? `작은방을 거실보다 얕게 두고 그 뒤 <b>복도 ${halls.length}곳</b>(폭 ${halls.map((h) => h.h.toFixed(2)).join('·')}m)을 만들어 침실로 들어가게 합니다.` : '작은방이 앞 띠를 꽉 채워 복도가 없습니다.'} ${suite.length ? `안방 뒤에 <b>부속실(${suite.map((r) => r.name).join('·')})</b>을 나란히 붙여 모두 안방과 맞닿게 합니다.` : ''}</p><p class="note">밝게 표시한 실이 이 단계에서 정한 실입니다.</p>`;
+    case 6:
+      return `<p>공용 공간(현관·거실·주방·복도)끼리는 벽 없이 트고(<b>개구부 ${cnt('opening')}곳</b>), 다른 실은 들어갈 쪽을 정해 <b>문 ${cnt('door')}개</b>를 답니다. 침실은 복도 > 거실 > 현관 > 주방 순, 부부욕실·드레스룸은 안방 쪽. 현관문은 바깥으로 엽니다.</p><p class="note">${c.doorIssues ? `문 동선 문제 ${c.doorIssues}개가 있습니다.` : '문으로 현관에서 모든 실에 갈 수 있고, 침실을 지나야 하는 실이 없습니다.'}</p>`;
+    case 7:
+      return `<p>거실·침실·주방·욕실의 가장 긴 바깥 벽에 <b>창 ${cnt('window')}개</b>(거실 70%, 침실 55%, 주방 45% 폭), 발코니와 맞닿은 변에 <b>발코니 문(미닫이) ${cnt('sliding')}개</b>를 냅니다.</p>`;
+    default:
+      return `<p>욕실에는 문에서 먼 벽을 따라 변기·세면대(공용욕실은 욕조), 주방에는 거실 맞은편 벽에 싱크대·가스레인지를 놓습니다: ${Object.entries(fx).map(([t, n]) => `${t} ${n}`).join(' · ')}.</p><p><b>완성.</b> 오른쪽 위 버튼으로 AI 허브 형식(SPA·STR·OBJ) JSON을 받을 수 있습니다.</p>`;
   }
-  location.href = `${base}#image`;
+}
+function renderProcess() {
+  const c = state.top[state.current];
+  if (!c) return;
+  $('#proc-steps').innerHTML = STAGES.map(([t, sub], i) => `<li><button type="button" data-stage="${i + 1}" aria-current="${proc.stage === i + 1 ? 'step' : 'false'}"><span class="gen-num">${i + 1}</span><span><b>${t}</b><small>${sub}</small></span></button></li>`).join('');
+  $('#proc-steps').querySelectorAll('[data-stage]').forEach((b) => b.addEventListener('click', () => setStage(Number(b.dataset.stage), true)));
+  $('#proc-plan').innerHTML = layoutSvg(c.layout, { stage: proc.stage, title: `${proc.stage}. ${STAGES[proc.stage - 1][0]}` });
+  $('#proc-text').innerHTML = stageText(c, proc.stage);
+  $('#proc-count').textContent = `${proc.stage} / ${STAGES.length}`;
+}
+function setStage(k, stop = false) {
+  proc.stage = Math.max(1, Math.min(STAGES.length, k));
+  if (stop) stopPlay();
+  renderProcess();
+}
+function stopPlay() {
+  clearInterval(proc.timer);
+  proc.timer = null;
+  $('#proc-play').textContent = '▶ 자동 재생';
+}
+$('#proc-prev').addEventListener('click', () => setStage(proc.stage - 1, true));
+$('#proc-next').addEventListener('click', () => setStage(proc.stage + 1, true));
+$('#proc-play').addEventListener('click', () => {
+  if (proc.timer) return stopPlay();
+  if (proc.stage >= STAGES.length) proc.stage = 0;
+  $('#proc-play').textContent = '❚❚ 멈춤';
+  setStage(proc.stage + 1);
+  proc.timer = setInterval(() => (proc.stage >= STAGES.length ? stopPlay() : setStage(proc.stage + 1)), 1600);
 });
+
+// ---------- 탐색한 후보 ----------
+function renderGallery() {
+  const wrap = $('#gen-gallery-wrap');
+  const g = state.gallery || [];
+  if (!g.length) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  const chosen = new Map(state.top.map((c, i) => [c.signature, i + 1]));
+  $('#gen-gallery-note').textContent = `후보 ${g.at(-1).index}개 이상을 만드는 동안 일정 간격으로 뽑은 ${g.length}개입니다(앞쪽은 무작위 탐색, 뒤쪽은 좋은 안을 다듬는 단계). 테두리 친 것이 고른 안과 같은 배치입니다.`;
+  $('#gen-gallery').innerHTML = g
+    .map((it) => {
+      const k = chosen.get(it.signature);
+      return `<figure class="gen-thumb${k ? ' on' : ''}" title="${it.index}번째 후보 · ${it.phase}">${layoutSvg(it, { showArea: false })}<figcaption>${it.index}번째 · ${it.phase}${k ? ` · ${k}안 배치` : ''}</figcaption></figure>`;
+    })
+    .join('');
+}
 
 updateM2();
 show(0, false);

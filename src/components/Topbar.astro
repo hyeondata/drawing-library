@@ -1,8 +1,7 @@
 ---
-import { MODEL_VERSION } from '../model/config.js';
 
 interface Props {
-  current: 'evaluate' | 'examples' | 'image' | 'generate' | 'method';
+  current: 'generate';
 }
 const { current } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -11,14 +10,9 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 <header class="topbar">
   <a class="brand" href={base}>
     <img src={`${base}favicon.svg`} alt="" width="28" height="28" />
-    <span>평면 평가 랩</span>
+    <span>평면 생성 랩</span>
   </a>
   <nav class="topnav" aria-label="주요 메뉴">
-    <a href={`${base}#workspace`} aria-current={current === 'evaluate' ? 'page' : undefined}>평가하기</a>
-    <a href={`${base}image/`} aria-current={current === 'image' ? 'page' : undefined}>이미지로 평가</a>
-    <a href={`${base}generate/`} aria-current={current === 'generate' ? 'page' : undefined}>도면 생성</a>
-    <a href={`${base}examples/`} aria-current={current === 'examples' ? 'page' : undefined}>예시 도면</a>
-    <a href={`${base}method/`} class="nav-optional" aria-current={current === 'method' ? 'page' : undefined}>계산 원리</a>
-    <span class="chip mono nav-optional">model v{MODEL_VERSION}</span>
+    <a href={base} aria-current={current === 'generate' ? 'page' : undefined}>도면 생성</a>
   </nav>
 </header>

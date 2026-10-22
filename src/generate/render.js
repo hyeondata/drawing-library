@@ -7,7 +7,16 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
  * layout(m) → SVG. 1m = 40 단위. 실 이름·면적과 바깥 치수(mm)를 적는다.
  * mode: 'space'(실만, 예시 도면의 SPA처럼) | 'full'(모든 요소: 실 + 문·창(STR) + 설비(OBJ)).
  */
-export function layoutSvg(layout, { title = '', showArea = true, mode = 'space' } = {}) {
+export function layoutSvg(layout, { title = '', showArea = true, mode = 'space', stage = null } = {}) {
+  // stage(생성 과정 1~8): 1 전용면적 윤곽, 2 앞·뒤 띠, 3 실 배치, 4 폭 나누기, 5 복도·부속실, 6 문·개구부, 7 창·발코니 문, 8 설비(완성)
+  if (stage) {
+    const keep = stage >= 8 ? null : stage >= 7 ? ['door', 'opening', 'window', 'sliding'] : stage >= 6 ? ['door', 'opening'] : [];
+    layout = { ...layout, openings: keep ? (layout.openings || []).filter((o) => keep.includes(o.kind)) : layout.openings, fixtures: stage >= 8 ? layout.fixtures : [] };
+    mode = stage >= 6 ? 'full' : 'space';
+    showArea = stage === 3 || stage >= 8;
+  }
+  const outlineOnly = stage !== null && stage <= 2;
+  const highlight = stage === 5 ? new Set(layout.rooms.filter((r) => r.type === '기타' || r.key === 'bathMaster' || r.key === 'dress' || r.key === 'master').map((r) => r.key)) : null;
   const S = 40;
   const pad = 70;
   const ys = layout.rooms.map((r) => r.y);
@@ -25,9 +34,14 @@ export function layoutSvg(layout, { title = '', showArea = true, mode = 'space' 
   );
   for (const r of layout.rooms) {
     const outdoor = r.type === '발코니' || r.type === '실외기실';
+    if (outlineOnly) {
+      if (outdoor) parts.push(`<rect x="${X(r.x).toFixed(1)}" y="${Y(r.y).toFixed(1)}" width="${(r.w * S).toFixed(1)}" height="${(r.h * S).toFixed(1)}" fill="url(#hatch)" stroke="#8b88a0" stroke-width="2" stroke-dasharray="6 4"/>`);
+      continue;
+    }
     const fill = outdoor ? 'url(#hatch)' : roomGroupOf(r.type).fill;
+    const dim = highlight && !highlight.has(r.key) && !outdoor ? ' fill-opacity="0.3"' : '';
     parts.push(
-      `<rect x="${X(r.x).toFixed(1)}" y="${Y(r.y).toFixed(1)}" width="${(r.w * S).toFixed(1)}" height="${(r.h * S).toFixed(1)}" fill="${fill}" stroke="#2b2a33" stroke-width="${outdoor ? 2 : 5}"/>`,
+      `<rect x="${X(r.x).toFixed(1)}" y="${Y(r.y).toFixed(1)}" width="${(r.w * S).toFixed(1)}" height="${(r.h * S).toFixed(1)}" fill="${fill}"${dim} stroke="#2b2a33" stroke-width="${outdoor ? 2 : 5}"/>`,
     );
   }
   // 바깥 벽을 한 번 더 굵게
@@ -36,15 +50,28 @@ export function layoutSvg(layout, { title = '', showArea = true, mode = 'space' 
   const iy0 = Math.min(...inner.map((r) => r.y));
   const ix1 = Math.max(...inner.map((r) => r.x + r.w));
   const iy1 = Math.max(...inner.map((r) => r.y + r.h));
-  parts.push(`<rect x="${X(ix0)}" y="${Y(iy0)}" width="${(ix1 - ix0) * S}" height="${(iy1 - iy0) * S}" fill="none" stroke="#1b1a22" stroke-width="9"/>`);
+  parts.push(`<rect x="${X(ix0)}" y="${Y(iy0)}" width="${(ix1 - ix0) * S}" height="${(iy1 - iy0) * S}" fill="${outlineOnly ? '#f3f1ea' : 'none'}" stroke="#1b1a22" stroke-width="9"/>`);
+  if (outlineOnly) {
+    const area = ((ix1 - ix0) * (iy1 - iy0)).toFixed(1);
+    if (stage === 1) parts.push(`<text x="${X((ix0 + ix1) / 2)}" y="${Y((iy0 + iy1) / 2) + 8}" font-size="26" font-weight="700" text-anchor="middle" fill="#1b1a22">전용 ${area}㎡</text>`);
+    if (stage === 2) {
+      // 앞 띠 깊이 = 거실 깊이(거실은 앞 띠를 꽉 채운다)
+      const living = layout.rooms.find((r) => r.key === 'living');
+      const yb = living ? living.y : (iy0 + iy1) / 2;
+      parts.push(`<line x1="${X(ix0)}" y1="${Y(yb)}" x2="${X(ix1)}" y2="${Y(yb)}" stroke="#5b3ff0" stroke-width="4" stroke-dasharray="12 8"/>`);
+      parts.push(`<text x="${X((ix0 + ix1) / 2)}" y="${Y((iy0 + yb) / 2) + 7}" font-size="20" font-weight="700" text-anchor="middle" fill="#1b1a22">뒤 띠(북) · 깊이 ${(yb - iy0).toFixed(2)}m</text>`);
+      parts.push(`<text x="${X((ix0 + ix1) / 2)}" y="${Y((yb + iy1) / 2) + 7}" font-size="20" font-weight="700" text-anchor="middle" fill="#1b1a22">앞 띠(남) · 깊이 ${(iy1 - yb).toFixed(2)}m</text>`);
+    }
+  }
   if (mode === 'full') parts.push(...openingParts(layout, X, Y, S), ...fixtureParts(layout, X, Y, S));
-  for (const r of layout.rooms) {
+  for (const r of outlineOnly ? [] : layout.rooms) {
     const cx = X(r.x + r.w / 2);
     const cy = Y(r.y + r.h / 2);
     // 실 폭에 맞춰 글자 크기를 줄인다.
     const fs = Math.max(9, Math.min(17, (r.w * S * 0.9) / Math.max(2, [...r.name].length), r.h * S * 0.3));
-    parts.push(`<text x="${cx.toFixed(1)}" y="${(cy - (showArea ? 4 : -5)).toFixed(1)}" font-size="${fs}" font-weight="700" text-anchor="middle" fill="#1b1a22">${esc(r.name)}</text>`);
+    parts.push(`<text x="${cx.toFixed(1)}" y="${(cy - (showArea || stage === 4 ? 4 : -5)).toFixed(1)}" font-size="${fs}" font-weight="700" text-anchor="middle" fill="#1b1a22">${esc(r.name)}</text>`);
     if (showArea) parts.push(`<text x="${cx.toFixed(1)}" y="${(cy + fs - 2).toFixed(1)}" font-size="${fs - 4}" text-anchor="middle" fill="#55536a">${(r.w * r.h).toFixed(1)}㎡</text>`);
+    else if (stage === 4) parts.push(`<text x="${cx.toFixed(1)}" y="${(cy + fs - 2).toFixed(1)}" font-size="${Math.max(9, fs - 3)}" font-weight="600" text-anchor="middle" fill="#5b3ff0">폭 ${r.w.toFixed(2)}m</text>`);
   }
   // 치수: 전체 폭과 깊이(mm)
   const dim = (x1, y1, x2, y2, label, vertical) => {

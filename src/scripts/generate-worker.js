@@ -23,8 +23,9 @@ self.onmessage = (e) => {
       self.postMessage({ id, done: true, compare: out });
       return;
     }
-    const top = optimize(spec, { baseline, seed, onProgress: (p) => self.postMessage({ id, progress: p }) });
-    self.postMessage({ id, done: true, top: top.map(({ params, ...rest }) => rest) });
+    const gallery = [];
+    const top = optimize(spec, { baseline, seed, gallery, onProgress: (p) => self.postMessage({ id, progress: p }) });
+    self.postMessage({ id, done: true, top: top.map(({ params, ...rest }) => rest), gallery });
   } catch (err) {
     self.postMessage({ id, error: String(err && err.message ? err.message : err) });
   }
