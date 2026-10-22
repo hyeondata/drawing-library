@@ -139,7 +139,7 @@ async function evaluateUpload(file) {
 }
 
 /** 올린 라벨(JSON 파일 또는 이미지에서 만든 라벨)을 평가한다. */
-function evaluateLabel(label, { id, preview = null, fromImage = false }) {
+function evaluateLabel(label, { id, preview = null, fromImage = false, fromGenerate = false }) {
   try {
     const t0 = performance.now();
     const result = evaluate(label, { baseline: state.baseline });
@@ -148,7 +148,7 @@ function evaluateLabel(label, { id, preview = null, fromImage = false }) {
     state.currentId = null;
     document.querySelectorAll('.card').forEach((c) => c.setAttribute('aria-current', 'false'));
     history.replaceState(null, '', location.pathname);
-    showResult(result, { id, kind: result.kind, number: id, image: null, width: image.width, height: image.height, uploaded: true, preview, fromImage }, ms);
+    showResult(result, { id, kind: result.kind, number: id, image: null, width: image.width, height: image.height, uploaded: true, preview, fromImage, fromGenerate }, ms);
   } catch (err) {
     showError(err);
   }
@@ -179,7 +179,7 @@ function showResult(result, entry, ms) {
   el.innerHTML = `
     <div class="result-head">
       <div class="result-title">
-        <span class="chip"><span class="mono">${result.kind}</span> ${KIND_NAME[result.kind]} 평가${entry.fromImage ? ' · 이미지에서 지정' : entry.uploaded ? ' · 올린 파일' : ''}</span>
+        <span class="chip"><span class="mono">${result.kind}</span> ${KIND_NAME[result.kind]} 평가${entry.fromGenerate ? ' · 생성한 도면' : entry.fromImage ? ' · 이미지에서 지정' : entry.uploaded ? ' · 올린 파일' : ''}</span>
         <h2>${esc(entry.id)}</h2>
         <p>${result.kind === 'SPA' ? `세대 ${units}개 · ` : ''}기준 분포 ${result.baselineSize}개와 비교 · 계산 ${ms.toFixed(0)}ms · model v${result.modelVersion}</p>
       </div>
@@ -196,6 +196,8 @@ function showResult(result, entry, ms) {
       .join('')}</div>` : ''}
     ${entry.fromImage ? `<details class="from-image"${entry.preview ? '' : ' hidden'}><summary>원본 이미지와 지정한 실 보기</summary>${entry.preview ? `<img src="${entry.preview}" alt="올린 평면도 이미지와 지정한 실 영역" />` : ''}</details>
     <p class="note">이미지에서 찾은 영역을 실 종류로 지정해 만든 라벨입니다. 영역 경계가 실제 벽선과 조금 다를 수 있습니다. <a href="image/">이미지로 돌아가 고치기</a></p>` : ''}
+    ${entry.fromGenerate ? `<details class="from-image"${entry.preview ? ' open' : ' hidden'}><summary>생성한 평면 보기</summary>${entry.preview ? `<img src="${entry.preview}" alt="생성한 평면도" />` : ''}</details>
+    <p class="note">도면 생성 화면에서 고른 조건으로 만든 평면입니다. 벽 두께 없이 실 경계만 있는 라벨이라 실제 도면 라벨과 형태 점수가 다를 수 있습니다. <a href="generate/">조건 바꿔 다시 만들기</a></p>` : ''}
     <div id="unit-body"></div>`;
   renderUnit();
 }
@@ -530,7 +532,8 @@ async function init() {
     }
     if (handoff && handoff.label) {
       setKind('SPA');
-      evaluateLabel(handoff.label, { id: handoff.name, preview: handoff.preview, fromImage: true });
+      const generated = handoff.source === 'generate';
+      evaluateLabel(handoff.label, { id: handoff.name, preview: handoff.preview, fromImage: !generated, fromGenerate: generated });
       document.getElementById('workspace')?.scrollIntoView();
       return;
     }

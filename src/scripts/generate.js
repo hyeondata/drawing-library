@@ -1,0 +1,246 @@
+// 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
+import { layoutSvg } from '../generate/render.js';
+
+const data = JSON.parse(document.getElementById('gen-data').textContent);
+const { base, steps, targets, refs } = data;
+const $ = (s) => document.querySelector(s);
+const form = $('#gen-form');
+const HANDOFF_KEY = 'floorplan-eval:image';
+const RESULT = steps.length - 1;
+const PREF = Object.fromEntries([...data.syntax, ...data.lifestyle].map((c) => [c.key, c]));
+
+const state = { step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
+
+// ---------- 선택 읽기 ----------
+const radio = (name) => form.querySelector(`input[name="${name}"]:checked`);
+const checks = (name) => [...form.querySelectorAll(`input[name="${name}"]:checked`)].map((i) => i.value);
+const labelOf = (input) => input?.closest('.gen-opt')?.querySelector('strong')?.textContent || '';
+
+function buildSpec() {
+  const area = Number(radio('area').value);
+  const bedrooms = Number(radio('bedrooms').value);
+  const comp = new Set(checks('composition'));
+  const syntax = checks('syntax');
+  const life = checks('lifestyle');
+  // '공간이 넓은 게 좋아'는 거실을 한 단계 넓힌다.
+  let li = data.living.findIndex((o) => o.key === radio('living').value);
+  if (life.includes('spacious')) li = Math.min(data.living.length - 1, li + 1);
+  const other = Number(radio('roomSize').dataset.share);
+  const ratio = Number(radio('master').dataset.ratio);
+  return {
+    area,
+    bedrooms,
+    baths: comp.has('baths2') || life.includes('bath') ? 2 : 1,
+    dress: comp.has('dress') || life.includes('storage'),
+    multi: comp.has('multi') || life.includes('storage'),
+    outdoorUnit: comp.has('outdoorUnit'),
+    balcony: comp.has('balcony'),
+    targets: {
+      living: data.living[li].share,
+      kitchen: targets.kitchen,
+      master: bedrooms > 1 ? other * ratio : other * 1.6,
+      other,
+      bath: targets.bath,
+      entrance: targets.entrance,
+      dress: targets.dress,
+      multi: targets.multi,
+    },
+    prefs: [...syntax, ...life],
+    livingKey: data.living[li].key,
+  };
+}
+
+function summary() {
+  const parts = [labelOf(radio('area')), `거실 ${labelOf(radio('living'))}`, labelOf(radio('bedrooms')), `작은방 ${labelOf(radio('roomSize'))}`];
+  const prefs = [...checks('syntax'), ...checks('lifestyle')].map((k) => PREF[k].short);
+  return parts.join(' · ') + (prefs.length ? ` · ${prefs.join(', ')}` : '');
+}
+
+function updateM2() {
+  const area = Number(radio('area').value);
+  form.querySelectorAll('[data-share-m2]').forEach((el) => {
+    el.textContent = `약 ${(Number(el.dataset.shareM2) * area).toFixed(1)}㎡`;
+  });
+}
+
+// ---------- 단계 이동 ----------
+function show(i, scroll = true) {
+  state.step = i;
+  state.reached = Math.max(state.reached, i);
+  form.querySelectorAll('.gen-step').forEach((el) => (el.hidden = Number(el.dataset.step) !== i));
+  document.querySelectorAll('[data-goto]').forEach((b) => {
+    const k = Number(b.dataset.goto);
+    b.disabled = k > state.reached;
+    if (k === i) b.setAttribute('aria-current', 'step');
+    else b.removeAttribute('aria-current');
+    b.closest('li').classList.toggle('done', k < i);
+  });
+  $('#gen-prev').disabled = i === 0;
+  const next = $('#gen-next');
+  next.hidden = i === RESULT;
+  next.textContent = i === RESULT - 1 ? '도면 만들기 →' : '다음 →';
+  $('#gen-summary').textContent = summary();
+  if (i === RESULT) run();
+  if (scroll) document.getElementById('gen').scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+$('#gen-next').addEventListener('click', () => show(Math.min(RESULT, state.step + 1)));
+$('#gen-prev').addEventListener('click', () => show(Math.max(0, state.step - 1)));
+document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => show(Number(b.dataset.goto))));
+form.addEventListener('submit', (e) => e.preventDefault());
+form.addEventListener('change', (e) => {
+  if (e.target.name === 'bedrooms') state.bedroomsTouched = true;
+  if (e.target.name === 'area') {
+    updateM2();
+    // 평수에 흔한 침실 수를 먼저 고른다(직접 바꾼 뒤에는 그대로 둔다).
+    if (!state.bedroomsTouched) {
+      const b = form.querySelector(`input[name="bedrooms"][value="${e.target.dataset.bedrooms}"]`);
+      if (b) b.checked = true;
+    }
+  }
+  $('#gen-summary').textContent = summary();
+  // 조건을 바꾸면 결과를 다시 만든다.
+  state.top = [];
+});
+
+// ---------- 생성 ----------
+async function loadBaseline() {
+  if (!state.baseline) state.baseline = await (await fetch(`${base}data/baseline.json`)).json();
+  return state.baseline;
+}
+function getWorker() {
+  if (!state.worker) state.worker = new Worker(new URL('./generate-worker.js', import.meta.url), { type: 'module' });
+  return state.worker;
+}
+
+async function run(seed = state.seed) {
+  const spec = buildSpec();
+  const same = state.spec && JSON.stringify(state.spec) === JSON.stringify(spec) && state.top.length && seed === state.seed;
+  if (same) return renderResult();
+  state.spec = spec;
+  state.seed = seed;
+  const id = ++state.runId;
+  $('#gen-result').hidden = true;
+  $('#gen-progress').hidden = false;
+  setProgress(0, '기준 분포를 읽는 중…');
+  let baseline;
+  try {
+    baseline = await loadBaseline();
+  } catch {
+    setProgress(0, '기준 분포를 읽지 못했습니다. 새로 고쳐 주세요.');
+    return;
+  }
+  const w = getWorker();
+  const t0 = performance.now();
+  w.onmessage = (e) => {
+    const m = e.data;
+    if (m.id !== state.runId) return;
+    if (m.progress !== undefined) setProgress(m.progress, `평면을 만들고 평가하는 중… ${Math.round(m.progress * 100)}%`);
+    if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
+    if (m.done) {
+      state.top = m.top;
+      state.current = 0;
+      state.ms = performance.now() - t0;
+      $('#gen-progress').hidden = true;
+      renderResult();
+    }
+  };
+  w.postMessage({ id, spec, baseline, seed });
+}
+function setProgress(p, text) {
+  $('#gen-bar').style.width = `${Math.round(p * 100)}%`;
+  $('#gen-progress-text').textContent = text;
+}
+
+// ---------- 결과 ----------
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const cites = (ids) => (ids?.length ? `<span class="cites">${ids.map((id) => `<a class="cite" href="${refs[id].url}" target="_blank" rel="noopener">${esc(refs[id].short)}</a>`).join('')}</span>` : '');
+const bar = (score) => `<span class="gen-meter" role="img" aria-label="${Math.round(score)}점"><i style="width:${Math.max(0, Math.min(100, score))}%"></i></span>`;
+const titleOf = (spec, i) => `${spec.area}㎡ · 방 ${spec.bedrooms}개 · ${i + 1}안`;
+
+function renderResult() {
+  const { top, spec } = state;
+  if (!top.length) {
+    $('#gen-plan').innerHTML = '';
+    $('#gen-detail').innerHTML = '<p class="error-text">조건을 만족하는 평면을 만들지 못했습니다. 방 개수나 구성을 줄여 보세요.</p>';
+    $('#gen-result').hidden = false;
+    return;
+  }
+  $('#gen-tabs').innerHTML = top
+    .map((c, i) => `<button type="button" role="tab" data-cand="${i}" aria-pressed="${i === state.current}" aria-selected="${i === state.current}">${i + 1}안 <span class="mono">${c.unit.score.toFixed(0)}점</span></button>`)
+    .join('');
+  $('#gen-tabs').querySelectorAll('[data-cand]').forEach((b) =>
+    b.addEventListener('click', () => {
+      state.current = Number(b.dataset.cand);
+      renderResult();
+    }),
+  );
+  const c = top[state.current];
+  $('#gen-plan').innerHTML = `${layoutSvg(c.layout, { title: titleOf(spec, state.current) })}<figcaption class="note">전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡ (${(c.layout.W).toFixed(2)} × ${c.layout.D.toFixed(2)}m) · ${top.length}안 중 ${state.current + 1}번째 · 후보 ${state.ms ? `${Math.round(state.ms / 100) / 10}초` : ''}</figcaption>`;
+
+  const u = c.unit;
+  const groups = Object.entries(u.groups)
+    .map(([, g]) => `<li><span>${esc(g.label)}</span><b class="mono">${Math.round(g.score)}</b></li>`)
+    .join('');
+  const failed = u.groups.rules.items.filter((r) => !r.pass);
+  const prefRows = c.prefs
+    .map((p) => {
+      const d = PREF[p.key];
+      return `<li><div class="gen-pref-head"><b>${esc(d.title)}</b><span class="mono">${Math.round(p.score)}</span></div>${bar(p.score)}<p class="note">${esc(d.metrics.join(' · '))}${cites(d.refs)}</p>${d.note ? `<p class="note">${esc(d.note)}</p>` : ''}</li>`;
+    })
+    .join('');
+  const m2 = (share) => share * spec.area;
+  const rows = [
+    ['거실', m2(spec.targets.living), c.actual.living],
+    ['주방/식당', m2(spec.targets.kitchen), c.actual.kitchen],
+    ['안방', m2(spec.targets.master), c.actual.master],
+    ...(c.actual.other !== null ? [['작은방(평균)', m2(spec.targets.other), c.actual.other]] : []),
+  ]
+    .map(([n, t, a]) => `<tr><td>${n}</td><td class="mono">${t.toFixed(1)}</td><td class="mono">${a.toFixed(1)}</td></tr>`)
+    .join('');
+
+  $('#gen-detail').innerHTML = `
+    <div class="gen-score">
+      <div><span class="gen-big mono">${u.score.toFixed(1)}</span><span class="gen-grade">${u.grade}</span></div>
+      <p>평가 모델 점수 · <span class="${u.validity.valid ? 'good-text' : 'error-text'}">${u.validity.valid ? '유효한 평면' : `유효하지 않음: ${esc(u.validity.failed.join(', '))}`}</span></p>
+    </div>
+    <ul class="gen-groups">${groups}</ul>
+    ${c.narrow ? `<p class="note error-text">최소 폭(욕실 1.5m·침실 2.4m·안방 3.0m·거실 3.6m)보다 좁은 실이 ${c.narrow}개 있습니다. 평수에 비해 방이나 실이 많으면 생기니, 방 개수나 구성을 줄여 보세요.</p>` : ''}
+    ${failed.length ? `<p class="note">통과하지 못한 규칙: ${failed.map((r) => `${esc(r.label)}(${esc(r.detail)})`).join(', ')}</p>` : '<p class="note">정합성 규칙을 모두 통과했습니다.</p>'}
+    <h3>고른 조건에 얼마나 맞나</h3>
+    <ul class="gen-prefs">
+      <li><div class="gen-pref-head"><b>목표 면적 부합</b><span class="mono">${Math.round(c.fit)}</span></div>${bar(c.fit)}
+        <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th></tr></thead><tbody>${rows}</tbody></table></li>
+      ${prefRows}
+    </ul>
+    <p class="note">순위 점수 ${c.objective.toFixed(1)} = 모델 ${u.score.toFixed(1)} × ${c.prefs.length ? '0.45' : '0.64'} + 면적 부합 ${Math.round(c.fit)} × ${c.prefs.length ? '0.25' : '0.36'}${c.prefs.length ? ` + 선호 평균 ${Math.round(c.prefScore)} × 0.30` : ''}${c.narrow ? ` − 좁은 실 ${c.narrow}개 감점` : ''}</p>`;
+  $('#gen-result').hidden = false;
+}
+
+function currentSvg() {
+  const c = state.top[state.current];
+  return layoutSvg(c.layout, { title: titleOf(state.spec, state.current) });
+}
+const download = (blob, name) => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+const fileBase = () => `generated_${state.spec.area}m2_${state.spec.bedrooms}bed_${state.current + 1}`;
+$('#gen-json').addEventListener('click', () => download(new Blob([JSON.stringify(state.top[state.current].label)], { type: 'application/json' }), `${fileBase()}_SPA.json`));
+$('#gen-svg').addEventListener('click', () => download(new Blob([currentSvg()], { type: 'image/svg+xml' }), `${fileBase()}.svg`));
+$('#gen-more').addEventListener('click', () => run(state.seed + 1));
+$('#gen-open').addEventListener('click', () => {
+  const c = state.top[state.current];
+  const payload = { name: titleOf(state.spec, state.current), label: c.label, preview: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(currentSvg())}`, source: 'generate' };
+  try {
+    sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(payload));
+  } catch {
+    return download(new Blob([JSON.stringify(c.label)], { type: 'application/json' }), `${fileBase()}_SPA.json`);
+  }
+  location.href = `${base}#image`;
+});
+
+updateM2();
+show(0, false);

@@ -205,6 +205,7 @@ input {
 .topnav a {
   color: var(--text-secondary);
   text-decoration: none;
+  white-space: nowrap;
 }
 .topnav a:hover {
   color: var(--text-primary);
@@ -1675,5 +1676,360 @@ table.plain td.num {
   }
   .ie-empty {
     min-height: 160px;
+  }
+}
+
+/* ===== 도면 생성 ===== */
+.good-text {
+  color: var(--good-text);
+}
+.gen {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
+  display: grid;
+  gap: 16px;
+}
+.gen-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+}
+.gen-steps button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gen-steps button:disabled {
+  cursor: default;
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+.gen-steps button[aria-current='step'] {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.gen-num {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  font-size: 12px;
+  font-weight: 700;
+}
+.gen-steps li.done .gen-num,
+.gen-steps button[aria-current='step'] .gen-num {
+  background: var(--accent);
+  color: #fff;
+}
+.gen-panel {
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 14px;
+}
+.gen-step {
+  display: grid;
+  gap: 12px;
+}
+.gen-step h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.gen-sub {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+}
+.gen-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+.gen-wide {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.gen-opt {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--surface-1);
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.gen-opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.gen-opt strong {
+  color: var(--text-primary);
+  font-size: 16px;
+}
+.gen-opt:hover {
+  border-color: var(--text-muted);
+}
+.gen-opt:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.gen-opt:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.gen-multi .gen-opt::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid var(--text-muted);
+}
+.gen-multi .gen-opt:has(input:checked)::after {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--surface-1);
+}
+.gen-multi .gen-opt strong {
+  padding-right: 22px;
+}
+.gen-m2 {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.gen-metrics {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.gen-opt-note {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.gen-opt .cites {
+  margin-left: -4px;
+}
+.gen-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.gen-summary {
+  flex: 1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+.gen-progress {
+  display: grid;
+  gap: 8px;
+}
+.gen-bar,
+.gen-meter {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bar-track);
+  overflow: hidden;
+}
+.gen-bar i,
+.gen-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+.gen-tabs {
+  justify-self: start;
+}
+.gen-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-top: 12px;
+}
+.gen-plan {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.gen-plan svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.gen-plan figcaption {
+  padding: 8px 12px;
+  background: var(--surface-2);
+}
+.gen-detail {
+  display: grid;
+  gap: 10px;
+}
+.gen-detail h3 {
+  margin: 6px 0 0;
+  font-size: 15px;
+}
+.gen-score {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.gen-score p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+.gen-big {
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.gen-grade {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 800;
+}
+.gen-groups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gen-groups li {
+  display: flex;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.gen-groups b {
+  color: var(--text-primary);
+}
+.gen-prefs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.gen-prefs .note {
+  margin: 4px 0 0;
+}
+.gen-pref-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+.gen-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.gen-table th,
+.gen-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+.gen-table th:first-child,
+.gen-table td:first-child {
+  text-align: left;
+}
+.gen-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+.gen-method {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.gen-method summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.gen-method li {
+  margin: 6px 0;
+}
+@media (max-width: 900px) {
+  .gen {
+    padding: 0 16px 40px;
+  }
+  .gen-steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .gen-result {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gen-panel {
+    padding: 14px;
+  }
+  .gen-nav {
+    flex-wrap: wrap;
+  }
+  .gen-summary {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+/* 메뉴가 넷이라 좁은 화면에서는 로고 글자를 숨긴다. */
+@media (max-width: 600px) {
+  .brand span {
+    display: none;
+  }
+  .topnav {
+    gap: 12px;
+    font-size: 13px;
   }
 }

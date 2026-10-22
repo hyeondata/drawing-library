@@ -271,3 +271,35 @@ test('실 이름 글자: 오인식을 자모 유사도로 맞추고 설명문은
   assert.deepEqual(shared, [['거실', '주방']]);
   assert.equal(missing.length, 0);
 });
+
+test('도면 생성: 84㎡ 방 3개는 유효하고 규칙을 모두 통과하며 면적을 채운다', async () => {
+  const { optimize, MIN_SIDE } = await import('../src/generate/optimize.js');
+  const { buildChoices } = await import('../src/generate/choices.js');
+  const dir = path.join(root, 'public/data/labels');
+  const files = fs.readdirSync(dir);
+  const choices = buildChoices({
+    spaLabels: files.filter((f) => f.includes('_SPA_')).map((f) => ({ id: f, label: readJson(`public/data/labels/${f}`) })),
+    ocrLabels: files.filter((f) => f.includes('_OCR_')).map((f) => readJson(`public/data/labels/${f}`)),
+  });
+  assert.equal(choices.source.units, 35);
+  assert.ok(choices.living[0].share < choices.living[3].share);
+  const t = choices.targets;
+  const other = choices.roomSize[1].share;
+  const spec = {
+    area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true,
+    targets: { living: choices.living[1].share, kitchen: t.kitchen, master: other * choices.master[1].ratio, other, bath: t.bath, entrance: t.entrance, dress: t.dress, multi: t.multi },
+    prefs: ['livingCentral', 'bath'],
+  };
+  const top = optimize(spec, { baseline: readJson('public/data/baseline.json'), seed: 1 });
+  assert.equal(top.length, 3);
+  const best = top[0];
+  assert.ok(best.unit.validity.valid);
+  assert.ok(best.unit.groups.rules.items.every((r) => r.pass), best.unit.groups.rules.items.filter((r) => !r.pass).map((r) => r.id).join());
+  assert.equal(best.narrow, 0);
+  const inner = best.layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실');
+  const area = inner.reduce((s, r) => s + r.w * r.h, 0);
+  assert.ok(Math.abs(area - 84) < 0.5, `전용면적 ${area}`);
+  for (const r of inner) if (MIN_SIDE[r.type] && r.type !== '침실') assert.ok(Math.min(r.w, r.h) >= MIN_SIDE[r.type] - 1e-6, `${r.name} ${r.w}x${r.h}`);
+  // 세 안은 배치가 서로 다르다.
+  assert.equal(new Set(top.map((c) => c.signature)).size, 3);
+});
