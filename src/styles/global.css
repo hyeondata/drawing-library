@@ -2422,3 +2422,16 @@ table.plain td.num {
     width: 160px;
   }
 }
+
+.gen-aihub {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.gen-aihub .note {
+  margin: 0 4px 0 2px;
+}

@@ -1,6 +1,6 @@
 // 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
-import { toFullLabel } from '../generate/layout.js';
+import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
 const { base, steps, targets, refs } = data;
@@ -368,12 +368,17 @@ const download = (blob, name) => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 const fileBase = () => `generated_${state.spec.area}m2_${state.spec.bedrooms}bed_${state.current + 1}`;
-// 실만 보기는 SPA 라벨(평가용), 모든 요소 보기는 공간+출입문·창호+설비를 함께 담은 라벨
-$('#gen-json').addEventListener('click', () => {
-  const c = state.top[state.current];
-  const full = state.view === 'full';
-  download(new Blob([JSON.stringify(full ? toFullLabel(c.layout) : c.label)], { type: 'application/json' }), `${fileBase()}_${full ? 'ALL' : 'SPA'}.json`);
-});
+// AI 허브 Sample과 같은 형식: SPA(공간)·STR(벽체·출입문·창호)·OBJ(설비)를 따로, 파일 이름은 APT_FP_<종류>_<9자리 번호>.json
+const AIHUB = { SPA: toAihubSPA, STR: toAihubSTR, OBJ: toAihubOBJ };
+const numberOf = () => generatedNumber({ area: state.spec.area, bedrooms: state.spec.bedrooms, candidate: state.current + 1, seed: state.seed });
+const aihub = (kind) => AIHUB[kind](state.top[state.current].layout, numberOf());
+const saveAihub = (kind) => download(new Blob([JSON.stringify(aihub(kind))], { type: 'application/json' }), `APT_FP_${kind}_${numberOf()}.json`);
+document.querySelectorAll('[data-aihub]').forEach((b) =>
+  b.addEventListener('click', () => {
+    if (b.dataset.aihub === 'ALL') ['SPA', 'STR', 'OBJ'].forEach((k, i) => setTimeout(() => saveAihub(k), i * 400));
+    else saveAihub(b.dataset.aihub);
+  }),
+);
 document.querySelectorAll('[data-view]').forEach((b) =>
   b.addEventListener('click', () => {
     state.view = b.dataset.view;
@@ -391,11 +396,11 @@ $('#gen-more').addEventListener('click', () => {
 });
 $('#gen-open').addEventListener('click', () => {
   const c = state.top[state.current];
-  const payload = { name: titleOf(state.spec, state.current), label: c.label, preview: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(currentSvg())}`, source: 'generate' };
+  const payload = { name: `APT_FP_SPA_${numberOf()}`, label: aihub('SPA'), preview: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(currentSvg())}`, source: 'generate' };
   try {
     sessionStorage.setItem(HANDOFF_KEY, JSON.stringify(payload));
   } catch {
-    return download(new Blob([JSON.stringify(c.label)], { type: 'application/json' }), `${fileBase()}_SPA.json`);
+    return saveAihub('SPA');
   }
   location.href = `${base}#image`;
 });

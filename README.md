@@ -60,7 +60,7 @@ npm run evaluate -- --json plan.json    # 상세 결과 JSON
 `/generate/` 페이지에서 **평수 → 거실 크기 → 방 개수 → 방 크기 → 방 구성 → 공간구문 → 생활 선호(넓은 공간·화장실·방음·햇빛·수납)** 순서로 고르면 평면을 만들어 줍니다.
 
 - **선택지**: 크기·개수·구성은 AI 허브 라벨에서 계산합니다(기준 SPA 35세대의 면적비 분위수, 구성별 세대 수, OCR 라벨의 실 이름 빈도 · `src/generate/choices.js`). 공간구문·생활 선호는 평가 모델의 지표·규칙과 그 근거 논문에 묶여 있고 화면에 논문 링크를 함께 보여 줍니다(`src/generate/preferences.js`).
-- **생성·선택**: 판상형 배치 문법으로 변형을 800개 만들고(`src/generate/layout.js`), 평가 모델 점수 0.45 + 목표 면적 부합 0.25 + 선호 점수 0.30으로 골라 배치가 다른 3안을 보여 줍니다(`src/generate/optimize.js`, Web Worker에서 약 2초). 결과는 평가 화면으로 넘기거나 라벨 JSON·SVG로 받을 수 있습니다.
+- **생성·선택**: 판상형 배치 문법으로 변형을 800개 만들고(`src/generate/layout.js`), 평가 모델 점수 0.45 + 목표 면적 부합 0.25 + 선호 점수 0.30으로 골라 배치가 다른 3안을 보여 줍니다(`src/generate/optimize.js`, Web Worker에서 약 2초). 결과는 평가 화면으로 넘기거나, AI 허브 Sample과 같은 형식의 SPA·STR·OBJ JSON(APT_FP_종류_번호.json)과 SVG로 받을 수 있습니다.
 - 근거와 한계는 [`evidence/09-도면-생성.md`](evidence/09-도면-생성.md)에 정리했습니다. 방음은 배치 근사이고, 실은 직사각형이며 벽·문·창은 그리지 않습니다.
 
 ### 생성 알고리즘 고르기(QUBO)

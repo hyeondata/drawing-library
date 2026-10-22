@@ -248,7 +248,13 @@ const steps = [
             <div class="gen-actions">
               <button type="button" class="button-primary" id="gen-open">평가 화면에서 자세히 보기 →</button>
               <button type="button" class="button-ghost small" id="gen-more">다른 안 더 만들기</button>
-              <button type="button" class="button-ghost small" id="gen-json">라벨 JSON</button>
+              <span class="gen-aihub" role="group" aria-label="AI 허브 형식 JSON 내려받기">
+                <span class="note">AI 허브 JSON</span>
+                <button type="button" class="button-ghost small" data-aihub="SPA" title="공간(실 다각형)">SPA</button>
+                <button type="button" class="button-ghost small" data-aihub="STR" title="벽체·출입문·창호">STR</button>
+                <button type="button" class="button-ghost small" data-aihub="OBJ" title="변기·세면대·욕조·싱크대·가스레인지">OBJ</button>
+                <button type="button" class="button-ghost small" data-aihub="ALL">3개 모두</button>
+              </span>
               <button type="button" class="button-ghost small" id="gen-svg">SVG</button>
             </div>
           </div>
@@ -259,6 +265,7 @@ const steps = [
               <li><b>평가</b>: 각 안을 AI 허브 SPA 라벨 형식으로 바꿔 이 사이트의 평가 모델(v0.3.0)로 채점합니다.</li>
               <li><b>선택</b>: 목적함수 = 모델 점수 45% + 목표 면적 부합 25% + 고른 선호 점수 평균 30%(선호를 고르지 않으면 모델·부합만). 유효하지 않은 평면과 너무 좁은 실(욕실 1.5m, 침실 2.4m, 안방 3.0m, 거실 3.6m 미만, 거실·침실 종횡비 2 초과)은 감점합니다. 무작위 탐색 뒤 상위 안을 국소 탐색으로 다듬고, 배치가 서로 다른 3안을 보여 줍니다.</li>
             </ol>
+            <p class="note">내려받는 JSON은 AI 허브 Sample(02.라벨링데이터)과 같은 형식입니다: 23개 고정 범주, images·annotations, SPA(공간 다각형 + background), STR(벽체 철근콘크리트벽·기타벽, 출입문 여닫이문, 창호 미닫이창 + background), OBJ(설비 상자, segmentation 없이 bbox·rotation). 종이 4963×3509px에 1m = 100px로 놓고, 파일 이름은 APT_FP_종류_9자리 번호(9로 시작해 AI 허브 번호와 겹치지 않음)입니다. 세 파일 모두 이 사이트의 SPA·STR·OBJ 평가 모델로 채점할 수 있습니다.</p>
             <p class="note">한계: 실은 직사각형이고 문·창·설비는 규칙으로 놓습니다(문으로 모든 실에 갈 수 있는지는 따로 점검). 기준이 35세대뿐이라 모델 점수는 '이 표본과 얼마나 닮았나'입니다. 방음은 배치로 줄일 수 있는 부분(소음원과 맞댄 침실 벽)만 근사합니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>
           </details>
         </div>

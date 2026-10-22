@@ -3,7 +3,8 @@
 // Seo 2007; Choi et al. 2014). 실은 모두 축 정렬 직사각형이고 단위세대 사각형을 빈틈없이 채운다. 단위는 m.
 // 같은 사양으로 여러 변형을 만들고 평가 모델로 고르는 일은 optimize.js가 한다.
 
-import { FIXTURE_TYPES, placeFixtures } from './fixtures.js';
+import { toAihubSPA } from './aihub.js';
+import { placeFixtures } from './fixtures.js';
 import { placeOpenings } from './openings.js';
 
 export const BALCONY_DEPTH = 1.5;
@@ -358,57 +359,7 @@ export function noiseExposure(rooms) {
   return den ? num / den : 0;
 }
 
-const SHEET = { w: 4963, h: 3509 };
-
-/** 직사각형(m) 목록 → COCO. items: [{ category, x, y, w, h, attributes }] */
-function coco(layout, items, { pxPerM, fileName }) {
-  const ox = (SHEET.w - layout.W * pxPerM) / 2;
-  const oy = (SHEET.h - (layout.D + BALCONY_DEPTH) * pxPerM) / 2;
-  const names = [...new Set(items.map((it) => it.category))];
-  const categories = names.map((name, i) => ({ id: i + 1, name }));
-  const round = (v) => Math.round(v * 10) / 10;
-  const annotations = items.map((it, i) => {
-    const x0 = ox + it.x * pxPerM;
-    const y0 = oy + it.y * pxPerM;
-    const x1 = x0 + it.w * pxPerM;
-    const y1 = y0 + it.h * pxPerM;
-    return {
-      id: i + 1,
-      image_id: 1,
-      category_id: names.indexOf(it.category) + 1,
-      segmentation: [[x0, y0, x1, y0, x1, y1, x0, y1].map(round)],
-      area: round((x1 - x0) * (y1 - y0)),
-      bbox: [x0, y0, x1 - x0, y1 - y0].map(round),
-      iscrowd: 0,
-      attributes: it.attributes || {},
-    };
-  });
-  return { images: [{ id: 1, width: SHEET.w, height: SHEET.h, file_name: fileName }], categories, annotations };
-}
-
-const spaceItems = (layout) => layout.rooms.map((r) => ({ category: `공간_${r.type}`, x: r.x, y: r.y, w: r.w, h: r.h, attributes: { name: r.name } }));
-
-/** 평면을 AI 허브 SPA 라벨(COCO) 형식으로 바꾼다. 종이 4963×3509px, 1m = pxPerM px. 평가에는 이 라벨을 쓴다. */
-export function toLabel(layout, { pxPerM = 100, fileName = 'generated.png' } = {}) {
-  return coco(layout, spaceItems(layout), { pxPerM, fileName });
-}
-
-/**
- * 모든 요소 라벨: 공간(SPA) + 출입문·창호(STR) + 설비(OBJ)를 한 COCO 파일에. 문·창은 벽 두께 0.2m 띠로 쓴다.
- * 범주 이름은 AI 허브와 같다(공간_*, 구조_출입문, 구조_창호, 객체_*).
- */
-export function toFullLabel(layout, { pxPerM = 100, fileName = 'generated_full.png' } = {}) {
-  const t = 0.1;
-  const openings = (layout.openings || [])
-    .filter((o) => o.kind !== 'opening')
-    .map((o) => ({
-      category: o.kind === 'door' ? '구조_출입문' : '구조_창호',
-      x: Math.min(o.x1, o.x2) - (o.v ? t : 0),
-      y: Math.min(o.y1, o.y2) - (o.v ? 0 : t),
-      w: Math.abs(o.x2 - o.x1) + (o.v ? 2 * t : 0),
-      h: Math.abs(o.y2 - o.y1) + (o.v ? 0 : 2 * t),
-      attributes: { kind: o.kind === 'sliding' ? '발코니 미닫이' : o.kind === 'door' ? (o.entry ? '현관문' : '여닫이문') : '창' },
-    }));
-  const fixtures = (layout.fixtures || []).filter((f) => FIXTURE_TYPES.includes(f.type)).map((f) => ({ category: `객체_${f.type}`, x: f.x, y: f.y, w: f.w, h: f.h }));
-  return coco(layout, [...spaceItems(layout), ...openings, ...fixtures], { pxPerM, fileName });
+/** 평면을 AI 허브 SPA 라벨 형식(Sample과 같은 23개 범주, background 포함)으로 바꾼다. 평가에는 이 라벨을 쓴다. */
+export function toLabel(layout) {
+  return toAihubSPA(layout);
 }

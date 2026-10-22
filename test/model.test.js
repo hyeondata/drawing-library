@@ -313,9 +313,19 @@ test('도면 생성: 84㎡ 방 3개는 유효하고 규칙을 모두 통과하�
     const room = best.layout.rooms.find((r) => r.key === f.room);
     assert.ok(f.x >= room.x - 1e-6 && f.y >= room.y - 1e-6 && f.x + f.w <= room.x + room.w + 1e-6 && f.y + f.h <= room.y + room.h + 1e-6, `${f.type} 밖으로 나감`);
   }
-  const { toFullLabel } = await import('../src/generate/layout.js');
-  const names = toFullLabel(best.layout).categories.map((c) => c.name);
-  assert.ok(names.includes('구조_출입문') && names.includes('구조_창호') && names.includes('객체_변기') && names.includes('공간_거실'));
+  // AI 허브 Sample과 같은 형식(23개 범주, SPA·STR·OBJ)으로 내보내고 각자의 평가 모델로 채점된다.
+  const { toAihubSPA, toAihubSTR, toAihubOBJ, AIHUB_CATEGORIES } = await import('../src/generate/aihub.js');
+  const sample = readJson('public/data/labels/APT_FP_SPA_000310275.json');
+  assert.deepEqual(AIHUB_CATEGORIES, sample.categories);
+  for (const [fn, kind] of [[toAihubSPA, 'SPA'], [toAihubSTR, 'STR'], [toAihubOBJ, 'OBJ']]) {
+    const lab = fn(best.layout, '908431001');
+    assert.deepEqual(Object.keys(lab), Object.keys(sample));
+    assert.equal(lab.images[0].file_name, `APT_FP_${kind}_908431001.PNG`);
+    assert.equal(detectKind(lab), kind);
+    const r = evaluate(lab, { baseline: readJson('public/data/baseline.json') });
+    assert.ok(r.valid, `${kind} 유효`);
+  }
+  assert.ok(toAihubSTR(best.layout).annotations.some((a) => a.attributes['구조_벽체'] === '철근콘크리트벽'));
 });
 
 test('QUBO: 벌점이 유효하고(최적해가 제약을 지킴) 풀이기가 최적에 닿으며 시드로 재현된다', async () => {
