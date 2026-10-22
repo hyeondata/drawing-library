@@ -65,7 +65,7 @@ npm run evaluate -- --json plan.json    # 상세 결과 JSON
 
 ### 생성 알고리즘 고르기(QUBO)
 
-결과 단계에서 생성 알고리즘을 하나 또는 여러 개(전부 한 번에) 고를 수 있습니다. 실 배치를 QUBO(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들고 D²TS·Path Relinking·Memetic·SA(QPU 임시 대체, 잠정)·SQA·Parallel Tempering·Simulated Bifurcation·정확해(열거)로 같은 예산·시드로 푼 뒤, 해를 평면으로 풀어 같은 평가 모델로 채점합니다. QUBO 에너지와 평면 점수를 함께 보여 줍니다. QUBO JSON은 `public/qubo/solve_qubo.py`로 D-Wave·Gurobi·CP-SAT에서 풀 수 있고, 논문용 비교 실험은 `npm run qubo:bench`입니다. 정식화·근거·한계는 [`evidence/10-QUBO-생성.md`](evidence/10-QUBO-생성.md), 조사 보고서는 `docs/research/QUBO 평면 생성 알고리즘.md`.
+결과 단계에서 생성 알고리즘을 하나 또는 여러 개(전부 한 번에) 고를 수 있습니다. 실 배치를 QUBO(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들고 D²TS·Path Relinking·Memetic·SA(QPU 임시 대체, 잠정)·SQA·Parallel Tempering·Simulated Bifurcation·정확해(열거)로 같은 예산·시드로 푼 뒤, 해를 평면으로 풀어 같은 평가 모델로 채점합니다. QUBO 에너지와 평면 점수를 함께 보여 줍니다. QUBO JSON은 `public/qubo/solve_qubo.py`로 D-Wave·Gurobi·CP-SAT에서 풀 수 있고, 논문용 비교 실험은 `npm run qubo:bench`입니다. 계산 원리 전체(철학·식·계산 순서)는 [`evidence/11-계산-원리.md`](evidence/11-계산-원리.md), 정식화·근거·한계는 [`evidence/10-QUBO-생성.md`](evidence/10-QUBO-생성.md), 조사 보고서는 `docs/research/QUBO 평면 생성 알고리즘.md`.
 
 ## 평가 모델 (v0.3.0)
 
