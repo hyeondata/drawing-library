@@ -1,6 +1,8 @@
 // 이미지로 평가: 평면도 이미지 → 실 영역 찾기 → 실 종류 지정 → COCO 공간 라벨 → 평가 화면으로 넘기기.
 import { ROOM_TYPES } from '../model/drawing-style.js';
 import { applyAssignments, otsu, regionPolygon, segment, snapRect, toCoco, toGray } from '../image/segment.js';
+import { namesFromText, seedsFromNames } from '../image/room-names.js';
+import { readText } from '../image/ocr.js';
 
 const { base, required, tools } = JSON.parse(document.getElementById('ie-data').textContent);
 const $ = (s) => document.querySelector(s);
@@ -29,6 +31,8 @@ const state = {
   hover: 0,
   pendingMerge: null,
   drag: null,
+  // 글자 인식: 읽은 실 이름과 그로부터 만든 자동 지정
+  ocr: { on: true, running: false, names: [], seeds: [], shared: [], missing: [], token: 0 },
 };
 
 const canvas = $('#ie-canvas');
@@ -58,6 +62,7 @@ async function loadImage(src, name) {
   bctx.drawImage(img, 0, 0, w, h);
   const data = bctx.getImageData(0, 0, w, h).data;
   Object.assign(state, { name, img, w, h, gray: toGray(data, w, h), lines: [], rects: [], seeds: [], merges: [], history: [], hover: 0, pendingMerge: null });
+  Object.assign(state.ocr, { names: [], seeds: [], shared: [], missing: [] });
   state.threshold = Math.min(220, otsu(state.gray));
   $('#opt-threshold').value = state.threshold;
   canvas.width = w;
@@ -66,7 +71,9 @@ async function loadImage(src, name) {
   $('#ie-stage').hidden = false;
   $('#imgeval').classList.add('has-image');
   for (const id of ['#ie-detect', '#ie-label', '#ie-eval']) $(id).setAttribute('aria-disabled', 'false');
+  setStatus('');
   resegment();
+  if (state.ocr.on) runOcr();
 }
 
 // ---------- 분할과 지정 ----------
@@ -82,7 +89,20 @@ function resegment() {
 }
 function reassign() {
   const { labels, regions } = state.seg;
-  state.assign = applyAssignments(labels, state.w, regions, state.seeds, state.merges);
+  // 글자로 읽은 이름이 먼저, 사용자가 누른 지정이 나중(나중 것이 이긴다).
+  const auto = { seeds: [], shared: [], missing: [] };
+  if (state.ocr.on && state.ocr.names.length) {
+    const plain = applyAssignments(labels, state.w, regions, [], state.merges);
+    const at = (x, y) => {
+      const l = labels[Math.round(y) * state.w + Math.round(x)] || 0;
+      return l ? plain.rootOf(l) : 0;
+    };
+    Object.assign(auto, seedsFromNames(state.ocr.names, at));
+    // 사용자가 그린 사각형 안의 이름은 영역을 찾은 것으로 본다.
+    auto.missing = auto.missing.filter((n) => rectAt(n.x, n.y) < 0);
+  }
+  Object.assign(state.ocr, auto);
+  state.assign = applyAssignments(labels, state.w, regions, [...auto.seeds, ...state.seeds], state.merges);
   render();
   updateCheck();
 }
@@ -118,6 +138,61 @@ function rooms() {
     out.push({ type: r.type, polygon: [[r.x0, r.y0], [r.x1, r.y0], [r.x1, r.y1], [r.x0, r.y1]] });
   }
   return out;
+}
+
+// ---------- 글자 인식 ----------
+async function runOcr() {
+  if (!state.seg || state.ocr.running) return;
+  const token = ++state.ocr.token;
+  state.ocr.running = true;
+  setOcr('글자 인식 준비 중…');
+  try {
+    // 찾은 영역 전체를 감싸는 범위만 읽는다(치수선·도면 제목을 줄이고 빠르게).
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const r of state.seg.regions) {
+      x0 = Math.min(x0, r.bbox[0]);
+      y0 = Math.min(y0, r.bbox[1]);
+      x1 = Math.max(x1, r.bbox[2]);
+      y1 = Math.max(y1, r.bbox[3]);
+    }
+    if (!Number.isFinite(x0)) [x0, y0, x1, y1] = [0, 0, state.w, state.h];
+    const pad = state.w * 0.03;
+    const toProc = state.w / state.img.naturalWidth;
+    const crop = {
+      x: Math.max(0, (x0 - pad) / toProc),
+      y: Math.max(0, (y0 - pad) / toProc),
+    };
+    crop.w = Math.min(state.img.naturalWidth, (x1 + pad) / toProc) - crop.x;
+    crop.h = Math.min(state.img.naturalHeight, (y1 + pad) / toProc) - crop.y;
+    const t0 = performance.now();
+    const lines = await readText(state.img, crop, toProc, {
+      base,
+      onProgress: (text, p) => token === state.ocr.token && setOcr(p ? `${text} ${Math.round(p * 100)}%` : text),
+    });
+    if (token !== state.ocr.token) return;
+    state.ocr.names = namesFromText(lines);
+    reassign();
+    reportOcr(performance.now() - t0);
+  } catch (err) {
+    console.error(err);
+    if (token === state.ocr.token) setOcr('글자를 읽지 못했습니다. 실 종류를 직접 지정해 주세요.', true);
+  } finally {
+    if (token === state.ocr.token) state.ocr.running = false;
+  }
+}
+function reportOcr(ms) {
+  const { names, seeds, shared, missing } = state.ocr;
+  if (!names.length) return setOcr('실 이름 글자를 찾지 못했습니다. 실 종류를 직접 지정해 주세요.');
+  const parts = [`실 이름 ${names.length}개를 읽어 영역 ${seeds.length}개에 지정했습니다${ms ? `(${(ms / 1000).toFixed(1)}초)` : ''}.`];
+  if (missing.length) parts.push(`영역이 없는 이름 ${missing.length}개(${missing.map((n) => n.name).join(', ')})는 빨간 점선으로 표시했습니다. 사각형으로 그리면 종류가 자동으로 붙습니다.`);
+  if (shared.length) parts.push(`${shared.map((t) => t.join('·')).join(', ')}이(가) 한 영역에 있습니다. 선 긋기로 나누세요.`);
+  parts.push('잘못 붙은 종류는 눌러서 고치면 됩니다.');
+  setOcr(parts.join(' '));
+}
+function setOcr(text, error = false) {
+  const el = $('#ie-ocr-status');
+  el.textContent = text;
+  el.classList.toggle('error-text', error);
 }
 
 // ---------- 그리기 ----------
@@ -182,6 +257,19 @@ function render() {
       ctx.stroke();
     } else {
       ctx.strokeRect(Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+    }
+    ctx.setLineDash([]);
+  }
+  // 읽은 실 이름 글자: 영역에 붙으면 얇은 테두리, 영역이 없으면 빨간 점선
+  if (state.ocr.on) {
+    const missing = new Set(state.ocr.missing);
+    for (const n of state.ocr.names) {
+      const b = n.bbox;
+      const m = (b.y1 - b.y0) * 0.35;
+      ctx.lineWidth = Math.max(1.5, lw * 0.75);
+      ctx.strokeStyle = missing.has(n) ? '#d03b3b' : COLOR[n.type] || '#5b3ff0';
+      ctx.setLineDash(missing.has(n) ? [lw * 2, lw * 1.5] : []);
+      ctx.strokeRect(b.x0 - m, b.y0 - m, b.x1 - b.x0 + 2 * m, b.y1 - b.y0 + 2 * m);
     }
     ctx.setLineDash([]);
   }
@@ -319,11 +407,13 @@ canvas.addEventListener('pointerup', () => {
     resegment();
   } else {
     const drawn = { x0: Math.min(a[0], b[0]), y0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), y1: Math.max(a[1], b[1]), type: state.type || '기타' };
+    // 사각형 안에 영역을 찾지 못한 실 이름이 있으면 그 종류를 붙인다.
+    const named = state.ocr.on && state.ocr.missing.find((n) => n.x >= drawn.x0 && n.x <= drawn.x1 && n.y >= drawn.y0 && n.y <= drawn.y1);
+    if (named) drawn.type = named.type;
     // 변을 가까운 벽선에 붙여 이웃 실과 맞닿게 한다.
     state.rects.push(snapRect(drawn, state.seg.ink, state.w, state.h, Math.max(8, Math.round(state.w / 130))));
     push({ kind: 'rect' });
-    render();
-    updateCheck();
+    reassign();
   }
 });
 
@@ -414,6 +504,16 @@ $('#opt-min').addEventListener('input', (e) => {
   later(resegment);
 });
 $('#ie-undo').addEventListener('click', undo);
+$('#ie-ocr').addEventListener('change', (e) => {
+  state.ocr.on = e.target.checked;
+  if (!state.seg) return;
+  if (state.ocr.on && !state.ocr.names.length && !state.ocr.running) runOcr();
+  else {
+    reassign();
+    if (state.ocr.on) reportOcr();
+    else setOcr('자동 지정을 껐습니다. 실 종류를 직접 지정하세요.');
+  }
+});
 $('#ie-reset').addEventListener('click', () => {
   Object.assign(state, { lines: [], rects: [], seeds: [], merges: [], history: [], pendingMerge: null });
   resegment();

@@ -2,6 +2,7 @@
 
 - 라벨: SPA·STR·OBJ·OCR JSON을 public/data/labels/에 공백 없이 복사한다(OCR은 평가하지 않고 예시 도면으로만 보여 준다).
 - 이미지: 원천 PNG를 화면용 WebP(긴 변 2000px)와 썸네일(긴 변 360px)로 만든다.
+  OBJ 원본은 이미지 평가 샘플용 큰 WebP(긴 변 4000px)도 만든다. 실 이름 글자를 읽으려면 이 크기가 필요하다.
 
 사용: python3 scripts/prepare_data.py [Sample 경로]
 필요: Python 3, Pillow
@@ -28,10 +29,12 @@ def main() -> None:
     out_labels = ROOT / "public" / "data" / "labels"
     out_images = ROOT / "public" / "images"
     out_thumbs = ROOT / "public" / "thumbs"
-    for d in (out_labels, out_images, out_thumbs):
+    out_large = ROOT / "public" / "images" / "large"
+    for d in (out_labels, out_images, out_thumbs, out_large):
         d.mkdir(parents=True, exist_ok=True)
         for old in d.iterdir():
-            old.unlink()
+            if old.is_file():
+                old.unlink()
 
     n_labels = 0
     for kind in LABEL_KINDS:
@@ -50,6 +53,10 @@ def main() -> None:
                 full = im.copy()
                 full.thumbnail((2000, 2000), Image.LANCZOS)
                 full.save(out_images / f"{src.stem}.webp", "WEBP", quality=82, method=6)
+                if kind == "OBJ":
+                    large = im.convert("L")
+                    large.thumbnail((4000, 4000), Image.LANCZOS)
+                    large.save(out_large / f"{src.stem}.webp", "WEBP", quality=85, method=6)
                 thumb = im.copy()
                 thumb.thumbnail((360, 360), Image.LANCZOS)
                 thumb.save(out_thumbs / f"{src.stem}.webp", "WEBP", quality=78, method=6)

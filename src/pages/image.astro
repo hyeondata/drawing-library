@@ -22,7 +22,7 @@ const tools = [
     <p class="eyebrow">PNG · JPG 평면도</p>
     <h1>이미지로 <span class="gradient-text">평가하기</span></h1>
     <p class="lede">
-      평면도 이미지를 올리면 선으로 둘러싸인 실 영역을 자동으로 찾습니다. 실 종류를 눌러 지정하면 AI 허브 라벨과 같은 형식으로 바꿔 같은 모델로 채점합니다.
+      평면도 이미지를 올리면 선으로 둘러싸인 실 영역을 찾고, 도면에 적힌 실 이름을 읽어 종류를 자동으로 붙입니다. 틀린 것만 눌러 고치면 AI 허브 라벨과 같은 형식으로 바꿔 같은 모델로 채점합니다.
       이미지는 브라우저 안에서만 처리하고 어디에도 보내지 않습니다.
     </p>
   </section>
@@ -40,7 +40,7 @@ const tools = [
           <summary>샘플 이미지로 해 보기 ({samples.length}장)</summary>
           <div class="ie-sample-grid">
             {samples.map((s) => (
-              <button type="button" data-sample={`${base}${s.image}`} data-name={s.id} title={s.id}>
+              <button type="button" data-sample={`${base}images/large/${s.id}.webp`} data-name={s.id} title={s.id}>
                 <img src={`${base}${s.thumbnail}`} alt={`샘플 ${s.number}`} loading="lazy" />
               </button>
             ))}
@@ -67,6 +67,11 @@ const tools = [
 
       <section class="ie-step" id="ie-label" aria-disabled="true">
         <h2><span class="ie-num">3</span>실 종류 지정</h2>
+        <label class="ie-auto">
+          <input type="checkbox" id="ie-ocr" checked />
+          <span><strong>실 이름 글자로 자동 지정</strong><span class="note">도면의 '침실', '욕실' 같은 글자를 읽어 영역에 종류를 붙입니다. 처음 한 번 인식 파일(약 5MB)을 받습니다.</span></span>
+        </label>
+        <p class="note ie-ocr-status" id="ie-ocr-status" aria-live="polite"></p>
         <div class="seg ie-tools" role="group" aria-label="도구">
           {tools.map((t, i) => (
             <button type="button" data-tool={t.key} aria-pressed={i === 0 ? 'true' : 'false'} title={t.hint}>{t.name}</button>

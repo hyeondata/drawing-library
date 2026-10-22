@@ -241,3 +241,33 @@ test('이미지에서 실 영역을 찾아 지정하면 같은 모델로 평가�
   assert.equal(r.units[0].validity.valid, true, r.units[0].validity.failed.join(','));
   assert.ok(r.score > 0 && r.score <= 100);
 });
+
+test('실 이름 글자: 오인식을 자모 유사도로 맞추고 설명문은 버린다', async () => {
+  const { matchRoomName, namesFromText, seedsFromNames } = await import('../src/image/room-names.js');
+  const t = (s) => matchRoomName(s)?.type ?? null;
+  assert.equal(t('침실 1'), '침실');
+  assert.equal(t('[주방/식당]'), '주방');
+  assert.equal(t('혀과'), '현관');
+  assert.equal(t('뇨레스룸'), '드레스룸');
+  assert.equal(t('욕실2||'), '화장실');
+  assert.equal(t('ELEV.홀'), '엘리베이터홀');
+  assert.equal(t('청실2'), '침실');
+  assert.equal(t('7695석고보드/실크벽지'), null);
+  assert.equal(t('단위세대평면도(확장형)'), null);
+  assert.equal(t('1500'), null);
+  // "실외기실" 뒷부분만 따로 읽힌 "기실"은 긴 이름에 밀려 버린다.
+  const box = (x0, y0, x1, y1) => ({ x0, y0, x1, y1 });
+  const names = namesFromText([
+    { text: '실외기실', bbox: box(100, 100, 160, 115) },
+    { text: '기실', bbox: box(130, 100, 160, 115) },
+    { text: '거실', bbox: box(400, 300, 430, 315) },
+    { text: '주방/식당', bbox: box(500, 300, 560, 315) },
+  ]);
+  assert.deepEqual(names.map((n) => n.type).sort(), ['거실', '실외기실', '주방']);
+  // 거실과 주방 이름이 한 영역에 있으면 거실로 지정하고 나누라고 알린다.
+  const groupAt = (x) => (x < 300 ? 1 : 2);
+  const { seeds, shared, missing } = seedsFromNames(names, groupAt);
+  assert.equal(seeds.find((s) => s.x > 300).type, '거실');
+  assert.deepEqual(shared, [['거실', '주방']]);
+  assert.equal(missing.length, 0);
+});

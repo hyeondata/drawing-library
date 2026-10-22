@@ -5,8 +5,8 @@
   "type": "module",
   "description": "AI 허브 아파트 평면도 기반 도면 평가 모델과 Astro 평가 서비스",
   "scripts": {
-    "dev": "astro dev --host 127.0.0.1 --port 8790",
-    "build": "npm run baseline && npm run drawings && astro build",
+    "dev": "npm run ocr && astro dev --host 127.0.0.1 --port 8790",
+    "build": "npm run ocr && npm run baseline && npm run drawings && astro build",
     "preview": "astro preview --host 127.0.0.1 --port 8790",
     "data:prepare": "python3 scripts/prepare_data.py",
     "baseline": "node scripts/build-baseline.mjs",
@@ -17,10 +17,13 @@
     "deploy": "wrangler deploy",
     "sensitivity": "node scripts/sensitivity.mjs",
     "validate": "node scripts/validate.mjs",
-    "results": "node scripts/validate.mjs && node scripts/sensitivity.mjs"
+    "results": "node scripts/validate.mjs && node scripts/sensitivity.mjs",
+    "ocr": "node scripts/copy-ocr.mjs"
   },
   "dependencies": {
-    "astro": "^7.4.2"
+    "@tesseract.js-data/kor": "^1.0.0",
+    "astro": "^7.4.2",
+    "tesseract.js": "^7.0.0"
   },
   "engines": {
     "node": ">=24.0.0"

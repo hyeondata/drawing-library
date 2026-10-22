@@ -1509,6 +1509,27 @@ table.plain td.num {
   padding: 6px 8px;
   font-size: 13px;
 }
+.ie-auto {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 0 0 6px;
+  cursor: pointer;
+}
+.ie-auto input {
+  margin-top: 3px;
+  accent-color: var(--accent);
+}
+.ie-auto > span {
+  display: grid;
+  gap: 2px;
+}
+.ie-ocr-status:empty {
+  display: none;
+}
 .ie-palette {
   display: flex;
   flex-wrap: wrap;
