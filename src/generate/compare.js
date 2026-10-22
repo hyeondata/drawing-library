@@ -2,7 +2,7 @@
 // 같은 연속값 다듬기 예산을 주고 평가 모델(+ 목표 면적·선호)로 채점한다. 에너지와 모델 점수를 함께 보고한다.
 // QUBO 에너지는 평가 모델의 대리 지표라 에너지가 낮다고 평면이 좋다는 보장은 없다(그래서 순위상관을 함께 낸다).
 import { buildLayout, rng as makeRng } from './layout.js';
-import { optimize, scoreLayout, signature } from './optimize.js';
+import { optimize, scoreLayout, signature, snapshot } from './optimize.js';
 import { buildQubo, decode, energy, frontBedCount } from './qubo.js';
 import { SOLVERS, runSolver } from './solvers.js';
 
@@ -103,12 +103,16 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
   const q = tpls[0].q;
   const results = [];
   const points = [];
+  const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+  const run0 = clock();
   const total = algorithms.length;
   algorithms.forEach((key, idx) => {
     onProgress?.(idx / total, key);
     if (key === 'model') {
       const t0 = performance.now();
-      const top = optimize(spec, { baseline, seed, count: 1 });
+      const start = clock() - run0;
+      const timeline = {};
+      const top = optimize(spec, { baseline, seed, count: 1, timeline });
       const best = top[0];
       // 이 안의 배치를 QUBO 에너지로도 잰다(순서를 QUBO 변수로 옮겨서).
       let energyM = null;
@@ -117,7 +121,11 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
         const order = orderOf(best.layout, t.q);
         if (order) (energyM = energyOfOrder(t.q, order)), (templateM = t.k);
       }
-      results.push({ key, name: '기존: 모델 직접 탐색', family: '평가 모델 블랙박스 최적화', cite: '이 사이트 v1', energy: energyM, template: templateM, feasible: true, ms: performance.now() - t0, evals: 800, best, budget: '평가 800회' });
+      results.push({
+        key, name: '기존: 모델 직접 탐색', family: '평가 모델 블랙박스 최적화', cite: '이 사이트 v1', energy: energyM, template: templateM, feasible: true, ms: performance.now() - t0, evals: 800, best, budget: '평가 800회',
+        // 시간 과정: 탐색 구간 하나, 나은 안을 찾은 순간마다 평면
+        time: { start, phases: [{ label: '무작위 탐색', start, end: start + timeline.randomEnd }, { label: '다듬기', start: start + timeline.randomEnd, end: start + timeline.total }], marks: timeline.improvements.map((m) => ({ t: start + m.t, layout: m.layout, note: m.phase })) },
+      });
       return;
     }
     const solver = SOLVERS.find((s) => s.key === key);
@@ -126,9 +134,23 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
     let ms = 0;
     let evals = 0;
     const perTemplate = [];
+    const start = clock() - run0;
+    const phases = [];
+    const marks = [];
     // 예산을 템플릿 수로 나눠 각 템플릿 QUBO를 푼다.
     for (const t of tpls) {
+      const solveStart = clock() - run0;
       const res = runSolver(key, t.q, { seed, budgetMs: budgetMs / tpls.length, maxEvals: maxEvals ? Math.round(maxEvals / tpls.length) : null });
+      phases.push({ label: `QUBO 풀이(앞 침실 ${t.k + 1}개)`, start: solveStart, end: solveStart + res.ms });
+      // 에너지가 낮아진 순간마다 그 해를 기본 치수로 평면에 풀어 둔다(최대 16개).
+      const tr = res.trace;
+      const pick = tr.length <= 16 ? tr : Array.from({ length: 16 }, (_, i) => tr[Math.round((i * (tr.length - 1)) / 15)]);
+      for (const [tm, , e, xs] of pick) {
+        const order = decode(t.q, xs);
+        const lay = buildLayout(spec, { ...defaultParams(spec), frontOrder: order.front, backOrder: order.back });
+        marks.push({ t: solveStart + tm, energy: e, template: t.k, layout: snapshot(lay), note: `에너지 ${e.toFixed(2)}${order.repaired ? '(제약 복구)' : ''}` });
+      }
+      const decodeStart = clock() - run0;
       ms += res.ms;
       evals += res.evals;
       perTemplate.push({ k: t.k, energy: res.energy, feasible: res.feasible, info: res.info });
@@ -146,9 +168,10 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
         points.push([t.k, smp.e, cand.objective]);
         if (!best || cand.objective > best.objective) best = cand;
       }
+      phases.push({ label: '평면으로 풀기·다듬기', start: decodeStart, end: clock() - run0 });
     }
     const tb = best ? perTemplate.find((p) => p.k === best.template) : perTemplate[0];
-    results.push({ key, name: solver.name, full: solver.full, family: solver.family, cite: solver.cite, provisional: Boolean(solver.provisional), energy: best ? best.energy : tb.energy, template: tb.k, feasible: tb.feasible, perTemplate, ms, evals, best, info: tb.info, budget: maxEvals ? `평가 ${maxEvals.toLocaleString()}회` : `${budgetMs}ms` });
+    results.push({ key, name: solver.name, full: solver.full, family: solver.family, cite: solver.cite, provisional: Boolean(solver.provisional), energy: best ? best.energy : tb.energy, template: tb.k, feasible: tb.feasible, perTemplate, ms, evals, best, info: tb.info, budget: maxEvals ? `평가 ${maxEvals.toLocaleString()}회` : `${budgetMs}ms`, time: { start, phases, marks } });
   });
   onProgress?.(1);
   // 에너지(낮을수록 좋음)와 순위 점수(높을수록 좋음)의 상관: 템플릿마다 구해 후보 수로 가중 평균. 음수면 에너지가 낮을수록 평면이 좋다.

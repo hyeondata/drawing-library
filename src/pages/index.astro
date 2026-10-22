@@ -261,6 +261,22 @@ const steps = [
                 <div class="gen-process-text" id="proc-text" aria-live="polite"></div>
               </div>
             </section>
+            <section class="gen-time" id="gen-time" aria-label="계산 시간에 따른 과정">
+              <div class="gen-process-head">
+                <h3>계산 시간에 따른 과정</h3>
+                <div class="gen-process-ctl">
+                  <button type="button" class="button-ghost small" id="time-play">▶ 재생</button>
+                  <span class="mono" id="time-now"></span>
+                </div>
+              </div>
+              <p class="note" id="time-note"></p>
+              <figure class="gen-time-chart" id="time-chart"></figure>
+              <input type="range" id="time-slider" class="gen-time-slider" min="0" max="1000" step="1" value="1000" aria-label="계산 시각" />
+              <div class="gen-process-body">
+                <figure class="gen-plan" id="time-plan"></figure>
+                <div class="gen-process-text" id="time-text" aria-live="polite"></div>
+              </div>
+            </section>
             <section class="gen-gallery" id="gen-gallery-wrap" hidden>
               <h3>탐색한 후보</h3>
               <p class="note" id="gen-gallery-note"></p>

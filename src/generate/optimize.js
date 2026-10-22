@@ -76,11 +76,22 @@ export const signature = (layout) => {
 /**
  * 최적화. 반환: 서로 다른 배치의 상위 count개 [{ layout, params, ...scoreLayout }]
  */
-export function optimize(spec, { baseline, seed = 1, random = 400, refine = 400, count = 3, onProgress, gallery = null } = {}) {
+const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+/** 평면 스냅샷(점수 없이 배치만). */
+export const snapshot = (layout) => ({ W: layout.W, D: layout.D, rooms: layout.rooms.map(({ key, type, name, x, y, w, h }) => ({ key, type, name, x, y, w, h })) });
+
+/**
+ * timeline(선택): 계산 시간에 따른 과정 기록. { improvements: [{ t, evals, phase, layout }], pace: [[t, evals]], randomEnd, total }
+ * improvements는 '지금까지 가장 나은 안'이 바뀐 순간과 그때의 평면이다(점수는 담지 않는다).
+ */
+export function optimize(spec, { baseline, seed = 1, random = 400, refine = 400, count = 3, onProgress, gallery = null, timeline = null } = {}) {
   const r = rng(seed);
   const total = random + refine;
   const pool = [];
   let done = 0;
+  const t0 = clock();
+  let bestObj = -Infinity;
+  if (timeline) Object.assign(timeline, { improvements: [], pace: [[0, 0]], randomEnd: null, total: null });
   const tick = () => {
     done++;
     if (onProgress && done % 20 === 0) onProgress(done / total);
@@ -93,9 +104,18 @@ export function optimize(spec, { baseline, seed = 1, random = 400, refine = 400,
     if (gallery && done % Math.max(1, Math.floor(total / 24)) === 0 && gallery.length < 24)
       gallery.push({ W: layout.W, D: layout.D, rooms: layout.rooms.map(({ key, type, name, x, y, w, h }) => ({ key, type, name, x, y, w, h })), signature: signature(layout), index: done, phase: done <= random ? '무작위' : '다듬기' });
     if (s) pool.push({ layout, params, ...s, signature: signature(layout) });
+    if (timeline) {
+      const t = clock() - t0;
+      if (done % 10 === 0) timeline.pace.push([t, done]);
+      if (s && s.objective > bestObj) {
+        bestObj = s.objective;
+        timeline.improvements.push({ t, evals: done, phase: done <= random ? '무작위 탐색' : '다듬기', signature: signature(layout), layout: snapshot(layout) });
+      }
+    }
     return s;
   };
   for (let i = 0; i < random; i++) tryParams(randomParams(spec, r));
+  if (timeline) timeline.randomEnd = clock() - t0;
   // 국소 탐색: 서명이 다른 상위 안 몇 개를 각각 다듬는다.
   const seeds = distinctTop(pool, 4);
   const per = Math.floor(refine / Math.max(1, seeds.length));
@@ -108,6 +128,10 @@ export function optimize(spec, { baseline, seed = 1, random = 400, refine = 400,
     }
   }
   onProgress?.(1);
+  if (timeline) {
+    timeline.total = clock() - t0;
+    timeline.pace.push([timeline.total, done]);
+  }
   return distinctTop(pool, count);
 }
 

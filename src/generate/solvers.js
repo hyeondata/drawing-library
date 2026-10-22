@@ -529,7 +529,7 @@ export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null } 
     add(x, e);
     if (e < bestSoFar - 1e-12) {
       bestSoFar = e;
-      trace.push([realNow() - wall0, evals, e]);
+      trace.push([realNow() - wall0, evals, e, Uint8Array.from(x)]);
     }
   };
   let info;

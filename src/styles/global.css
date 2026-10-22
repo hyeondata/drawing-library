@@ -2601,3 +2601,30 @@ table.plain td.num {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.gen-time {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+.gen-time h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.gen-time .note {
+  margin: 0;
+}
+.gen-time-chart {
+  margin: 0;
+}
+.gen-time-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font);
+}
+.gen-time-slider {
+  width: 100%;
+  accent-color: var(--accent);
+}

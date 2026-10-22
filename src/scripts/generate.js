@@ -11,7 +11,7 @@ const HANDOFF_KEY = 'floorplan-eval:image';
 const RESULT = steps.length - 1;
 const PREF = Object.fromEntries([...data.syntax, ...data.lifestyle].map((c) => [c.key, c]));
 
-const state = { view: 'full', compare: null, gallery: [], step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
+const state = { view: 'full', compare: null, gallery: [], timeline: null, timeAt: null, timeLane: 0, step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
 
 // ---------- 선택 읽기 ----------
 const radio = (name) => form.querySelector(`input[name="${name}"]:checked`);
@@ -141,6 +141,8 @@ async function run(seed = state.seed) {
     if (m.done) {
       state.top = m.top;
       state.gallery = m.gallery || [];
+      state.timeline = m.timeline || null;
+      state.timeAt = null;
       state.compare = null;
       state.current = 0;
       state.ms = performance.now() - t0;
@@ -175,6 +177,8 @@ async function runCompare(algorithms, seed) {
     if (m.done) {
       state.compare = { ...m.compare, budgetMs, seed };
       state.gallery = [];
+      state.timeline = null;
+      state.timeAt = null;
       state.top = m.compare.results.filter((r) => r.best).map((r) => ({ ...r.best, tabLabel: r.name, algo: r }));
       state.current = 0;
       state.ms = performance.now() - t0;
@@ -303,6 +307,7 @@ function renderResult() {
   $('#gen-tabs').querySelectorAll('[data-cand]').forEach((b) =>
     b.addEventListener('click', () => {
       state.current = Number(b.dataset.cand);
+      state.timeFollowTab = true;
       renderResult();
     }),
   );
@@ -346,6 +351,7 @@ function renderResult() {
       <table class="gen-table"><thead><tr><th>실</th><th>면적 ㎡</th><th>폭 × 깊이 m</th></tr></thead><tbody>${roomRows}</tbody></table>
     </details>`;
   renderProcess();
+  renderTime();
   renderGallery();
   $('#gen-result').hidden = false;
 }
@@ -504,6 +510,178 @@ $('#proc-play').addEventListener('click', () => {
   $('#proc-play').textContent = '❚❚ 멈춤';
   setStage(proc.stage + 1);
   proc.timer = setInterval(() => (proc.stage >= STAGES.length ? stopPlay() : setStage(proc.stage + 1)), 1600);
+});
+
+// ---------- 계산 시간에 따른 과정 ----------
+// 기본 모드: 탐색 한 줄(무작위 탐색 → 다듬기), 나은 안을 찾은 순간마다 그 평면.
+// 비교 모드: 알고리즘마다 한 줄(QUBO 풀이 → 평면으로 풀기·다듬기), 에너지가 낮아진 순간마다 그 해를 푼 평면.
+function lanes() {
+  if (state.compare)
+    return state.compare.results.map((r, i) => ({
+      key: r.key,
+      name: r.name,
+      phases: r.time?.phases || [],
+      marks: r.time?.marks || [],
+      final: state.top.find((c) => c.algo?.key === r.key)?.layout || null,
+      tab: state.top.findIndex((c) => c.algo?.key === r.key),
+      color: `var(--series-${(i % 6) + 1})`,
+    }));
+  const tl = state.timeline;
+  if (!tl) return [];
+  return [
+    {
+      key: 'model',
+      name: '탐색',
+      phases: [
+        { label: '무작위 탐색', start: 0, end: tl.randomEnd },
+        { label: '다듬기', start: tl.randomEnd, end: tl.total },
+      ],
+      marks: tl.improvements.map((m) => ({ t: m.t, layout: m.layout, note: m.phase, evals: m.evals, signature: m.signature })),
+      final: state.top[0]?.layout || null,
+      tab: 0,
+      color: 'var(--series-1)',
+    },
+  ];
+}
+const laneEnd = (l) => Math.max(0, ...l.phases.map((p) => p.end));
+function renderTime() {
+  const L = lanes();
+  const wrap = $('#gen-time');
+  if (!L.length) {
+    wrap.hidden = true;
+    return;
+  }
+  wrap.hidden = false;
+  const total = Math.max(1, ...L.map(laneEnd));
+  const slider = $('#time-slider');
+  slider.max = Math.round(total);
+  if (state.timeAt === null) state.timeAt = total;
+  slider.value = Math.round(state.timeAt);
+  if (state.timeLane === undefined || state.timeLane >= L.length) state.timeLane = 0;
+  if (state.compare) {
+    const k = state.top[state.current]?.algo?.key;
+    const i = L.findIndex((l) => l.key === k);
+    if (i >= 0 && state.timeFollowTab !== false) state.timeLane = i;
+  }
+  $('#time-note').textContent = state.compare
+    ? `알고리즘을 차례로 돌린 실제 시간입니다. 진한 막대 = QUBO 풀이, 옅은 막대 = 해를 평면으로 풀고 깊이·폭을 다듬는 시간, 점 = 에너지가 낮아진 순간. 줄을 누르면 그 알고리즘의 과정을 봅니다.`
+    : `평면 ${state.timeline.pace.at(-1)[1]}개를 만드는 데 걸린 실제 시간입니다. 선 = 지금까지 만든 후보 수, 점 = 더 나은 안을 찾은 순간. 시각을 옮기거나 재생하면 그 순간까지 찾은 가장 나은 안을 보여 줍니다.`;
+  drawTimeChart(L, total);
+  drawTimePlan(L, total);
+}
+function drawTimeChart(L, total) {
+  const W = 760;
+  const left = 150;
+  const right = 16;
+  const pace = !state.compare && state.timeline ? state.timeline.pace : null;
+  const top = pace ? 70 : 8;
+  const rowH = 26;
+  const H = top + L.length * rowH + 30;
+  const x = (t) => left + (t / total) * (W - left - right);
+  let g = '';
+  // 눈금
+  const step = total > 3000 ? 1000 : total > 1200 ? 500 : total > 400 ? 200 : 100;
+  for (let t = 0; t <= total + 1e-6; t += step) {
+    g += `<line x1="${x(t)}" x2="${x(t)}" y1="${top - (pace ? 62 : 0)}" y2="${H - 24}" stroke="var(--line)"/>`;
+    g += `<text x="${x(t)}" y="${H - 8}" font-size="11" text-anchor="middle" fill="var(--text-muted)">${(t / 1000).toFixed(t % 1000 ? 1 : 0)}초</text>`;
+  }
+  if (pace) {
+    const maxN = pace.at(-1)[1];
+    const y = (n) => top - 8 - (n / maxN) * 54;
+    g += `<text x="${left - 8}" y="${y(maxN) + 4}" font-size="11" text-anchor="end" fill="var(--text-muted)">후보 ${maxN}개</text><text x="${left - 8}" y="${y(0) + 4}" font-size="11" text-anchor="end" fill="var(--text-muted)">0</text>`;
+    g += `<polyline points="${pace.map(([t, n]) => `${x(t).toFixed(1)},${y(n).toFixed(1)}`).join(' ')}" fill="none" stroke="var(--series-1)" stroke-width="2"/>`;
+  }
+  L.forEach((l, i) => {
+    const yy = top + i * rowH;
+    const on = i === state.timeLane;
+    g += `<g class="gen-lane" data-lane="${i}" style="cursor:${state.compare ? 'pointer' : 'default'}">`;
+    g += `<rect x="0" y="${yy}" width="${W}" height="${rowH}" fill="${on && state.compare ? 'var(--accent-soft)' : 'transparent'}"/>`;
+    g += `<text x="${left - 8}" y="${yy + 17}" font-size="12" text-anchor="end" fill="var(--text-${on ? 'primary' : 'secondary'})" font-weight="${on ? 700 : 400}">${esc(l.name)}</text>`;
+    for (const p of l.phases) {
+      const solve = p.label.startsWith('QUBO') || p.label === '무작위 탐색';
+      g += `<rect x="${x(p.start)}" y="${yy + 6}" width="${Math.max(1, x(p.end) - x(p.start) - 1)}" height="${rowH - 12}" rx="3" fill="${l.color}" fill-opacity="${solve ? 0.85 : 0.3}"><title>${esc(l.name)} · ${esc(p.label)} ${((p.end - p.start) / 1000).toFixed(2)}초</title></rect>`;
+    }
+    for (const m of l.marks) g += `<circle cx="${x(m.t)}" cy="${yy + rowH / 2}" r="4" fill="var(--surface-1)" stroke="var(--text-primary)" stroke-width="1.5"><title>${(m.t / 1000).toFixed(3)}초 · ${esc(m.note || '')}</title></circle>`;
+    g += '</g>';
+  });
+  g += `<line x1="${x(state.timeAt)}" x2="${x(state.timeAt)}" y1="${top - (pace ? 62 : 4)}" y2="${H - 24}" stroke="var(--accent)" stroke-width="2"/>`;
+  $('#time-chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="계산 시간 막대">${g}</svg>`;
+  $('#time-chart').querySelectorAll('[data-lane]').forEach((el) =>
+    el.addEventListener('click', () => {
+      if (!state.compare) return;
+      state.timeLane = Number(el.dataset.lane);
+      state.timeFollowTab = false;
+      drawTimeChart(lanes(), total);
+      drawTimePlan(lanes(), total);
+    }),
+  );
+}
+function drawTimePlan(L, total) {
+  const l = L[state.timeLane] || L[0];
+  const t = state.timeAt;
+  $('#time-now').textContent = `${(t / 1000).toFixed(2)}초 / ${(total / 1000).toFixed(2)}초`;
+  const start = l.phases[0]?.start ?? 0;
+  const end = laneEnd(l);
+  const phase = l.phases.find((p) => t >= p.start && t <= p.end);
+  const seen = l.marks.filter((m) => m.t <= t);
+  const last = seen.at(-1);
+  let layout = null;
+  let caption = '';
+  if (t < start) caption = '아직 시작 전입니다.';
+  else if (t >= end && l.final) {
+    layout = l.final;
+    caption = state.compare ? '최종 안(해를 평면으로 풀고 깊이·폭을 다듬은 뒤)' : '최종 1안';
+  } else if (last) {
+    layout = last.layout;
+    caption = state.compare ? `이 시각까지 찾은 에너지가 가장 낮은 해를 기본 치수로 푼 평면` : `이 시각까지 찾은 가장 나은 안`;
+  } else caption = '아직 해를 찾지 못했습니다.';
+  $('#time-plan').innerHTML = layout ? layoutSvg(layout, { showArea: false, title: `${(t / 1000).toFixed(2)}초 시점` }) : `<p class="note" style="padding:20px">${caption}</p>`;
+  let pace = '';
+  if (!state.compare && state.timeline) {
+    const p = state.timeline.pace;
+    const k = p.findIndex(([tt]) => tt > t);
+    const n = k < 0 ? p.at(-1)[1] : k === 0 ? 0 : Math.round(p[k - 1][1] + ((t - p[k - 1][0]) / (p[k][0] - p[k - 1][0] || 1)) * (p[k][1] - p[k - 1][1]));
+    pace = `<p>지금까지 만든 후보 <b>${n}개</b> (평균 초당 약 ${Math.round(p.at(-1)[1] / (p.at(-1)[0] / 1000))}개).</p>`;
+  }
+  const same = last && state.top[0] && !state.compare ? last.signature === state.top[0].signature : null;
+  $('#time-text').innerHTML = `
+    <p><b>${esc(l.name)}</b> · ${phase ? esc(phase.label) : t < start ? '대기' : '끝남'}</p>
+    ${pace}
+    <p>더 나은 ${state.compare ? '해(낮은 에너지)를' : '안을'} 찾은 횟수 <b>${seen.length}번</b>${last ? `, 마지막은 ${(last.t / 1000).toFixed(2)}초${last.note ? ` · ${esc(last.note)}` : ''}` : ''}.</p>
+    <p class="note">${esc(caption)}${same === true ? ' — 최종 1안과 같은 배치입니다.' : same === false ? ' — 이후에 배치가 더 바뀝니다.' : ''}</p>`;
+}
+$('#time-slider').addEventListener('input', (e) => {
+  stopTime();
+  state.timeAt = Number(e.target.value);
+  const L = lanes();
+  const total = Math.max(1, ...L.map(laneEnd));
+  drawTimeChart(L, total);
+  drawTimePlan(L, total);
+});
+let timeAnim = null;
+function stopTime() {
+  if (timeAnim) cancelAnimationFrame(timeAnim);
+  timeAnim = null;
+  $('#time-play').textContent = '▶ 재생';
+}
+$('#time-play').addEventListener('click', () => {
+  if (timeAnim) return stopTime();
+  const L = lanes();
+  const total = Math.max(1, ...L.map(laneEnd));
+  if (state.timeAt >= total) state.timeAt = 0;
+  const from = state.timeAt;
+  const t0 = performance.now();
+  const dur = 6000 * (1 - from / total) + 200; // 전체를 약 6초에 재생
+  $('#time-play').textContent = '❚❚ 멈춤';
+  const step = (now) => {
+    state.timeAt = Math.min(total, from + ((now - t0) / dur) * (total - from));
+    $('#time-slider').value = Math.round(state.timeAt);
+    drawTimeChart(L, total);
+    drawTimePlan(L, total);
+    if (state.timeAt < total) timeAnim = requestAnimationFrame(step);
+    else stopTime();
+  };
+  timeAnim = requestAnimationFrame(step);
 });
 
 // ---------- 탐색한 후보 ----------
