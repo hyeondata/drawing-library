@@ -2,6 +2,8 @@
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
 import { MIN_SIDE } from '../generate/layout.js';
 import { renderFormulas } from './generate-formulas.js';
+import { renderDiagnosis } from './generate-diagnosis.js';
+import { deviation } from '../generate/metrics.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
@@ -326,7 +328,12 @@ function renderResult() {
     ['안방', m2(spec.targets.master), c.actual.master],
     ...(c.actual.other !== null ? [['작은방(평균)', m2(spec.targets.other), c.actual.other]] : []),
   ]
-    .map(([n, t, a]) => `<tr><td>${n}</td><td class="mono">${t.toFixed(1)}</td><td class="mono">${a.toFixed(1)}</td></tr>`)
+    .map(([n, t, a]) => {
+      const dv = deviation(t, a);
+      const cls = dv.level === 'good' ? 'good-text' : dv.level === 'warn' ? 'warn-text' : 'error-text';
+      const w = Math.min(50, Math.abs(dv.pct) * 2.5);
+      return `<tr><td>${n}</td><td class="mono">${t.toFixed(1)}</td><td class="mono">${a.toFixed(1)}</td><td class="mono"><span class="${cls}">${dv.pct >= 0 ? '+' : ''}${dv.pct.toFixed(1)}%</span><span class="gen-devbar" aria-hidden="true"><i class="gen-devband"></i><i class="gen-dev ${dv.level}" style="${dv.pct >= 0 ? 'left:50%' : `left:${50 - w}%`};width:${w}%"></i></span></td></tr>`;
+    })
     .join('');
   const indoor = c.layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실');
   const roomRows = [...c.layout.rooms]
@@ -347,11 +354,13 @@ function renderResult() {
     ${c.doorIssues ? `<p class="note error-text">문 동선 문제 ${c.doorIssues}개: ${esc([...c.layout.doorCheck.unreachable.map((k) => `현관에서 문으로 갈 수 없음(${k})`), ...c.layout.doorCheck.throughBedroom.map((k) => `침실을 지나야 함(${k})`)].join(', '))}</p>` : '<p class="note">문 동선: 현관에서 모든 실에 문으로 갈 수 있고, 침실을 지나야 하는 실이 없습니다.</p>'}
     ${c.narrow ? `<p class="note error-text">최소 폭(욕실 1.5m·침실 2.4m·안방 3.0m·거실 3.6m)보다 좁은 실이 ${c.narrow}개 있습니다. 방 개수나 구성을 줄여 보세요.</p>` : ''}
     <h3>목표 면적과 생성 면적</h3>
-    <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th></tr></thead><tbody>${rows}</tbody></table>
+    <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th><th>차이(±5% 띠)</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="note">초록 ±5% 이내, 노랑 ±10% 이내, 빨강 그 밖(실무 도구 Snaptrude의 기본 허용 범위 ±5%를 참고).</p>
     <details class="gen-rooms"><summary>실 목록(${c.layout.rooms.length}개)</summary>
       <table class="gen-table"><thead><tr><th>실</th><th>면적 ㎡</th><th>폭 × 깊이 m</th></tr></thead><tbody>${roomRows}</tbody></table>
     </details>`;
   renderProcess();
+  renderDiagnosis({ top, current: state.current, spec });
   renderFormulas({ spec, cand: c, weights: $('#gen-weights').value });
   renderTime();
   renderGallery();

@@ -2750,3 +2750,149 @@ table.plain td.num {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- 평면 진단 ---- */
+.gen-diag {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+}
+.gen-diag h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.gen-diag h4 {
+  margin: 4px 0 6px;
+  font-size: 14px;
+}
+.gen-diag > .note {
+  margin: 0;
+}
+.gen-diag-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.gen-diag-cards > div {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  display: grid;
+  gap: 2px;
+  align-content: start;
+}
+.gen-diag-cards b {
+  font-size: 18px;
+  color: var(--text-primary);
+}
+.gen-diag-cards .note {
+  margin: 0;
+  font-size: 12px;
+}
+.gen-src {
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px dashed var(--line);
+  padding-top: 3px;
+  margin-top: 2px;
+}
+.gen-diag-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+.gen-diag-view {
+  display: grid;
+  gap: 8px;
+}
+.gen-diag-view .note {
+  margin: 0;
+}
+.gen-diag-cmp {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  overflow-x: auto;
+}
+.gen-diag-cmp tr[data-cand] {
+  cursor: pointer;
+}
+.gen-diag-div {
+  width: 200px;
+  max-width: 100%;
+  color: var(--text-primary);
+}
+.warn-text {
+  color: #9a6700;
+}
+.gen-devbar {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  width: 80px;
+  height: 10px;
+  margin-left: 8px;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+.gen-devband {
+  position: absolute;
+  left: 37.5%;
+  width: 25%;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--good) 22%, transparent);
+}
+.gen-dev {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 2px;
+}
+.gen-dev.good {
+  background: var(--good);
+}
+.gen-dev.warn {
+  background: var(--warning);
+}
+.gen-dev.bad {
+  background: var(--critical);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .warn-text {
+    color: #f2c14e;
+  }
+}
+:root[data-theme='dark'] .warn-text {
+  color: #f2c14e;
+}
+@media (max-width: 900px) {
+  .gen-diag-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .gen-diag-body,
+  .gen-diag-cmp {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.gen-diag-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+.gen-diag-route select {
+  width: auto;
+}
+.gen-diag-scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+.gen-diag-scroll table {
+  min-width: 620px;
+}
