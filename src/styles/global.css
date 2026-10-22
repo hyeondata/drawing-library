@@ -1393,3 +1393,266 @@ table.plain td.num {
   color: var(--text-primary);
   border-color: currentColor;
 }
+
+/* ===== 이미지로 평가 ===== */
+.imgeval {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
+  align-items: start;
+}
+.ie-side {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 76px;
+}
+.ie-step {
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+.ie-step[aria-disabled='true'] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.ie-step h2 {
+  margin: 0;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ie-num {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+}
+.ie-drop {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 18px 14px;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+}
+.ie-drop:hover,
+.ie-drop.over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.ie-drop input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.ie-samples summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.ie-sample-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.ie-sample-grid button {
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  overflow: hidden;
+  aspect-ratio: 1.41;
+}
+.ie-sample-grid button:hover {
+  border-color: var(--accent);
+}
+.ie-sample-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ie-range {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+.ie-range span {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+.ie-range input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.ie-tools button {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.ie-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ie-palette button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ie-palette button[aria-pressed='true'] {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  font-weight: 700;
+  box-shadow: 0 0 0 1px var(--text-primary);
+}
+.ie-palette i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.ie-palette i.none {
+  border: 1px dashed var(--text-muted);
+}
+.ie-actions {
+  display: flex;
+  gap: 6px;
+}
+.ie-check {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.ie-check li {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--critical-text);
+}
+.ie-check li::before {
+  content: '✕ ';
+}
+.ie-check li.ok {
+  color: var(--good-text);
+}
+.ie-check li.ok::before {
+  content: '✓ ';
+}
+.ie-check span {
+  font-family: var(--mono);
+}
+.ie-go {
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  font-size: 15px;
+}
+.ie-go:disabled,
+#ie-json:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ie-stage-wrap {
+  min-width: 0;
+}
+.ie-empty {
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  min-height: 420px;
+  padding: 24px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.ie-stage {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: #ffffff;
+  overflow: hidden;
+}
+.ie-stage canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: pointer;
+  touch-action: none;
+}
+.ie-stage canvas[data-tool='line'],
+.ie-stage canvas[data-tool='rect'] {
+  cursor: crosshair;
+}
+.ie-status {
+  min-height: 1.4em;
+  margin: 8px 2px 0;
+}
+.error-text {
+  color: var(--critical-text);
+}
+.from-image {
+  margin: 8px 0;
+}
+.from-image summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.from-image img {
+  display: block;
+  max-width: 100%;
+  margin-top: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+.hero-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+}
+@media (max-width: 900px) {
+  .imgeval {
+    grid-template-columns: 1fr;
+    padding: 0 16px 40px;
+  }
+  .ie-side {
+    position: static;
+  }
+  .imgeval.has-image .ie-stage-wrap {
+    order: -1;
+  }
+  .ie-empty {
+    min-height: 160px;
+  }
+}

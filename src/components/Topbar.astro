@@ -2,7 +2,7 @@
 import { MODEL_VERSION } from '../model/config.js';
 
 interface Props {
-  current: 'evaluate' | 'examples';
+  current: 'evaluate' | 'examples' | 'image';
 }
 const { current } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -15,6 +15,7 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </a>
   <nav class="topnav" aria-label="주요 메뉴">
     <a href={`${base}#workspace`} aria-current={current === 'evaluate' ? 'page' : undefined}>평가하기</a>
+    <a href={`${base}image/`} aria-current={current === 'image' ? 'page' : undefined}>이미지로 평가</a>
     <a href={`${base}examples/`} aria-current={current === 'examples' ? 'page' : undefined}>예시 도면</a>
     <a href={`${base}#method`} class="nav-optional">평가 방법</a>
     <span class="chip mono nav-optional">model v{MODEL_VERSION}</span>

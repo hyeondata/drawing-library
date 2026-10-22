@@ -1,0 +1,122 @@
+---
+import Base from '../layouts/Base.astro';
+import Topbar from '../components/Topbar.astro';
+import examples from '../../public/data/examples.json';
+import { ROOM_TYPES } from '../model/drawing-style.js';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const samples = examples.filter((e) => e.original).map((e) => ({ id: e.id, number: e.number, image: e.image, thumbnail: e.thumbnail }));
+const REQUIRED = ['현관', '거실', '주방', '침실', '화장실'];
+const tools = [
+  { key: 'assign', name: '실 지정', hint: '영역을 눌러 고른 실 종류로 지정' },
+  { key: 'rect', name: '사각형', hint: '찾지 못한 실을 끌어서 직접 그리기' },
+  { key: 'line', name: '선 긋기', hint: '열린 문을 막거나 한 영역을 둘로 나누기' },
+  { key: 'merge', name: '합치기', hint: '점선 등으로 잘린 두 영역을 차례로 눌러 하나로' },
+];
+---
+
+<Base title="이미지로 평가 · 평면 평가 랩" description="평면도 이미지를 올리면 실 영역을 찾고, 실 종류를 지정해 같은 평가 모델로 채점합니다.">
+  <Topbar current="image" />
+
+  <section class="hero hero-compact">
+    <p class="eyebrow">PNG · JPG 평면도</p>
+    <h1>이미지로 <span class="gradient-text">평가하기</span></h1>
+    <p class="lede">
+      평면도 이미지를 올리면 선으로 둘러싸인 실 영역을 자동으로 찾습니다. 실 종류를 눌러 지정하면 AI 허브 라벨과 같은 형식으로 바꿔 같은 모델로 채점합니다.
+      이미지는 브라우저 안에서만 처리하고 어디에도 보내지 않습니다.
+    </p>
+  </section>
+
+  <main class="imgeval" id="imgeval">
+    <aside class="ie-side" aria-label="도구">
+      <section class="ie-step">
+        <h2><span class="ie-num">1</span>이미지 올리기</h2>
+        <label class="ie-drop" id="ie-drop">
+          <input id="ie-file" type="file" accept="image/png,image/jpeg,image/webp" />
+          <strong>이미지를 끌어 놓거나 눌러서 고르기</strong>
+          <span class="note">PNG · JPG · WebP. 흰 바탕에 검은 선 도면이 가장 잘 됩니다.</span>
+        </label>
+        <details class="ie-samples">
+          <summary>샘플 이미지로 해 보기 ({samples.length}장)</summary>
+          <div class="ie-sample-grid">
+            {samples.map((s) => (
+              <button type="button" data-sample={`${base}${s.image}`} data-name={s.id} title={s.id}>
+                <img src={`${base}${s.thumbnail}`} alt={`샘플 ${s.number}`} loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </details>
+      </section>
+
+      <section class="ie-step" id="ie-detect" aria-disabled="true">
+        <h2><span class="ie-num">2</span>실 영역 찾기</h2>
+        <label class="ie-range">
+          <span>선으로 볼 밝기 <output id="out-threshold">–</output></span>
+          <input type="range" id="opt-threshold" min="40" max="240" step="1" />
+        </label>
+        <label class="ie-range">
+          <span>끊긴 선 잇기 <output id="out-close">2</output>px</span>
+          <input type="range" id="opt-close" min="0" max="12" step="1" value="2" />
+        </label>
+        <label class="ie-range">
+          <span>무시할 작은 조각 <output id="out-min">0.08</output>%</span>
+          <input type="range" id="opt-min" min="0.02" max="0.5" step="0.02" value="0.08" />
+        </label>
+        <p class="note" id="ie-found" aria-live="polite"></p>
+      </section>
+
+      <section class="ie-step" id="ie-label" aria-disabled="true">
+        <h2><span class="ie-num">3</span>실 종류 지정</h2>
+        <div class="seg ie-tools" role="group" aria-label="도구">
+          {tools.map((t, i) => (
+            <button type="button" data-tool={t.key} aria-pressed={i === 0 ? 'true' : 'false'} title={t.hint}>{t.name}</button>
+          ))}
+        </div>
+        <p class="note" id="ie-tool-hint">{tools[0].hint}</p>
+        <div class="ie-palette" role="group" aria-label="실 종류">
+          {ROOM_TYPES.map((t, i) => (
+            <button type="button" data-type={t.type} aria-pressed={i === 0 ? 'true' : 'false'}>
+              <i style={`background:${t.color}`}></i>{t.type}
+            </button>
+          ))}
+          <button type="button" data-type="" aria-pressed="false"><i class="none"></i>지정 해제</button>
+        </div>
+        <div class="ie-actions">
+          <button type="button" class="button-ghost small" id="ie-undo">되돌리기</button>
+          <button type="button" class="button-ghost small" id="ie-reset">모두 지우기</button>
+        </div>
+      </section>
+
+      <section class="ie-step" id="ie-eval" aria-disabled="true">
+        <h2><span class="ie-num">4</span>평가</h2>
+        <ul class="ie-check" id="ie-check">
+          {REQUIRED.map((t) => <li data-req={t}>{t} <span>0</span></li>)}
+        </ul>
+        <button type="button" class="button-primary ie-go" id="ie-go">이 평면 평가하기 →</button>
+        <button type="button" class="button-ghost small" id="ie-json">라벨 JSON 내려받기</button>
+        <p class="note">필수 실(현관·거실·주방·침실·화장실)이 빠지면 '유효하지 않은 평면'으로 판정됩니다.</p>
+      </section>
+    </aside>
+
+    <section class="ie-stage-wrap" aria-label="도면">
+      <div class="ie-empty" id="ie-empty">
+        <p><strong>평면도 이미지를 올리거나 샘플을 고르세요.</strong></p>
+        <p class="note">찾은 영역을 실 종류로 지정하면 AI 허브 공간 라벨처럼 바뀌어 평가됩니다. 문이 열려 있어 두 실이 하나로 잡히면 <b>선 긋기</b>로 막고, 찾지 못한 화장실·현관은 <b>사각형</b>으로 그리세요.</p>
+      </div>
+      <div class="ie-stage" id="ie-stage" hidden>
+        <canvas id="ie-canvas" aria-label="평면도와 찾은 실 영역"></canvas>
+      </div>
+      <p class="note ie-status" id="ie-status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>평면 평가 랩 · 이미지로 평가</span>
+    <span>이미지는 브라우저 밖으로 나가지 않습니다</span>
+  </footer>
+
+  <script id="ie-data" type="application/json" set:html={JSON.stringify({ base, required: REQUIRED, tools })} />
+  <script>
+    import '../scripts/image-eval.js';
+  </script>
+</Base>

@@ -202,3 +202,42 @@ test('모든 샘플을 오류 없이 평가하고 점수는 0~100이다', () => 
     }
   }
 });
+
+// ---- 이미지로 평가: 합성 평면 이미지 → 영역 찾기 → 실 지정 → COCO → 평가 ----
+test('이미지에서 실 영역을 찾아 지정하면 같은 모델로 평가된다', async () => {
+  const { segment, applyAssignments, regionPolygon, toCoco, drawLine } = await import('../src/image/segment.js');
+  const W = 1000;
+  const H = 700;
+  const gray = new Uint8Array(W * H).fill(255);
+  const ink = new Uint8Array(W * H);
+  const wall = (a, b) => drawLine(ink, W, H, a, b, 3);
+  const box = (x0, y0, x1, y1) => {
+    wall([x0, y0], [x1, y0]);
+    wall([x1, y0], [x1, y1]);
+    wall([x1, y1], [x0, y1]);
+    wall([x0, y1], [x0, y0]);
+  };
+  // 이중선 벽 대신 굵은 선 하나로 그린 단순 평면(현관·거실·주방·침실 2·화장실)
+  box(100, 100, 900, 600); // 외벽
+  wall([300, 100], [300, 350]); // 현관 | 거실
+  wall([100, 250], [300, 250]); // 현관 | 화장실
+  wall([100, 350], [600, 350]); // 위 | 아래
+  wall([600, 100], [600, 600]); // 거실·주방 | 침실
+  wall([450, 100], [450, 350]); // 거실 | 주방
+  wall([600, 350], [900, 350]); // 침실1 | 침실2
+  wall([300, 350], [300, 600]); // 아래 왼쪽 | 침실3
+  for (let i = 0; i < ink.length; i++) if (ink[i]) gray[i] = 0;
+  const seg = segment(gray, W, H, { close: 1 });
+  const at = { 현관: [200, 170], 화장실: [200, 300], 거실: [370, 220], 주방: [520, 220], 침실: [750, 220] };
+  const seeds = Object.entries(at).map(([type, [x, y]]) => ({ x, y, type }));
+  seeds.push({ x: 750, y: 480, type: '침실' }, { x: 450, y: 480, type: '침실' }, { x: 200, y: 480, type: '드레스룸' });
+  const { groups } = applyAssignments(seg.labels, W, seg.regions, seeds, []);
+  const rooms = [...groups.values()].filter((g) => g.type).map((g) => ({ type: g.type, polygon: regionPolygon(seg.labels, W, H, g.members) }));
+  assert.equal(rooms.length, 8);
+  const label = toCoco(rooms, W, H);
+  assert.equal(label.images[0].width, 4963);
+  const r = evaluate(label, { baseline, kind: 'SPA' });
+  assert.equal(r.units.length, 1);
+  assert.equal(r.units[0].validity.valid, true, r.units[0].validity.failed.join(','));
+  assert.ok(r.score > 0 && r.score <= 100);
+});

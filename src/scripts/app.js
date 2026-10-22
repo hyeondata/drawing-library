@@ -132,7 +132,15 @@ async function select(id) {
 
 async function evaluateUpload(file) {
   try {
-    const label = JSON.parse(await file.text());
+    evaluateLabel(JSON.parse(await file.text()), { id: file.name });
+  } catch (err) {
+    showError(err);
+  }
+}
+
+/** 올린 라벨(JSON 파일 또는 이미지에서 만든 라벨)을 평가한다. */
+function evaluateLabel(label, { id, preview = null, fromImage = false }) {
+  try {
     const t0 = performance.now();
     const result = evaluate(label, { baseline: state.baseline });
     const ms = performance.now() - t0;
@@ -140,7 +148,7 @@ async function evaluateUpload(file) {
     state.currentId = null;
     document.querySelectorAll('.card').forEach((c) => c.setAttribute('aria-current', 'false'));
     history.replaceState(null, '', location.pathname);
-    showResult(result, { id: file.name, kind: result.kind, number: file.name, image: null, width: image.width, height: image.height, uploaded: true }, ms);
+    showResult(result, { id, kind: result.kind, number: id, image: null, width: image.width, height: image.height, uploaded: true, preview, fromImage }, ms);
   } catch (err) {
     showError(err);
   }
@@ -171,7 +179,7 @@ function showResult(result, entry, ms) {
   el.innerHTML = `
     <div class="result-head">
       <div class="result-title">
-        <span class="chip"><span class="mono">${result.kind}</span> ${KIND_NAME[result.kind]} 평가${entry.uploaded ? ' · 올린 파일' : ''}</span>
+        <span class="chip"><span class="mono">${result.kind}</span> ${KIND_NAME[result.kind]} 평가${entry.fromImage ? ' · 이미지에서 지정' : entry.uploaded ? ' · 올린 파일' : ''}</span>
         <h2>${esc(entry.id)}</h2>
         <p>${result.kind === 'SPA' ? `세대 ${units}개 · ` : ''}기준 분포 ${result.baselineSize}개와 비교 · 계산 ${ms.toFixed(0)}ms · model v${result.modelVersion}</p>
       </div>
@@ -186,6 +194,8 @@ function showResult(result, entry, ms) {
     ${units > 1 ? `<div class="unit-tabs" role="group" aria-label="세대 선택">${result.units
       .map((u, i) => `<button type="button" data-unit="${i}" aria-pressed="${i === 0}">세대 ${i + 1} · ${u.score.toFixed(0)}점</button>`)
       .join('')}</div>` : ''}
+    ${entry.fromImage ? `<details class="from-image"${entry.preview ? '' : ' hidden'}><summary>원본 이미지와 지정한 실 보기</summary>${entry.preview ? `<img src="${entry.preview}" alt="올린 평면도 이미지와 지정한 실 영역" />` : ''}</details>
+    <p class="note">이미지에서 찾은 영역을 실 종류로 지정해 만든 라벨입니다. 영역 경계가 실제 벽선과 조금 다를 수 있습니다. <a href="image/">이미지로 돌아가 고치기</a></p>` : ''}
     <div id="unit-body"></div>`;
   renderUnit();
 }
@@ -510,6 +520,21 @@ async function init() {
     state.unit = Number(b.dataset.unit);
     renderUnit();
   });
+  // 이미지로 평가 화면에서 넘어온 라벨
+  if (location.hash === '#image') {
+    let handoff = null;
+    try {
+      handoff = JSON.parse(sessionStorage.getItem('floorplan-eval:image') || 'null');
+    } catch {
+      handoff = null;
+    }
+    if (handoff && handoff.label) {
+      setKind('SPA');
+      evaluateLabel(handoff.label, { id: handoff.name, preview: handoff.preview, fromImage: true });
+      document.getElementById('workspace')?.scrollIntoView();
+      return;
+    }
+  }
   const fromHash = decodeURIComponent(location.hash.slice(1));
   const start = state.catalog.find((d) => d.id === fromHash);
   setKind(start ? start.kind : 'SPA');
