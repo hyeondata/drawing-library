@@ -1,0 +1,158 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import Base from '../layouts/Base.astro';
+import Topbar from '../components/Topbar.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const units = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'shapes.json'), 'utf8'));
+const drawings = new Set(units.map((u) => u.drawing)).size;
+---
+
+<Base title="자유형 평면 · 평면 생성 랩" description="AI 허브 Sample에서 사각형이 아닌 실(ㄱ자 거실 등)이 있는 세대를 골라, 그 외곽과 실 구성을 바탕으로 새 평면을 만들고 계산 과정을 보여 줍니다.">
+  <Topbar current="freeform" />
+
+  <section class="hero hero-compact">
+    <p class="eyebrow">Sample 세대 → 격자 배정 → 담금질</p>
+    <h1>자유형 <span class="gradient-text">평면 생성</span></h1>
+    <p class="lede">
+      AI 허브 Sample {drawings}장에서 뽑은, 사각형이 아닌 실(ㄱ자 거실·주방 등)이 있는 {units.length}세대 중 하나를 고르세요.
+      그 세대의 외곽과 현관·발코니 위치, 실 구성과 연결 관계를 그대로 두고 안쪽을 다시 나눠, ㄱ자·ㄷ자 실까지 나올 수 있는 새 평면을 만듭니다.
+    </p>
+  </section>
+
+  <main class="ff" id="ff">
+    <section class="ff-step" aria-labelledby="ff-h1">
+      <div class="ff-head">
+        <h2 id="ff-h1"><span class="gen-num">1</span> 기준 세대 고르기</h2>
+        <div class="seg ff-filter" role="group" aria-label="거르기" id="ff-filter">
+          <button type="button" data-f="all" aria-pressed="true">전체</button>
+          <button type="button" data-f="거실" aria-pressed="false">ㄱ자 거실</button>
+          <button type="button" data-f="주방" aria-pressed="false">비정형 주방</button>
+          <button type="button" data-f="침실" aria-pressed="false">비정형 침실</button>
+          <button type="button" data-f="many" aria-pressed="false">비정형 3실 이상</button>
+        </div>
+      </div>
+      <p class="note">주황 테두리가 사각형이 아닌 실(면적이 외접 사각형의 85% 미만)입니다. 면적은 침실 크기로 추정한 값이라, 다음 단계에서 원하는 전용면적으로 맞출 수 있습니다.</p>
+      <div class="ff-gallery" id="ff-gallery"></div>
+    </section>
+
+    <section class="ff-step" aria-labelledby="ff-h2" id="ff-setup" hidden>
+      <h2 id="ff-h2"><span class="gen-num">2</span> 조건 정하기</h2>
+      <div class="ff-setup">
+        <figure class="gen-plan" id="ff-orig"></figure>
+        <div class="ff-controls">
+          <div class="ff-orig-info" id="ff-orig-info"></div>
+          <label class="ff-field">전용면적(㎡) <input type="number" id="ff-area" min="40" max="200" step="1" /></label>
+          <div class="ff-field">
+            <span>모양 자유도</span>
+            <div class="seg" role="group" id="ff-freedom">
+              <button type="button" data-v="rect" aria-pressed="false">직사각형 위주</button>
+              <button type="button" data-v="L" aria-pressed="true">ㄱ자까지</button>
+              <button type="button" data-v="free" aria-pressed="false">ㄷ자·자유형</button>
+            </div>
+            <span class="note">실 하나의 꼭짓점 상한(4·6·8개)과 둘레 벌점 무게가 바뀝니다.</span>
+          </div>
+          <label class="ff-field">변화 정도 <b class="mono" id="ff-jitter-v">0.5</b>
+            <input type="range" id="ff-jitter" min="0" max="1" step="0.05" value="0.5" />
+            <span class="note">0이면 원본 배치를 그대로 다듬고, 1에 가까울수록 실의 씨앗을 멀리 옮겨 새로 키웁니다.</span>
+          </label>
+          <div class="ff-row">
+            <label class="ff-field">계산량
+              <select id="ff-steps">
+                <option value="12000">빠르게(1.2만 번)</option>
+                <option value="30000" selected>보통(3만 번)</option>
+                <option value="70000">꼼꼼히(7만 번)</option>
+              </select>
+            </label>
+            <label class="ff-field">후보 수
+              <select id="ff-count">
+                <option value="1">1</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+              </select>
+            </label>
+            <label class="ff-field">시드 <input type="number" id="ff-seed" value="1" min="1" max="9999" /></label>
+          </div>
+          <button type="button" class="button-primary" id="ff-run">이 세대를 바탕으로 생성</button>
+          <div class="gen-progress" id="ff-progress" hidden>
+            <div class="gen-bar"><i id="ff-bar"></i></div>
+            <p class="note" id="ff-progress-text"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="ff-step" aria-labelledby="ff-h3" id="ff-result" hidden>
+      <div class="ff-head">
+        <h2 id="ff-h3"><span class="gen-num">3</span> 생성 결과</h2>
+        <div class="seg gen-tabs" role="tablist" id="ff-tabs"></div>
+        <div class="seg" role="group" id="ff-view">
+          <button type="button" data-v="full" aria-pressed="true">모든 요소</button>
+          <button type="button" data-v="space" aria-pressed="false">실만</button>
+        </div>
+      </div>
+      <div class="gen-result">
+        <figure class="gen-plan" id="ff-plan"></figure>
+        <div class="gen-detail" id="ff-detail"></div>
+      </div>
+
+      <section class="gen-time" aria-label="계산 과정">
+        <div class="gen-process-head">
+          <h3>계산 과정: 에너지가 줄면서 실 모양이 정리됩니다</h3>
+          <div class="gen-process-ctl">
+            <button type="button" class="button-ghost small" id="ff-play">▶ 재생</button>
+            <span class="mono" id="ff-now"></span>
+          </div>
+        </div>
+        <p class="note" id="ff-time-note"></p>
+        <figure class="gen-time-chart" id="ff-chart"></figure>
+        <input type="range" id="ff-slider" class="gen-time-slider" min="0" max="40" step="1" value="40" aria-label="계산 단계" />
+        <div class="ff-compare">
+          <figure class="gen-plan" id="ff-snap"></figure>
+          <div class="gen-process-text" id="ff-snap-text" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="gen-fx" aria-label="식">
+        <div class="gen-process-head"><h3>식: 무엇을 줄이나</h3></div>
+        <div class="ff-formula" id="ff-formula"></div>
+      </section>
+
+      <section class="gen-fx" aria-label="원본과 비교">
+        <div class="gen-process-head"><h3>원본 세대와 비교</h3></div>
+        <div class="ff-compare2">
+          <figure class="gen-plan" id="ff-cmp-orig"></figure>
+          <figure class="gen-plan" id="ff-cmp-gen"></figure>
+        </div>
+      </section>
+
+      <div class="gen-downloads">
+        <span class="note">내려받기</span>
+        <button type="button" class="button-ghost small" id="ff-json">SPA JSON(AI 허브 형식)</button>
+        <button type="button" class="button-ghost small" id="ff-svg">SVG</button>
+      </div>
+
+      <details class="gen-method">
+        <summary>어떻게 만드나요?</summary>
+        <ol>
+          <li><b>격자</b>: 기준 세대를 0.3m 칸으로 나눕니다. 현관·발코니·실외기실과 1.5㎡ 미만의 작은 공간(덕트 등)은 원래 칸에 고정하고, 나머지 칸을 다른 실들에 다시 나눠 줍니다. 실은 연결된 칸 묶음이라 ㄱ자·ㄷ자 같은 직교 다각형이 될 수 있습니다.</li>
+          <li><b>초기 배치</b>: 실마다 씨앗을 원래 위치에서 '변화 정도'만큼 옮겨 놓고, 모자란 실부터 직사각형으로 한 줄씩 키운 뒤, 더 못 키우면 줄 일부만 넓혀 ㄱ자로 키웁니다(제약 성장, <a href="https://publications.graphics.tudelft.nl/papers/584" target="_blank" rel="noopener">Lopes 외 2010</a>).</li>
+          <li><b>다듬기</b>: 담금질(<a href="https://doi.org/10.1126/science.220.4598.671" target="_blank" rel="noopener">Kirkpatrick 외 1983</a>)로 에너지를 줄입니다. 이동은 80%가 '벽 밀기'(두 실이 맞닿은 벽 한 줄을 한 칸 옮김), 20%가 칸 하나 넘기기이며, 실이 둘로 쪼개지는 이동은 하지 않습니다. 확률적 탐색으로 주거 평면을 만드는 방식은 <a href="https://doi.org/10.1145/1882261.1866203" target="_blank" rel="noopener">Merrell 외 2010</a>과 같은 계열입니다.</li>
+          <li><b>문·창</b>: 공용 실(현관·거실·주방·복도)끼리는 트고, 나머지 실은 공용 실(드레스룸·부부욕실은 안방) 쪽으로 문을 냅니다. 거실·침실이 발코니에 닿으면 발코니 문, 아니면 가장 긴 바깥 벽에 창을 냅니다.</li>
+        </ol>
+        <p class="note">한계: 기준 세대 외곽과 현관 위치를 그대로 쓰므로 세대 모양 자체는 바뀌지 않습니다. 축척은 침실 크기로 추정했습니다. 벽 두께 없이 칸 경계를 벽으로 그립니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>평면 생성 랩 · 자유형 평면</span>
+    <span>생성은 브라우저 안에서 합니다</span>
+  </footer>
+
+  <script id="ff-data" type="application/json" set:html={JSON.stringify({ base })} />
+  <script>
+    import '../scripts/freeform.js';
+  </script>
+</Base>

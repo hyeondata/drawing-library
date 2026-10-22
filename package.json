@@ -6,7 +6,8 @@
   "description": "AI 허브 아파트 평면도 기반 도면 평가 모델과 Astro 평가 서비스",
   "scripts": {
     "dev": "astro dev --host 127.0.0.1 --port 8790",
-    "build": "npm run baseline && astro build",
+    "build": "npm run baseline && node scripts/build-shapes.mjs && astro build",
+    "shapes": "node scripts/build-shapes.mjs",
     "preview": "astro preview --host 127.0.0.1 --port 8790",
     "data:prepare": "python3 scripts/prepare_data.py",
     "baseline": "node scripts/build-baseline.mjs",

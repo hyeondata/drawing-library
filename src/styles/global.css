@@ -2896,3 +2896,207 @@ table.plain td.num {
 .gen-diag-scroll table {
   min-width: 620px;
 }
+
+/* ---- 자유형 평면 ---- */
+.ff {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto 48px;
+  display: grid;
+  gap: 22px;
+}
+.ff-step {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.ff-step h2 {
+  margin: 0;
+  font-size: 19px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ff-step > .note {
+  margin: 0;
+}
+.ff-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ff-filter {
+  flex-wrap: wrap;
+}
+.ff-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+.ff-card {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+}
+.ff-card:hover {
+  border-color: var(--accent);
+}
+.ff-card.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.ff-thumb {
+  display: block;
+  background: #fff;
+  border-radius: 8px;
+  padding: 4px;
+}
+.ff-thumb svg {
+  width: 100%;
+  height: 130px;
+  display: block;
+}
+.ff-card-t {
+  font-size: 14px;
+}
+.ff-card-k {
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+.ff-card .note {
+  margin: 0;
+  font-size: 11px;
+}
+.ff-setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+.ff-controls {
+  display: grid;
+  gap: 12px;
+}
+.ff-field {
+  display: grid;
+  gap: 5px;
+  font-size: 14px;
+}
+.ff-field .note {
+  margin: 0;
+  font-size: 12px;
+}
+.ff-field input[type='number'],
+.ff-field select {
+  max-width: 180px;
+}
+.ff-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ff-lead {
+  margin: 0 0 4px;
+}
+.ff-non {
+  color: #c2410c;
+}
+.ff-need {
+  columns: 2;
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.ff-compare,
+.ff-compare2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+.ff-compare2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.ff-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.ff-axis {
+  font-size: 11px;
+  fill: var(--text-muted);
+}
+.ff-val {
+  fill: var(--text-primary);
+  font-weight: 700;
+}
+.ff-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.ff-bars li {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 48px;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+.ff-bar {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.ff-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 0 4px 4px 0;
+}
+.ff-eq {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 13px;
+  overflow-x: auto;
+}
+.ff-formula {
+  display: grid;
+  gap: 10px;
+}
+.ff-formula .gen-table {
+  font-size: 13px;
+}
+@media (max-width: 900px) {
+  .ff-setup,
+  .ff-compare,
+  .ff-compare2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ff-need {
+    columns: 1;
+  }
+}
+.ff-ftable th:nth-child(2),
+.ff-ftable td:nth-child(2) {
+  text-align: left;
+}

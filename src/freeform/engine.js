@@ -1,0 +1,772 @@
+// 자유형(사각형이 아닌 실) 평면 생성 엔진.
+// 기준 세대(sample)의 외곽과 현관·발코니·실외기실 위치는 그대로 두고, 나머지 칸을 실들에 다시 나눠 준다.
+// 실 = 격자 칸의 연결된 묶음 → 직사각형뿐 아니라 ㄱ자·ㄷ자 같은 직교 다각형이 나온다.
+// 최적화: 칸 하나를 이웃 실로 넘기는 이동 + 담금질(simulated annealing). 실은 항상 한 덩어리(연결)로 유지한다.
+//
+// 에너지(작을수록 좋음)
+//   E = wA Σ((n_r − t_r)/t_r)²                       면적: 목표 칸 수 t_r에서 벗어난 정도
+//     + wP Σ(둘레_r / (4√n_r) − 1)                   모양 단순함: 같은 면적의 정사각형 대비 둘레 초과분
+//     + wK Σ max(0, 꼭짓점_r − K)                     꼭짓점 상한 K(모양 자유도: 4 직사각형, 6 ㄱ자, 8 ㄷ자)
+//     + wT Σ(얇은 칸_r / n_r)                         최소 폭보다 좁은 부분(가로·세로 연속 길이 중 짧은 쪽 < 최소 폭)
+//     + wJ Σ[필요한 인접 쌍이 문 폭(0.9m)만큼 맞닿지 않음]  기준 세대의 인접 관계 유지
+//     + wE Σ max(0, 2.0m − 창 낼 수 있는 바깥 벽)_r     거실·침실은 바깥(또는 발코니)에 닿아야 함
+
+export const CELL = 0.3; // m
+const OUTDOOR = new Set(['발코니', '실외기실']);
+export const FIXED = new Set(['현관', '발코니', '실외기실']);
+export const MIN_WIDTH = { 거실: 3.0, 침실: 2.4, 주방: 1.8, 화장실: 1.2, 드레스룸: 1.0, 다목적공간: 1.2, 기타: 0.9 };
+const NEEDS_WINDOW = new Set(['거실', '침실']);
+const PUBLIC = new Set(['현관', '거실', '주방', '기타']);
+
+export function rng(seed) {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+function pointIn(x, y, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i];
+    const [xj, yj] = pts[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+/** 기준 세대를 격자로: 칸마다 기준 실 번호(-1 바깥). scale은 길이 배율(전용면적 맞춤). */
+export function rasterize(unit, scale = 1) {
+  const W = unit.W * scale;
+  const H = unit.H * scale;
+  const nx = Math.max(4, Math.round(W / CELL));
+  const ny = Math.max(4, Math.round(H / CELL));
+  const sx = W / nx;
+  const sy = H / ny;
+  const grid = new Int16Array(nx * ny).fill(-1);
+  for (let j = 0; j < ny; j++)
+    for (let i = 0; i < nx; i++) {
+      const x = ((i + 0.5) * sx) / scale;
+      const y = ((j + 0.5) * sy) / scale;
+      for (let r = 0; r < unit.rooms.length; r++) if (unit.rooms[r].polys.some((p) => pointIn(x, y, p))) {
+        grid[j * nx + i] = r;
+        break;
+      }
+    }
+  // 실 사이 벽 두께로 생긴 빈 칸(바깥이 아닌 틈)을 가장 많은 이웃 실로 메운다.
+  for (let pass = 0; pass < 3; pass++)
+    for (let j = 0; j < ny; j++)
+      for (let i = 0; i < nx; i++) {
+        const k = j * nx + i;
+        if (grid[k] !== -1) continue;
+        const cnt = new Map();
+        let sides = 0;
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const ii = i + di;
+          const jj = j + dj;
+          if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue;
+          const v = grid[jj * nx + ii];
+          if (v >= 0 && !OUTDOOR.has(unit.rooms[v].type)) {
+            sides++;
+            cnt.set(v, (cnt.get(v) || 0) + 1);
+          }
+        }
+        if (sides >= 2) grid[k] = [...cnt.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      }
+  return { nx, ny, sx, sy, grid };
+}
+
+const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/** 문제 설정: 움직일 실, 목표 칸 수, 필요한 인접 쌍. */
+export function setup(unit, { area = null } = {}) {
+  const interior0 = unit.rooms.filter((r) => !OUTDOOR.has(r.type)).reduce((s, r) => s + r.area, 0);
+  let scale = area ? Math.sqrt(area / interior0) : 1;
+  let R = rasterize(unit, scale);
+  // 원본 라벨은 실 사이에 벽 틈이 있어, 틈을 메운 격자 면적이 더 크다. 격자의 실내 면적이 고른 전용면적이 되게 두 번 맞춘다.
+  if (area)
+    for (let it = 0; it < 2; it++) {
+      let cells = 0;
+      for (const v of R.grid) if (v >= 0 && !OUTDOOR.has(unit.rooms[v].type)) cells++;
+      scale *= Math.sqrt(area / (cells * R.sx * R.sy));
+      R = rasterize(unit, scale);
+    }
+  const rooms = unit.rooms.map((r, k) => ({ k, type: r.type, fixed: FIXED.has(r.type), cells: 0 }));
+  for (const v of R.grid) if (v >= 0) rooms[v].cells++;
+  // 1.5㎡ 미만의 작은 실(덕트·PS·작은 기타)은 움직이지 않는다.
+  for (const r of rooms) if (!r.fixed && r.cells * R.sx * R.sy < 1.5) r.fixed = true;
+  // 칸이 하나도 없는(너무 작은) 실은 뺀다.
+  const alive = rooms.filter((r) => r.cells > 0).map((r) => r.k);
+  const free = [];
+  for (let k = 0; k < R.grid.length; k++) if (R.grid[k] >= 0 && !rooms[R.grid[k]].fixed) free.push(k);
+  const movable = rooms.filter((r) => !r.fixed && r.cells > 0).map((r) => r.k);
+  const freeCount = free.length;
+  const movableCells = movable.reduce((s, k) => s + rooms[k].cells, 0);
+  const target = new Float64Array(rooms.length);
+  for (const k of movable) target[k] = (rooms[k].cells / movableCells) * freeCount;
+  // 지킬 인접: 문이 필요한 쌍만(공용 실과 닿는 쌍, 드레스룸·화장실과 침실). 침실끼리처럼 우연히 맞닿은 쌍은 뺀다.
+  const small = (r) => r.fixed && r.cells * R.sx * R.sy < 1.5;
+  const matter = (x, y) => PUBLIC.has(x.type) || (['드레스룸', '화장실'].includes(x.type) && y.type === '침실');
+  const need = unit.edges.filter(([a, b]) => {
+    const x = rooms[a];
+    const y = rooms[b];
+    if (!alive.includes(a) || !alive.includes(b) || (x.fixed && y.fixed) || small(x) || small(y)) return false;
+    if (OUTDOOR.has(x.type) || OUTDOOR.has(y.type)) return false;
+    return matter(x, y) || matter(y, x);
+  });
+  // 문으로 갈 수 있게: 공용 실이 아닌 실은 공용 실(또는 안방 쪽 부속실) 하나와는 맞닿아야 한다 — 기준 세대의 인접에 이미 들어 있다.
+  return { unit, scale, ...R, rooms, movable, target, need, cellM: (R.sx + R.sy) / 2 };
+}
+
+/**
+ * 초기 배치: 제약 성장(constrained growth, Lopes 외 2010).
+ * 1) 씨앗(기준 실 중심에서 jitter만큼 옮김)에서 직사각형으로 한 줄씩 키운다(모자란 실부터).
+ * 2) 더 못 키우면 줄의 일부(연속 칸)만 넓혀 ㄱ자로 키운다.
+ * 3) 남은 칸은 가장 많이 맞닿은 이웃 실에 준다.
+ * jitter 0이면 기준 세대 배치를 그대로 쓴다.
+ */
+export function initial(P, seed = 1, jitter = 0.5) {
+  const { nx, ny, grid, rooms, movable, target } = P;
+  const r = rng(seed);
+  const a = Int16Array.from(grid);
+  if (jitter <= 0) return a;
+  const freeCells = [];
+  for (let k = 0; k < a.length; k++) if (a[k] >= 0 && !rooms[a[k]].fixed) {
+    freeCells.push(k);
+    a[k] = -2;
+  }
+  const center = {};
+  for (const k of movable) center[k] = [0, 0, 0];
+  for (let k = 0; k < grid.length; k++) if (center[grid[k]]) {
+    center[grid[k]][0] += k % nx;
+    center[grid[k]][1] += Math.floor(k / nx);
+    center[grid[k]][2]++;
+  }
+  const box = {};
+  const size = {};
+  const taken = new Set();
+  for (const k of [...movable].sort(() => r() - 0.5)) {
+    const [cx, cy, n] = center[k];
+    // 공용 실(거실·주방·복도)은 현관과 이어져야 하므로 씨앗을 덜 옮긴다.
+    const jj = PUBLIC.has(rooms[k].type) ? jitter * 0.3 : jitter;
+    const tx = cx / n + (r() - 0.5) * jj * nx;
+    const ty = cy / n + (r() - 0.5) * jj * ny;
+    let best = null;
+    let bd = Infinity;
+    for (const c of freeCells) {
+      if (taken.has(c)) continue;
+      const d = (c % nx - tx) ** 2 + (Math.floor(c / nx) - ty) ** 2;
+      if (d < bd) ((bd = d), (best = c));
+    }
+    taken.add(best);
+    a[best] = k;
+    box[k] = [best % nx, Math.floor(best / nx), best % nx, Math.floor(best / nx)];
+    size[k] = 1;
+  }
+  const empty = (i, j) => i >= 0 && j >= 0 && i < nx && j < ny && a[j * nx + i] === -2;
+  const strip = (k, dir) => {
+    const [x0, y0, x1, y1] = box[k];
+    const cells = [];
+    if (dir === 0) for (let j = y0; j <= y1; j++) cells.push([x1 + 1, j]);
+    if (dir === 1) for (let j = y0; j <= y1; j++) cells.push([x0 - 1, j]);
+    if (dir === 2) for (let i = x0; i <= x1; i++) cells.push([i, y1 + 1]);
+    if (dir === 3) for (let i = x0; i <= x1; i++) cells.push([i, y0 - 1]);
+    return cells;
+  };
+  const grow = (k, cells, dir, full) => {
+    for (const [i, j] of cells) a[j * nx + i] = k;
+    size[k] += cells.length;
+    if (full) {
+      const b = box[k];
+      if (dir === 0) b[2]++;
+      if (dir === 1) b[0]--;
+      if (dir === 2) b[3]++;
+      if (dir === 3) b[1]--;
+    }
+  };
+  // 1) 직사각형 성장
+  const active = new Set(movable);
+  let guard = 0;
+  while (active.size && guard++ < 100000) {
+    let k = null;
+    let q = Infinity;
+    for (const m of active) if (size[m] / target[m] < q) ((q = size[m] / target[m]), (k = m));
+    if (size[k] >= target[k]) {
+      active.delete(k);
+      continue;
+    }
+    const [x0, y0, x1, y1] = box[k];
+    const w = x1 - x0 + 1;
+    const h = y1 - y0 + 1;
+    const dirs = [0, 1, 2, 3].filter((d) => strip(k, d).every(([i, j]) => empty(i, j)));
+    if (!dirs.length) {
+      active.delete(k);
+      continue;
+    }
+    // 가로세로 비율이 1:2를 넘지 않게: 짧은 변 쪽으로 늘리는 방향 우선
+    dirs.sort((d1, d2) => ((d1 < 2 ? w : h) - (d2 < 2 ? w : h)) || r() - 0.5);
+    grow(k, strip(k, dirs[0]), dirs[0], true);
+  }
+  // 2) ㄱ자 성장: 줄의 비어 있는 연속 칸만
+  const minRun = (k) => Math.max(2, Math.round((MIN_WIDTH[rooms[k].type] ?? 1) / P.cellM));
+  guard = 0;
+  let progress = true;
+  while (progress && guard++ < 20000) {
+    progress = false;
+    for (const k of [...movable].sort((u, v) => size[u] / target[u] - size[v] / target[v])) {
+      if (size[k] >= target[k] * 1.05) continue;
+      let best = null;
+      for (let d = 0; d < 4; d++) {
+        const cells = strip(k, d);
+        let run = [];
+        for (const c of [...cells, null]) {
+          if (c && empty(c[0], c[1])) run.push(c);
+          else {
+            if (run.length >= minRun(k) && (!best || run.length > best.cells.length)) best = { d, cells: run };
+            run = [];
+          }
+        }
+      }
+      if (best) {
+        // 상자 밖으로 자란 칸: 이후 직사각형 판정에서 빠지므로 상자를 넓히지 않는다.
+        grow(k, best.cells, best.d, best.cells.length === strip(k, best.d).length);
+        progress = true;
+      }
+    }
+  }
+  // 3) 남은 칸은 가장 많이 맞닿은 이웃 실로
+  for (let pass = 0; pass < 200 && a.includes(-2); pass++)
+    for (let k = 0; k < a.length; k++) if (a[k] === -2) {
+      const i = k % nx;
+      const j = Math.floor(k / nx);
+      const cnt = new Map();
+      for (const [di, dj] of N4) {
+        const ii = i + di;
+        const jj = j + dj;
+        if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue;
+        const v = a[jj * nx + ii];
+        if (v >= 0 && !rooms[v].fixed) cnt.set(v, (cnt.get(v) || 0) + 1 - size[v] / target[v] / 10);
+      }
+      if (cnt.size) a[k] = [...cnt.entries()].sort((x, y) => y[1] - x[1])[0][0];
+    }
+  // 고정 실에 둘러싸여 닿지 못한 틈은 바깥으로 본다.
+  for (let k = 0; k < a.length; k++) if (a[k] === -2) a[k] = -1;
+  return a;
+}
+
+function frontierOf(a, nx, ny, room) {
+  const out = [];
+  for (let k = 0; k < a.length; k++) {
+    if (a[k] !== -2) continue;
+    const i = k % nx;
+    const j = Math.floor(k / nx);
+    for (const [di, dj] of N4) {
+      const ii = i + di;
+      const jj = j + dj;
+      if (ii >= 0 && jj >= 0 && ii < nx && jj < ny && a[jj * nx + ii] === room) {
+        out.push(k);
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+/** 실 하나의 통계: 칸 수, 둘레, 꼭짓점, 얇은 칸, 창 낼 수 있는 바깥 벽 길이(칸 변 수), 이웃 실과 맞닿은 변 수. */
+export function roomStats(a, P, room) {
+  const { nx, ny, rooms } = P;
+  let n = 0;
+  let perim = 0;
+  let ext = 0;
+  const touch = new Map();
+  let x0 = nx;
+  let y0 = ny;
+  let x1 = -1;
+  let y1 = -1;
+  for (let k = 0; k < a.length; k++) {
+    if (a[k] !== room) continue;
+    n++;
+    const i = k % nx;
+    const j = Math.floor(k / nx);
+    if (i < x0) x0 = i;
+    if (i > x1) x1 = i;
+    if (j < y0) y0 = j;
+    if (j > y1) y1 = j;
+    for (const [di, dj] of N4) {
+      const ii = i + di;
+      const jj = j + dj;
+      const v = ii < 0 || jj < 0 || ii >= nx || jj >= ny ? -1 : a[jj * nx + ii];
+      if (v === room) continue;
+      perim++;
+      if (v < 0 || OUTDOOR.has(rooms[v].type)) ext++;
+      if (v >= 0) touch.set(v, (touch.get(v) || 0) + 1);
+    }
+  }
+  if (!n) return { n: 0, perim: 0, corners: 0, thin: 0, ext: 0, touch, bbox: null };
+  // 꼭짓점: 2×2 창에서 실 칸이 1개·3개면 1, 대각선 2개면 2
+  let corners = 0;
+  for (let j = y0 - 1; j <= y1; j++)
+    for (let i = x0 - 1; i <= x1; i++) {
+      const q = (ii, jj) => (ii >= 0 && jj >= 0 && ii < nx && jj < ny && a[jj * nx + ii] === room ? 1 : 0);
+      const tl = q(i, j);
+      const tr = q(i + 1, j);
+      const bl = q(i, j + 1);
+      const br = q(i + 1, j + 1);
+      const s = tl + tr + bl + br;
+      if (s === 1 || s === 3) corners++;
+      else if (s === 2 && tl === br) corners += 2;
+    }
+  // 얇은 칸
+  const minW = Math.max(1, Math.round((MIN_WIDTH[rooms[room].type] ?? 1) / P.cellM));
+  let thin = 0;
+  for (let j = y0; j <= y1; j++)
+    for (let i = x0; i <= x1; i++) {
+      if (a[j * nx + i] !== room) continue;
+      let h = 1;
+      for (let ii = i - 1; ii >= 0 && a[j * nx + ii] === room; ii--) h++;
+      for (let ii = i + 1; ii < nx && a[j * nx + ii] === room; ii++) h++;
+      if (h >= minW) {
+        let v = 1;
+        for (let jj = j - 1; jj >= 0 && a[jj * nx + i] === room; jj--) v++;
+        for (let jj = j + 1; jj < ny && a[jj * nx + i] === room; jj++) v++;
+        if (v >= minW) continue;
+      }
+      thin++;
+    }
+  return { n, perim, corners, thin, ext, touch, bbox: [x0, y0, x1, y1] };
+}
+
+export const WEIGHTS = { area: 6, compact: 1.2, corner: 1.2, thin: 3, adj: 1.5, window: 0.6, access: 10, through: 1.5 };
+
+/** 모양 자유도: 'rect' 직사각형 위주, 'L' ㄱ자까지, 'free' ㄷ자·자유형. */
+export const FREEDOM = {
+  rect: { K: 4, compact: 1.6, label: '직사각형 위주' },
+  L: { K: 6, compact: 0.8, label: 'ㄱ자까지' },
+  free: { K: 8, compact: 0.35, label: 'ㄷ자·자유형' },
+};
+
+/**
+ * 접근(맞닿은 길이로 근사, 문 폭 0.9m 이상 맞닿으면 문을 낼 수 있다고 봄). 1.5㎡ 미만 고정 실은 뺀다.
+ * - unreach: 현관에서 어떤 실을 거쳐도 갈 수 없는 실
+ * - through: 공용 실(현관·거실·주방·기타)에 닿지 않아 침실을 지나야 하는 실(드레스룸·화장실·기타는 침실을 거쳐도 됨)
+ * 원본 Sample도 침실 안쪽 수납, 드레스룸을 거치는 욕실 같은 구조가 있어 이 정도로 느슨하게 본다.
+ */
+export function access(P, S) {
+  const doorCells = Math.ceil(0.9 / P.cellM);
+  const live = P.rooms.filter((r) => S[r.k]?.n && !OUTDOOR.has(r.type) && !(r.fixed && S[r.k].n * P.sx * P.sy < 1.5));
+  const t = (a, b) => S[a.k]?.touch.get(b.k) || 0;
+  const reach = new Set(live.filter((r) => r.type === '현관').map((r) => r.k));
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const r of live) if (!reach.has(r.k) && live.some((q) => reach.has(q.k) && t(r, q) >= doorCells)) ((reach.add(r.k)), (grew = true));
+  }
+  const hubs = live.filter((r) => PUBLIC.has(r.type) && reach.has(r.k));
+  const through = live.filter((r) => reach.has(r.k) && !PUBLIC.has(r.type) && !['드레스룸', '화장실'].includes(r.type) && !hubs.some((q) => t(r, q) >= doorCells));
+  return { unreach: live.filter((r) => !reach.has(r.k)).map((r) => r.k), through: through.map((r) => r.k) };
+}
+export const unreachableRooms = (P, S) => access(P, S).unreach;
+
+/** 전체 에너지와 항목별 값. */
+export function energy(a, P, freedom = 'L', stats = null) {
+  const F = FREEDOM[freedom];
+  const S = stats || {};
+  for (const k of P.movable) S[k] ||= roomStats(a, P, k);
+  for (const r of P.rooms) if (r.fixed && !S[r.k]) S[r.k] = roomStats(a, P, r.k);
+  const t = { area: 0, compact: 0, corner: 0, thin: 0, adj: 0, window: 0, access: 0, through: 0 };
+  const doorCells = Math.ceil(0.9 / P.cellM);
+  for (const k of P.movable) {
+    const s = S[k];
+    if (!s.n) {
+      t.area += 10;
+      continue;
+    }
+    t.area += ((s.n - P.target[k]) / P.target[k]) ** 2;
+    t.compact += s.perim / (4 * Math.sqrt(s.n)) - 1;
+    t.corner += Math.max(0, s.corners - F.K);
+    t.thin += s.thin / s.n;
+    if (NEEDS_WINDOW.has(P.rooms[k].type)) t.window += Math.max(0, 2.0 - s.ext * P.cellM);
+  }
+  for (const [p, q] of P.need) {
+    const c = (S[p]?.touch.get(q) || 0);
+    if (c < doorCells) t.adj += 1;
+  }
+  const ac = access(P, S);
+  t.access = ac.unreach.length;
+  t.through = ac.through.length;
+  const w = { ...WEIGHTS, compact: F.compact };
+  const total = Object.keys(t).reduce((s, k) => s + w[k] * t[k], 0);
+  return { total, terms: t, weights: w, stats: S };
+}
+
+/** 실 room이 한 덩어리이고 칸 수가 size인가. */
+function connected(a, P, room, size) {
+  const { nx, ny } = P;
+  const start = a.indexOf(room);
+  if (start < 0) return size === 0;
+  const seen = new Uint8Array(a.length);
+  seen[start] = 1;
+  const q = [start];
+  let cnt = 1;
+  while (q.length) {
+    const k = q.pop();
+    const i = k % nx;
+    const j = Math.floor(k / nx);
+    for (const [di, dj] of N4) {
+      const ii = i + di;
+      const jj = j + dj;
+      if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue;
+      const m = jj * nx + ii;
+      if (!seen[m] && a[m] === room) {
+        seen[m] = 1;
+        q.push(m);
+        cnt++;
+      }
+    }
+  }
+  return cnt === size;
+}
+
+/** 칸 c를 실 from에서 뺐을 때 from이 한 덩어리로 남는가. */
+function staysConnected(a, P, c, from, size) {
+  const { nx, ny } = P;
+  const i0 = c % nx;
+  const j0 = Math.floor(c / nx);
+  let start = -1;
+  for (const [di, dj] of N4) {
+    const ii = i0 + di;
+    const jj = j0 + dj;
+    if (ii >= 0 && jj >= 0 && ii < nx && jj < ny && a[jj * nx + ii] === from) {
+      start = jj * nx + ii;
+      break;
+    }
+  }
+  if (start < 0) return false;
+  const seen = new Set([start, c]);
+  const q = [start];
+  let cnt = 1;
+  while (q.length) {
+    const k = q.pop();
+    const i = k % nx;
+    const j = Math.floor(k / nx);
+    for (const [di, dj] of N4) {
+      const ii = i + di;
+      const jj = j + dj;
+      if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue;
+      const m = jj * nx + ii;
+      if (!seen.has(m) && a[m] === from) {
+        seen.add(m);
+        q.push(m);
+        cnt++;
+      }
+    }
+  }
+  return cnt === size - 1;
+}
+
+/**
+ * 담금질. 반환: { assign, history:[{it, E, terms}], snaps:[{it, assign}], energy }
+ * steps: 이동 시도 수, T0→T1: 온도(지수 감소)
+ */
+export function anneal(P, { seed = 1, jitter = 0.5, freedom = 'L', steps = 30000, T0 = 1.5, T1 = 0.005, snapEvery = null, onProgress = null } = {}) {
+  const r = rng(seed * 7919 + 13);
+  const a = initial(P, seed, jitter);
+  const { nx, ny, rooms } = P;
+  let cur = energy(a, P, freedom);
+  let best = { E: cur.total, a: Int16Array.from(a) };
+  const history = [{ it: 0, E: cur.total, terms: { ...cur.terms } }];
+  const snaps = [{ it: 0, assign: Int16Array.from(a), E: cur.total }];
+  const every = snapEvery || Math.max(1, Math.floor(steps / 40));
+  // 경계 칸 후보
+  const free = [];
+  for (let k = 0; k < a.length; k++) if (a[k] >= 0 && !rooms[a[k]].fixed) free.push(k);
+  let accepted = 0;
+  for (let it = 1; it <= steps; it++) {
+    const T = T0 * (T1 / T0) ** (it / steps);
+    // 이동: 80%는 벽 밀기(맞닿은 벽 한 줄을 통째로 한 칸), 20%는 칸 하나 넘기기
+    let c = -1;
+    let from = -1;
+    let to = -1;
+    let dir = null;
+    for (let tries = 0; tries < 40 && to < 0; tries++) {
+      c = free[Math.floor(r() * free.length)];
+      from = a[c];
+      const i = c % nx;
+      const j = Math.floor(c / nx);
+      const d = N4[Math.floor(r() * 4)];
+      const ii = i + d[0];
+      const jj = j + d[1];
+      if (ii < 0 || jj < 0 || ii >= nx || jj >= ny) continue;
+      const v = a[jj * nx + ii];
+      if (v >= 0 && v !== from && !rooms[v].fixed) ((to = v), (dir = d));
+    }
+    if (to >= 0) {
+      let cells = [c];
+      if (r() < 0.8) {
+        // 벽 방향(dir에 수직)으로 같은 관계(이쪽 from, 저쪽 to)가 이어지는 칸들
+        const [pi, pj] = dir[0] ? [0, 1] : [1, 0];
+        const i0 = c % nx;
+        const j0 = Math.floor(c / nx);
+        const ok = (i, j) => i >= 0 && j >= 0 && i < nx && j < ny && a[j * nx + i] === from && a[(j + dir[1]) * nx + (i + dir[0])] === to && i + dir[0] >= 0 && i + dir[0] < nx && j + dir[1] >= 0 && j + dir[1] < ny;
+        for (let s2 = 1; ok(i0 + pi * s2, j0 + pj * s2); s2++) cells.push((j0 + pj * s2) * nx + i0 + pi * s2);
+        for (let s2 = 1; ok(i0 - pi * s2, j0 - pj * s2); s2++) cells.push((j0 - pj * s2) * nx + i0 - pi * s2);
+      }
+      const sFrom = cur.stats[from];
+      if (sFrom.n > cells.length + 1) {
+        for (const k of cells) a[k] = to;
+        if (connected(a, P, from, sFrom.n - cells.length)) {
+          const stats = { ...cur.stats };
+          stats[from] = roomStats(a, P, from);
+          stats[to] = roomStats(a, P, to);
+          for (const k of Object.keys(stats)) {
+            const kk = Number(k);
+            if (kk !== from && kk !== to && (stats[kk].touch.has(from) || stats[kk].touch.has(to))) stats[kk] = roomStats(a, P, kk);
+          }
+          const next = energy(a, P, freedom, stats);
+          const dE = next.total - cur.total;
+          if (dE <= 0 || r() < Math.exp(-dE / T)) {
+            cur = next;
+            accepted++;
+            if (cur.total < best.E) best = { E: cur.total, a: Int16Array.from(a) };
+          } else for (const k of cells) a[k] = from;
+        } else for (const k of cells) a[k] = from;
+      }
+    }
+    if (it % every === 0 || it === steps) {
+      history.push({ it, E: cur.total, terms: { ...cur.terms }, T });
+      snaps.push({ it, assign: Int16Array.from(a), E: cur.total });
+      if (onProgress) onProgress(it / steps);
+    }
+  }
+  const final = energy(best.a, P, freedom);
+  return { assign: best.a, energy: final, history, snaps, accepted, steps };
+}
+
+/** 칸 묶음 → 직교 다각형(외곽선, 꼭짓점만). 단위 m. 구멍이 있으면 여러 고리. */
+export function roomPolygons(a, P, room) {
+  const { nx, ny, sx, sy } = P;
+  const edges = new Map(); // "x,y" → [x2,y2] 방향 있는 경계 변(실이 왼쪽)
+  const add = (x1, y1, x2, y2) => edges.set(`${x1},${y1}`, [...(edges.get(`${x1},${y1}`) || []), [x2, y2]]);
+  for (let j = 0; j < ny; j++)
+    for (let i = 0; i < nx; i++) {
+      if (a[j * nx + i] !== room) continue;
+      const o = (ii, jj) => ii < 0 || jj < 0 || ii >= nx || jj >= ny || a[jj * nx + ii] !== room;
+      if (o(i, j - 1)) add(i, j, i + 1, j);
+      if (o(i + 1, j)) add(i + 1, j, i + 1, j + 1);
+      if (o(i, j + 1)) add(i + 1, j + 1, i, j + 1);
+      if (o(i - 1, j)) add(i, j + 1, i, j);
+    }
+  const loops = [];
+  while (edges.size) {
+    const [startKey, list] = edges.entries().next().value;
+    let [x, y] = startKey.split(',').map(Number);
+    const loop = [[x, y]];
+    let nextPt = list[0];
+    const take = (key, pt) => {
+      const l = edges.get(key).filter((p) => p !== pt);
+      if (l.length) edges.set(key, l);
+      else edges.delete(key);
+    };
+    take(startKey, nextPt);
+    let guard = 0;
+    while (guard++ < 100000) {
+      [x, y] = nextPt;
+      if (`${x},${y}` === startKey) break;
+      loop.push([x, y]);
+      const l = edges.get(`${x},${y}`);
+      if (!l) break;
+      nextPt = l[0];
+      take(`${x},${y}`, nextPt);
+    }
+    // 같은 직선 위 점 지우기
+    const pts = loop.filter((p, idx) => {
+      const pr = loop[(idx - 1 + loop.length) % loop.length];
+      const nx2 = loop[(idx + 1) % loop.length];
+      return !((pr[0] === p[0] && p[0] === nx2[0]) || (pr[1] === p[1] && p[1] === nx2[1]));
+    });
+    loops.push(pts.map(([gx, gy]) => [+(gx * sx).toFixed(3), +(gy * sy).toFixed(3)]));
+  }
+  return loops;
+}
+
+/** 모양 이름: 꼭짓점 수로. */
+export function shapeName(corners) {
+  if (corners <= 4) return '직사각형';
+  if (corners === 6) return 'ㄱ자';
+  if (corners === 8) return 'ㄷ자·계단형';
+  return `${corners}각형`;
+}
+
+/** 문·창: 문 그래프(공용 실 중심)와 바깥 벽 창. 단위 m 선분. */
+export function openings(a, P) {
+  const { nx, ny, sx, sy, rooms } = P;
+  const segs = (p, q) => {
+    // 실 p와 q(-1 바깥)가 맞닿은 칸 변들을 직선 구간으로 묶는다.
+    const H = new Map(); // 가로 경계 y → [x...]
+    const V = new Map();
+    for (let j = 0; j <= ny; j++)
+      for (let i = 0; i < nx; i++) {
+        const up = j > 0 ? a[(j - 1) * nx + i] : -1;
+        const dn = j < ny ? a[j * nx + i] : -1;
+        if ((up === p && dn === q) || (up === q && dn === p)) H.set(j, [...(H.get(j) || []), i]);
+      }
+    for (let i = 0; i <= nx; i++)
+      for (let j = 0; j < ny; j++) {
+        const lf = i > 0 ? a[j * nx + i - 1] : -1;
+        const rt = i < nx ? a[j * nx + i] : -1;
+        if ((lf === p && rt === q) || (lf === q && rt === p)) V.set(i, [...(V.get(i) || []), j]);
+      }
+    const runs = [];
+    for (const [y, xs] of H) {
+      xs.sort((u, v) => u - v);
+      let s = xs[0];
+      for (let k = 1; k <= xs.length; k++)
+        if (k === xs.length || xs[k] !== xs[k - 1] + 1) {
+          runs.push({ v: false, x1: s * sx, y1: y * sy, x2: (xs[k - 1] + 1) * sx, y2: y * sy });
+          s = xs[k];
+        }
+    }
+    for (const [x, ys] of V) {
+      ys.sort((u, v) => u - v);
+      let s = ys[0];
+      for (let k = 1; k <= ys.length; k++)
+        if (k === ys.length || ys[k] !== ys[k - 1] + 1) {
+          runs.push({ v: true, x1: x * sx, y1: s * sy, x2: x * sx, y2: (ys[k - 1] + 1) * sy });
+          s = ys[k];
+        }
+    }
+    return runs.map((s) => ({ ...s, len: Math.hypot(s.x2 - s.x1, s.y2 - s.y1) })).sort((u, v) => v.len - u.len);
+  };
+  const present = rooms.filter((r) => a.includes(r.k)).map((r) => r.k);
+  const out = [];
+  const links = [];
+  const door = (p, q, kind, width = 0.9) => {
+    const s = segs(p, q)[0];
+    if (!s || s.len < Math.min(width, 0.8)) return false;
+    const w = kind === 'opening' ? Math.min(s.len - 0.1, 1.8) : Math.min(width, s.len - 0.1);
+    const off = kind === 'opening' ? (s.len - w) / 2 : Math.min(0.15, s.len - w);
+    const ux = (s.x2 - s.x1) / s.len;
+    const uy = (s.y2 - s.y1) / s.len;
+    out.push({ kind, x1: s.x1 + ux * off, y1: s.y1 + uy * off, x2: s.x1 + ux * (off + w), y2: s.y1 + uy * (off + w), v: s.v, from: q, to: p });
+    links.push([p, q]);
+    return true;
+  };
+  const typeOf = (k) => rooms[k].type;
+  // 현관문: 현관의 가장 긴 바깥 벽
+  const ent = present.find((k) => typeOf(k) === '현관');
+  if (ent !== undefined) {
+    // 바깥 벽이 없으면(공용 복도 쪽에 덕트 등 작은 고정 실) 그 작은 실과 맞닿은 가장 긴 변에 낸다.
+    const tinyNb = present.filter((k) => rooms[k].fixed && k !== ent && !OUTDOOR.has(typeOf(k)) && a.reduce((n, v) => n + (v === k ? 1 : 0), 0) * sx * sy < 1.5);
+    const s = segs(ent, -1)[0] || tinyNb.map((k) => segs(ent, k)[0]).filter(Boolean).sort((u, v) => v.len - u.len)[0];
+    if (s) {
+      const w = Math.min(1.0, s.len - 0.1);
+      const ux = (s.x2 - s.x1) / s.len;
+      const uy = (s.y2 - s.y1) / s.len;
+      const off = (s.len - w) / 2;
+      out.push({ kind: 'door', entry: true, x1: s.x1 + ux * off, y1: s.y1 + uy * off, x2: s.x1 + ux * (off + w), y2: s.y1 + uy * (off + w), v: s.v, from: -1, to: ent });
+    }
+  }
+  // 1.5㎡ 미만 고정 실(덕트 등)에는 문을 내지 않는다.
+  const cellsOf = (k) => a.reduce((n, v) => n + (v === k ? 1 : 0), 0);
+  const live = present.filter((k) => !(rooms[k].fixed && cellsOf(k) * sx * sy < 1.5));
+  // 공용 실끼리는 트기
+  const pub = live.filter((k) => PUBLIC.has(typeOf(k)));
+  for (let x = 0; x < pub.length; x++) for (let y = x + 1; y < pub.length; y++) door(pub[y], pub[x], 'opening');
+  // 현관에서 이어진 공용 실
+  const reached = new Set(ent !== undefined ? [ent] : []);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const [p, q] of links) {
+      if (reached.has(p) && !reached.has(q)) ((reached.add(q)), (grew = true));
+      if (reached.has(q) && !reached.has(p)) ((reached.add(p)), (grew = true));
+    }
+  }
+  const master = live.filter((k) => typeOf(k) === '침실').sort((u, v) => cellsOf(v) - cellsOf(u))[0];
+  const byRun = (k, list) => list.filter((q) => q !== k).map((q) => [q, segs(k, q)[0]?.len || 0]).sort((u, v) => v[1] - u[1]).map((x) => x[0]);
+  // 나머지 실: 이어진 공용 실 → (드레스룸·화장실은) 안방 → 이어지지 않은 공용 실 → 침실이 아닌 실 → 아무 실
+  // 공용 실 단계에서 이어지지 못한 기타(침실 안쪽 수납 등)도 문을 받는다.
+  const pending = (k) => !OUTDOOR.has(typeOf(k)) && k !== ent && !(PUBLIC.has(typeOf(k)) && reached.has(k));
+  const order = [...live.filter((k) => pending(k) && typeOf(k) !== '드레스룸' && typeOf(k) !== '화장실'), ...live.filter((k) => pending(k) && (typeOf(k) === '드레스룸' || typeOf(k) === '화장실'))];
+  // 현관에서 이어진 실부터 차례로 문을 낸다(공용 실 → 안방(부속실) → 이어진 아무 실).
+  const left = new Set(order);
+  for (let pass = 0; pass < 2; pass++)
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const k of [...left]) {
+        const t = typeOf(k);
+        const ensuite = t === '드레스룸' || t === '화장실';
+        const okRoom = (q) => pass === 1 || reached.has(q);
+        const cand = [
+          ...byRun(k, pub.filter(okRoom)),
+          ...(ensuite && master !== undefined && okRoom(master) ? [master] : []),
+          ...byRun(k, live.filter((q) => okRoom(q) && !OUTDOOR.has(typeOf(q)) && q !== k)),
+        ];
+        for (const q of cand) if (door(k, q, 'door', ensuite ? 0.8 : 0.9)) {
+          left.delete(k);
+          if (reached.has(q)) reached.add(k);
+          grew = true;
+          break;
+        }
+      }
+    }
+  // 창: 거실·침실·주방·화장실의 가장 긴 바깥 벽, 발코니에 닿으면 발코니 문(미닫이)
+  for (const k of present) {
+    const t = typeOf(k);
+    if (!['거실', '침실', '주방', '화장실', '다목적공간', '드레스룸'].includes(t)) continue;
+    const balc = present.filter((q) => OUTDOOR.has(typeOf(q)) && typeOf(q) === '발코니');
+    let done = false;
+    if (t === '거실' || t === '침실') for (const b of balc) {
+      const s = segs(k, b)[0];
+      if (s && s.len >= 1.2) {
+        const w = s.len * 0.75;
+        const ux = (s.x2 - s.x1) / s.len;
+        const uy = (s.y2 - s.y1) / s.len;
+        const off = (s.len - w) / 2;
+        out.push({ kind: 'sliding', x1: s.x1 + ux * off, y1: s.y1 + uy * off, x2: s.x1 + ux * (off + w), y2: s.y1 + uy * (off + w), v: s.v, from: k, to: b });
+        done = true;
+        break;
+      }
+    }
+    if (done) continue;
+    const s = segs(k, -1).find((x) => !out.some((o) => o.entry && Math.abs(o.x1 - x.x1) + Math.abs(o.y1 - x.y1) < 1e-6)) || null;
+    if (s && s.len >= 0.9) {
+      const ratio = { 거실: 0.7, 침실: 0.55, 주방: 0.45 }[t] || 0.35;
+      const w = Math.max(0.6, s.len * ratio);
+      const ux = (s.x2 - s.x1) / s.len;
+      const uy = (s.y2 - s.y1) / s.len;
+      const off = (s.len - w) / 2;
+      out.push({ kind: 'window', x1: s.x1 + ux * off, y1: s.y1 + uy * off, x2: s.x1 + ux * (off + w), y2: s.y1 + uy * (off + w), v: s.v, to: k });
+    }
+  }
+  // 현관에서 문으로 갈 수 있는지
+  const adj = new Map(present.map((k) => [k, []]));
+  for (const [p, q] of links) {
+    adj.get(p)?.push(q);
+    adj.get(q)?.push(p);
+  }
+  const seen = new Set(ent !== undefined ? [ent] : []);
+  const qq = ent !== undefined ? [ent] : [];
+  while (qq.length) for (const n of adj.get(qq.shift()) || []) if (!seen.has(n)) (seen.add(n), qq.push(n));
+  const unreachable = live.filter((k) => !seen.has(k) && !OUTDOOR.has(typeOf(k)));
+  return { openings: out, unreachable };
+}
+
+/** 결과 요약: 실별 면적·모양·인접 만족. */
+export function summarize(res, P) {
+  const E = res.energy;
+  const rooms = P.rooms
+    .filter((r) => E.stats[r.k]?.n)
+    .map((r) => {
+      const s = E.stats[r.k];
+      const m2 = s.n * P.sx * P.sy;
+      const target = r.fixed ? null : P.target[r.k] * P.sx * P.sy;
+      const bw = (s.bbox[2] - s.bbox[0] + 1) * P.sx;
+      const bh = (s.bbox[3] - s.bbox[1] + 1) * P.sy;
+      return { k: r.k, type: r.type, fixed: r.fixed, m2, target, corners: s.corners, shape: shapeName(s.corners), rect: m2 / (bw * bh), thin: s.thin / s.n, windowM: s.ext * P.cellM };
+    });
+  const doorCells = Math.ceil(0.9 / P.cellM);
+  const need = P.need.map(([p, q]) => ({ p, q, ok: (E.stats[p]?.touch.get(q) || 0) >= doorCells }));
+  return { rooms, need, total: E.total, terms: E.terms, weights: E.weights };
+}
