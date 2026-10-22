@@ -2628,3 +2628,125 @@ table.plain td.num {
   width: 100%;
   accent-color: var(--accent);
 }
+/* ===== 식과 변수 ===== */
+.gen-fx {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+}
+.gen-fx h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.gen-fx > .note {
+  margin: 0;
+}
+.gen-fx-top {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+}
+.gen-fx-controls {
+  display: grid;
+  gap: 14px;
+}
+.gen-fx-controls .mth-range input {
+  width: 100%;
+}
+.gen-fx-controls .mth-range {
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+.gen-fx-flash {
+  background: var(--accent-soft);
+}
+.gen-fx-influence {
+  display: grid;
+  gap: 8px;
+}
+.gen-fx-tornado {
+  margin: 0;
+}
+.gen-fx-tornado svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font);
+}
+.gen-fx-tornado .note {
+  margin: 4px 0 0;
+}
+.gen-fx-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+.gen-fx-card {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface-1);
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.gen-fx-card h4 {
+  margin: 0;
+  font-size: 15px;
+}
+.gen-fx-card p {
+  margin: 0;
+}
+.gen-fx-values {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.gen-fx-why {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.gen-fx-vars,
+.gen-fx-refs {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.gen-fx-vars .chip {
+  cursor: pointer;
+  font: inherit;
+  border: 1px solid var(--line);
+}
+.gen-fx-bars {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.gen-fx-bar {
+  display: grid;
+  grid-template-columns: 9.5em 1fr 3.4em;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.gen-fx-bar i {
+  display: block;
+  height: 10px;
+  width: var(--w);
+  border-radius: 3px;
+}
+.gen-fx-bar small {
+  grid-column: 2 / 4;
+  margin-top: -4px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+@media (max-width: 900px) {
+  .gen-fx-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

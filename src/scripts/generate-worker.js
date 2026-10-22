@@ -26,7 +26,7 @@ self.onmessage = (e) => {
     const gallery = [];
     const timeline = {};
     const top = optimize(spec, { baseline, seed, gallery, timeline, onProgress: (p) => self.postMessage({ id, progress: p }) });
-    self.postMessage({ id, done: true, top: top.map(({ params, ...rest }) => rest), gallery, timeline });
+    self.postMessage({ id, done: true, top, gallery, timeline });
   } catch (err) {
     self.postMessage({ id, error: String(err && err.message ? err.message : err) });
   }

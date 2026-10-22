@@ -1,6 +1,7 @@
 // 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
 import { MIN_SIDE } from '../generate/layout.js';
+import { renderFormulas } from './generate-formulas.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
@@ -351,6 +352,7 @@ function renderResult() {
       <table class="gen-table"><thead><tr><th>실</th><th>면적 ㎡</th><th>폭 × 깊이 m</th></tr></thead><tbody>${roomRows}</tbody></table>
     </details>`;
   renderProcess();
+  renderFormulas({ spec, cand: c, weights: $('#gen-weights').value });
   renderTime();
   renderGallery();
   $('#gen-result').hidden = false;

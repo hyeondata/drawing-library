@@ -261,6 +261,22 @@ const steps = [
                 <div class="gen-process-text" id="proc-text" aria-live="polite"></div>
               </div>
             </section>
+            <section class="gen-fx" id="gen-fx" aria-label="식과 변수">
+              <div class="gen-process-head">
+                <h3>식과 변수: 무엇이 평면을 바꾸나</h3>
+                <button type="button" class="button-ghost small" id="fx-reset">이 안의 값으로</button>
+              </div>
+              <p class="note">이 안을 만든 변수입니다. 바꾸면 평면과 아래 식의 값이 바로 다시 계산됩니다(같은 실 순서를 유지). 영향 그림은 각 변수를 조금 줄이고(−) 늘렸을 때(+) 고른 결과가 얼마나 움직이는지 보여 줍니다.</p>
+              <div class="gen-fx-top">
+                <div class="gen-fx-controls" id="fx-controls"></div>
+                <figure class="gen-plan" id="fx-plan"></figure>
+              </div>
+              <div class="gen-fx-influence">
+                <label class="mth-select">영향을 볼 결과 <select id="fx-output"></select></label>
+                <figure class="gen-fx-tornado" id="fx-tornado"></figure>
+              </div>
+              <div class="gen-fx-cards" id="fx-cards"></div>
+            </section>
             <section class="gen-time" id="gen-time" aria-label="계산 시간에 따른 과정">
               <div class="gen-process-head">
                 <h3>계산 시간에 따른 과정</h3>
