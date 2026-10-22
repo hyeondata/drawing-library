@@ -302,4 +302,18 @@ test('도면 생성: 84㎡ 방 3개는 유효하고 규칙을 모두 통과하�
   for (const r of inner) if (MIN_SIDE[r.type] && r.type !== '침실') assert.ok(Math.min(r.w, r.h) >= MIN_SIDE[r.type] - 1e-6, `${r.name} ${r.w}x${r.h}`);
   // 세 안은 배치가 서로 다르다.
   assert.equal(new Set(top.map((c) => c.signature)).size, 3);
+  // 문·창·설비: 현관문이 있고 문으로 모든 실에 가며, 욕실마다 변기·세면대, 주방에 싱크대·가스레인지
+  assert.equal(best.doorIssues, 0, JSON.stringify(best.layout.doorCheck));
+  assert.ok(best.layout.openings.some((o) => o.entry));
+  assert.ok(best.layout.openings.some((o) => o.kind === 'window') && best.layout.openings.some((o) => o.kind === 'sliding'));
+  const fx = best.layout.fixtures.map((f) => f.type);
+  assert.equal(fx.filter((t) => t === '변기').length, 2);
+  assert.ok(fx.includes('싱크대') && fx.includes('가스레인지'));
+  for (const f of best.layout.fixtures) {
+    const room = best.layout.rooms.find((r) => r.key === f.room);
+    assert.ok(f.x >= room.x - 1e-6 && f.y >= room.y - 1e-6 && f.x + f.w <= room.x + room.w + 1e-6 && f.y + f.h <= room.y + room.h + 1e-6, `${f.type} 밖으로 나감`);
+  }
+  const { toFullLabel } = await import('../src/generate/layout.js');
+  const names = toFullLabel(best.layout).categories.map((c) => c.name);
+  assert.ok(names.includes('구조_출입문') && names.includes('구조_창호') && names.includes('객체_변기') && names.includes('공간_거실'));
 });

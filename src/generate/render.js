@@ -1,10 +1,13 @@
 // 생성한 평면을 SVG 문자열로 그린다(흰 종이 위 도면이라 화면 테마와 상관없이 같은 색).
-import { roomGroupOf } from '../model/drawing-style.js';
+import { FIXTURE_COLORS, STR_STYLE, roomGroupOf } from '../model/drawing-style.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-/** layout(m) → SVG. 1m = 40 단위. 실 이름·면적과 바깥 치수(mm)를 적는다. */
-export function layoutSvg(layout, { title = '', showArea = true } = {}) {
+/**
+ * layout(m) → SVG. 1m = 40 단위. 실 이름·면적과 바깥 치수(mm)를 적는다.
+ * mode: 'space'(실만, 예시 도면의 SPA처럼) | 'full'(모든 요소: 실 + 문·창(STR) + 설비(OBJ)).
+ */
+export function layoutSvg(layout, { title = '', showArea = true, mode = 'space' } = {}) {
   const S = 40;
   const pad = 70;
   const ys = layout.rooms.map((r) => r.y);
@@ -34,6 +37,7 @@ export function layoutSvg(layout, { title = '', showArea = true } = {}) {
   const ix1 = Math.max(...inner.map((r) => r.x + r.w));
   const iy1 = Math.max(...inner.map((r) => r.y + r.h));
   parts.push(`<rect x="${X(ix0)}" y="${Y(iy0)}" width="${(ix1 - ix0) * S}" height="${(iy1 - iy0) * S}" fill="none" stroke="#1b1a22" stroke-width="9"/>`);
+  if (mode === 'full') parts.push(...openingParts(layout, X, Y, S), ...fixtureParts(layout, X, Y, S));
   for (const r of layout.rooms) {
     const cx = X(r.x + r.w / 2);
     const cy = Y(r.y + r.h / 2);
@@ -54,3 +58,92 @@ export function layoutSvg(layout, { title = '', showArea = true } = {}) {
   if (title) parts.push(`<text x="${vw / 2}" y="${vh - 18}" font-size="18" font-weight="700" text-anchor="middle" fill="#1b1a22">${esc(title)}</text>`);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw.toFixed(0)} ${vh.toFixed(0)}" font-family="Pretendard, 'Noto Sans KR', sans-serif" role="img" aria-label="${esc(title || '생성한 평면')}">${parts.join('')}</svg>`;
 }
+
+const f1 = (v) => v.toFixed(1);
+
+/** 문·개구부·창. 벽 위에 흰 틈을 내고 예시 도면(STR)의 색으로 그린다. */
+function openingParts(layout, X, Y, S) {
+  const parts = [];
+  const inner = layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실');
+  const ix0 = Math.min(...inner.map((r) => r.x));
+  const iy0 = Math.min(...inner.map((r) => r.y));
+  const ix1 = Math.max(...inner.map((r) => r.x + r.w));
+  const iy1 = Math.max(...inner.map((r) => r.y + r.h));
+  const onOuter = (o) => (o.v ? Math.abs(o.x1 - ix0) < 1e-6 || Math.abs(o.x1 - ix1) < 1e-6 : Math.abs(o.y1 - iy0) < 1e-6 || Math.abs(o.y1 - iy1) < 1e-6);
+  for (const o of layout.openings || []) {
+    const t = onOuter(o) ? 10 : 6; // 벽 두께(그림 단위)
+    const a = [X(o.x1), Y(o.y1)];
+    const b = [X(o.x2), Y(o.y2)];
+    const gap = `<line x1="${f1(a[0])}" y1="${f1(a[1])}" x2="${f1(b[0])}" y2="${f1(b[1])}" stroke="#ffffff" stroke-width="${t + 2}"/>`;
+    if (o.kind === 'opening') {
+      parts.push(gap);
+      continue;
+    }
+    if (o.kind === 'window' || o.kind === 'sliding') {
+      const x = Math.min(a[0], b[0]) - (o.v ? t / 2 : 0);
+      const y = Math.min(a[1], b[1]) - (o.v ? 0 : t / 2);
+      const w = o.v ? t : Math.abs(b[0] - a[0]);
+      const h = o.v ? Math.abs(b[1] - a[1]) : t;
+      parts.push(gap);
+      parts.push(`<rect x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" fill="${STR_STYLE.window.fill}" stroke="${STR_STYLE.window.stroke}" stroke-width="1.4"/>`);
+      if (o.kind === 'sliding') {
+        // 미닫이: 두 짝이 겹친 모양
+        const mx = (a[0] + b[0]) / 2;
+        const my = (a[1] + b[1]) / 2;
+        parts.push(o.v
+          ? `<line x1="${f1(x + w * 0.3)}" y1="${f1(a[1])}" x2="${f1(x + w * 0.3)}" y2="${f1(my + 4)}" stroke="${STR_STYLE.window.stroke}" stroke-width="1.4"/><line x1="${f1(x + w * 0.7)}" y1="${f1(my - 4)}" x2="${f1(x + w * 0.7)}" y2="${f1(b[1])}" stroke="${STR_STYLE.window.stroke}" stroke-width="1.4"/>`
+          : `<line x1="${f1(a[0])}" y1="${f1(y + h * 0.3)}" x2="${f1(mx + 4)}" y2="${f1(y + h * 0.3)}" stroke="${STR_STYLE.window.stroke}" stroke-width="1.4"/><line x1="${f1(mx - 4)}" y1="${f1(y + h * 0.7)}" x2="${f1(b[0])}" y2="${f1(y + h * 0.7)}" stroke="${STR_STYLE.window.stroke}" stroke-width="1.4"/>`);
+      } else {
+        parts.push(o.v
+          ? `<line x1="${f1(x + w / 2)}" y1="${f1(a[1])}" x2="${f1(x + w / 2)}" y2="${f1(b[1])}" stroke="${STR_STYLE.window.stroke}" stroke-width="1"/>`
+          : `<line x1="${f1(a[0])}" y1="${f1(y + h / 2)}" x2="${f1(b[0])}" y2="${f1(y + h / 2)}" stroke="${STR_STYLE.window.stroke}" stroke-width="1"/>`);
+      }
+      continue;
+    }
+    // 여닫이문: 경첩(a)에서 문짝이 실 안쪽(현관문은 바깥쪽)으로 열린다.
+    const sign = o.entry ? -1 : 1;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const leaf = [a[0] + o.nx * sign * len, a[1] + o.ny * sign * len];
+    const cross = (leaf[0] - a[0]) * (b[1] - a[1]) - (leaf[1] - a[1]) * (b[0] - a[0]);
+    const sweep = cross > 0 ? 1 : 0;
+    parts.push(gap);
+    parts.push(`<path d="M${f1(a[0])} ${f1(a[1])} L${f1(leaf[0])} ${f1(leaf[1])} A${f1(len)} ${f1(len)} 0 0 ${sweep} ${f1(b[0])} ${f1(b[1])} Z" fill="${STR_STYLE.door.fill}" fill-opacity="0.55" stroke="none"/>`);
+    parts.push(`<path d="M${f1(leaf[0])} ${f1(leaf[1])} A${f1(len)} ${f1(len)} 0 0 ${sweep} ${f1(b[0])} ${f1(b[1])}" fill="none" stroke="${STR_STYLE.door.stroke}" stroke-width="1.2" stroke-dasharray="4 3"/>`);
+    parts.push(`<line x1="${f1(a[0])}" y1="${f1(a[1])}" x2="${f1(leaf[0])}" y2="${f1(leaf[1])}" stroke="${STR_STYLE.door.stroke}" stroke-width="3" stroke-linecap="round"/>`);
+  }
+  return parts;
+}
+
+/** 설비(변기·세면대·욕조·싱크대·가스레인지). 예시 도면(OBJ)과 같은 색. */
+function fixtureParts(layout, X, Y, S) {
+  const parts = [];
+  for (const f of layout.fixtures || []) {
+    const c = FIXTURE_COLORS[f.type] || '#6f6c7e';
+    const x = X(f.x);
+    const y = Y(f.y);
+    const w = f.w * S;
+    const h = f.h * S;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    parts.push(`<rect x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" rx="3" fill="${c}" fill-opacity="0.12" stroke="${c}" stroke-width="1.6"/>`);
+    if (f.type === '변기' || f.type === '세면대') {
+      parts.push(`<ellipse cx="${f1(cx)}" cy="${f1(cy)}" rx="${f1(w * 0.32)}" ry="${f1(h * 0.32)}" fill="none" stroke="${c}" stroke-width="1.4"/>`);
+    } else if (f.type === '욕조') {
+      parts.push(`<rect x="${f1(x + 4)}" y="${f1(y + 4)}" width="${f1(w - 8)}" height="${f1(h - 8)}" rx="${f1(Math.min(w, h) / 3)}" fill="none" stroke="${c}" stroke-width="1.4"/>`);
+    } else if (f.type === '싱크대') {
+      const bw = Math.min(w, h) * 0.6;
+      parts.push(`<rect x="${f1(cx - bw / 2)}" y="${f1(cy - bw / 2)}" width="${f1(bw)}" height="${f1(bw)}" rx="3" fill="none" stroke="${c}" stroke-width="1.4"/>`);
+    } else if (f.type === '가스레인지') {
+      for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) parts.push(`<circle cx="${f1(cx + (dx * w) / 4.5)}" cy="${f1(cy + (dy * h) / 4.5)}" r="${f1(Math.min(w, h) / 7)}" fill="none" stroke="${c}" stroke-width="1.3"/>`);
+    }
+  }
+  return parts;
+}
+
+/** 모든 요소 보기의 범례(예시 도면과 같은 이름·색). */
+export const FULL_LEGEND = [
+  { label: '벽', fill: '#2b2a33' },
+  { label: '출입문', fill: STR_STYLE.door.fill, stroke: STR_STYLE.door.stroke },
+  { label: '창호', fill: STR_STYLE.window.fill, stroke: STR_STYLE.window.stroke },
+  ...Object.entries(FIXTURE_COLORS).map(([label, c]) => ({ label, fill: c, stroke: c })),
+];

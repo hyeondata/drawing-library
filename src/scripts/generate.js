@@ -1,5 +1,6 @@
 // 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
-import { layoutSvg } from '../generate/render.js';
+import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
+import { toFullLabel } from '../generate/layout.js';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
 const { base, steps, targets, refs } = data;
@@ -9,7 +10,7 @@ const HANDOFF_KEY = 'floorplan-eval:image';
 const RESULT = steps.length - 1;
 const PREF = Object.fromEntries([...data.syntax, ...data.lifestyle].map((c) => [c.key, c]));
 
-const state = { step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
+const state = { view: 'full', step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
 
 // ---------- 선택 읽기 ----------
 const radio = (name) => form.querySelector(`input[name="${name}"]:checked`);
@@ -175,7 +176,10 @@ function renderResult() {
     }),
   );
   const c = top[state.current];
-  $('#gen-plan').innerHTML = `${layoutSvg(c.layout, { title: titleOf(spec, state.current) })}<figcaption class="note">전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡ (${(c.layout.W).toFixed(2)} × ${c.layout.D.toFixed(2)}m) · ${top.length}안 중 ${state.current + 1}번째 · 후보 ${state.ms ? `${Math.round(state.ms / 100) / 10}초` : ''}</figcaption>`;
+  const legend = state.view === 'full'
+    ? `<ul class="ex-legend gen-legend" aria-label="범례">${FULL_LEGEND.map((l) => `<li><i style="background:${l.fill};border-color:${l.stroke ?? l.fill}"></i>${esc(l.label)}</li>`).join('')}</ul>`
+    : '';
+  $('#gen-plan').innerHTML = `${layoutSvg(c.layout, { title: titleOf(spec, state.current), mode: state.view })}${legend}<figcaption class="note">전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡ (${(c.layout.W).toFixed(2)} × ${c.layout.D.toFixed(2)}m) · ${top.length}안 중 ${state.current + 1}번째 · 후보 ${state.ms ? `${Math.round(state.ms / 100) / 10}초` : ''}</figcaption>`;
 
   const u = c.unit;
   const groups = Object.entries(u.groups)
@@ -204,6 +208,7 @@ function renderResult() {
       <p>평가 모델 점수 · <span class="${u.validity.valid ? 'good-text' : 'error-text'}">${u.validity.valid ? '유효한 평면' : `유효하지 않음: ${esc(u.validity.failed.join(', '))}`}</span></p>
     </div>
     <ul class="gen-groups">${groups}</ul>
+    ${c.doorIssues ? `<p class="note error-text">문 동선 문제 ${c.doorIssues}개: ${esc([...c.layout.doorCheck.unreachable.map((k) => `현관에서 문으로 갈 수 없음(${k})`), ...c.layout.doorCheck.throughBedroom.map((k) => `침실을 지나야 함(${k})`)].join(', '))}</p>` : '<p class="note">문 동선: 현관에서 모든 실에 문으로 갈 수 있고, 침실을 지나야 하는 실이 없습니다.</p>'}
     ${c.narrow ? `<p class="note error-text">최소 폭(욕실 1.5m·침실 2.4m·안방 3.0m·거실 3.6m)보다 좁은 실이 ${c.narrow}개 있습니다. 평수에 비해 방이나 실이 많으면 생기니, 방 개수나 구성을 줄여 보세요.</p>` : ''}
     ${failed.length ? `<p class="note">통과하지 못한 규칙: ${failed.map((r) => `${esc(r.label)}(${esc(r.detail)})`).join(', ')}</p>` : '<p class="note">정합성 규칙을 모두 통과했습니다.</p>'}
     <h3>고른 조건에 얼마나 맞나</h3>
@@ -218,7 +223,7 @@ function renderResult() {
 
 function currentSvg() {
   const c = state.top[state.current];
-  return layoutSvg(c.layout, { title: titleOf(state.spec, state.current) });
+  return layoutSvg(c.layout, { title: titleOf(state.spec, state.current), mode: state.view });
 }
 const download = (blob, name) => {
   const a = document.createElement('a');
@@ -228,7 +233,19 @@ const download = (blob, name) => {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 const fileBase = () => `generated_${state.spec.area}m2_${state.spec.bedrooms}bed_${state.current + 1}`;
-$('#gen-json').addEventListener('click', () => download(new Blob([JSON.stringify(state.top[state.current].label)], { type: 'application/json' }), `${fileBase()}_SPA.json`));
+// 실만 보기는 SPA 라벨(평가용), 모든 요소 보기는 공간+출입문·창호+설비를 함께 담은 라벨
+$('#gen-json').addEventListener('click', () => {
+  const c = state.top[state.current];
+  const full = state.view === 'full';
+  download(new Blob([JSON.stringify(full ? toFullLabel(c.layout) : c.label)], { type: 'application/json' }), `${fileBase()}_${full ? 'ALL' : 'SPA'}.json`);
+});
+document.querySelectorAll('[data-view]').forEach((b) =>
+  b.addEventListener('click', () => {
+    state.view = b.dataset.view;
+    document.querySelectorAll('[data-view]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    if (state.top.length) renderResult();
+  }),
+);
 $('#gen-svg').addEventListener('click', () => download(new Blob([currentSvg()], { type: 'image/svg+xml' }), `${fileBase()}.svg`));
 $('#gen-more').addEventListener('click', () => run(state.seed + 1));
 $('#gen-open').addEventListener('click', () => {

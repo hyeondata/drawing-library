@@ -180,7 +180,13 @@ const steps = [
             <p class="note" id="gen-progress-text">평면을 만드는 중…</p>
           </div>
           <div id="gen-result" hidden>
-            <div class="seg gen-tabs" role="tablist" id="gen-tabs"></div>
+            <div class="gen-toolbar">
+              <div class="seg gen-tabs" role="tablist" id="gen-tabs"></div>
+              <div class="seg" role="group" aria-label="도면 표시">
+                <button type="button" data-view="full" aria-pressed="true">모든 요소</button>
+                <button type="button" data-view="space" aria-pressed="false">실만</button>
+              </div>
+            </div>
             <div class="gen-result">
               <figure class="gen-plan" id="gen-plan"></figure>
               <div class="gen-detail" id="gen-detail"></div>
@@ -199,7 +205,7 @@ const steps = [
               <li><b>평가</b>: 각 안을 AI 허브 SPA 라벨 형식으로 바꿔 이 사이트의 평가 모델(v0.3.0)로 채점합니다.</li>
               <li><b>선택</b>: 목적함수 = 모델 점수 45% + 목표 면적 부합 25% + 고른 선호 점수 평균 30%(선호를 고르지 않으면 모델·부합만). 유효하지 않은 평면과 너무 좁은 실(욕실 1.5m, 침실 2.4m, 안방 3.0m, 거실 3.6m 미만, 거실·침실 종횡비 2 초과)은 감점합니다. 무작위 탐색 뒤 상위 안을 국소 탐색으로 다듬고, 배치가 서로 다른 3안을 보여 줍니다.</li>
             </ol>
-            <p class="note">한계: 실은 직사각형이고 벽 두께·문·창은 그리지 않습니다. 기준이 35세대뿐이라 모델 점수는 '이 표본과 얼마나 닮았나'입니다. 방음은 배치로 줄일 수 있는 부분(소음원과 맞댄 침실 벽)만 근사합니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>
+            <p class="note">한계: 실은 직사각형이고 문·창·설비는 규칙으로 놓습니다(문으로 모든 실에 갈 수 있는지는 따로 점검). 기준이 35세대뿐이라 모델 점수는 '이 표본과 얼마나 닮았나'입니다. 방음은 배치로 줄일 수 있는 부분(소음원과 맞댄 침실 벽)만 근사합니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>
           </details>
         </div>
 

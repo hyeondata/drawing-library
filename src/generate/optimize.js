@@ -50,7 +50,10 @@ function scoreLayout(spec, layout, baseline) {
   let objective = w.model * unit.score + w.fit * fit + (prefScore === null ? 0 : w.prefs * prefScore);
   if (!unit.validity.valid) objective -= 40;
   objective -= 15 * narrow;
-  return { label, unit: stripUnit(unit), model: unit.score, fit, prefs, prefScore, objective, noise, actual, narrow };
+  // 문 동선: 현관에서 문으로 갈 수 없는 실, 침실을 지나야 하는 실은 감점(평가 모델은 인접 그래프라 이것을 보지 못한다).
+  const doorIssues = layout.doorCheck ? layout.doorCheck.unreachable.length + layout.doorCheck.throughBedroom.length : 0;
+  objective -= 15 * doorIssues;
+  return { label, unit: stripUnit(unit), model: unit.score, fit, prefs, prefScore, objective, noise, actual, narrow, doorIssues };
 }
 
 /** Worker로 넘길 때 무거운 부분(정렬된 기준값 배열)을 뺀다. */

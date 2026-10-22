@@ -2033,3 +2033,16 @@ table.plain td.num {
     font-size: 13px;
   }
 }
+
+.gen-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+}
+.gen-legend {
+  padding: 8px 12px 0;
+  background: #ffffff;
+  color: #4b4958;
+}

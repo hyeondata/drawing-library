@@ -3,6 +3,9 @@
 // Seo 2007; Choi et al. 2014). 실은 모두 축 정렬 직사각형이고 단위세대 사각형을 빈틈없이 채운다. 단위는 m.
 // 같은 사양으로 여러 변형을 만들고 평가 모델로 고르는 일은 optimize.js가 한다.
 
+import { FIXTURE_TYPES, placeFixtures } from './fixtures.js';
+import { placeOpenings } from './openings.js';
+
 export const BALCONY_DEPTH = 1.5;
 
 /**
@@ -230,7 +233,8 @@ export function buildLayout(spec, p) {
   else for (const s of suite) add([s], anchors[s.key]);
   const entrance = take('entrance');
   const bathPublic = take('bathPublic');
-  if (p.stackService) add(p.serviceOrder ? [bathPublic, entrance] : [entrance, bathPublic], anchors.entrance);
+  // 현관은 위(뒤쪽 바깥 벽)에 둬야 현관문을 낼 수 있다.
+  if (p.stackService) add([entrance, bathPublic], anchors.entrance);
   else {
     add([entrance], anchors.entrance);
     add([bathPublic], anchors.bathPublic);
@@ -248,6 +252,7 @@ export function buildLayout(spec, p) {
     const j = [i - 1, i + 1].filter(ok).sort((a, b) => columns[a].items.length - columns[b].items.length)[0];
     if (j === undefined) break;
     columns[j].items.push(...columns[i].items);
+    columns[j].items.sort((x, y) => Number(y.type === '현관') - Number(x.type === '현관'));
     columns.splice(i, 1);
   }
 
@@ -281,7 +286,13 @@ export function buildLayout(spec, p) {
     const k = rooms.find((rm) => rm.key === 'kitchen');
     rooms.push({ key: 'outdoor', type: '실외기실', name: '실외기실', x: k.x, y: -OUTDOOR_UNIT.d, w: Math.min(OUTDOOR_UNIT.w, k.w), h: OUTDOOR_UNIT.d });
   }
-  return { W, D, rooms };
+  const layout = { W, D, rooms };
+  // 문·창·설비(예시 도면의 STR·OBJ에 해당)와 문 동선 점검
+  const { openings, unreachable, throughBedroom } = placeOpenings(layout);
+  layout.openings = openings;
+  layout.fixtures = placeFixtures(layout, openings);
+  layout.doorCheck = { unreachable, throughBedroom };
+  return layout;
 }
 
 /** 두 직사각형이 맞닿은 변의 길이(m). */
@@ -316,30 +327,57 @@ export function noiseExposure(rooms) {
   return den ? num / den : 0;
 }
 
-/** 평면을 AI 허브 SPA 라벨(COCO) 형식으로 바꾼다. 종이 4963×3509px, 1m = pxPerM px. */
-export function toLabel(layout, { pxPerM = 100, fileName = 'generated.png' } = {}) {
-  const sheet = { w: 4963, h: 3509 };
-  const ox = (sheet.w - layout.W * pxPerM) / 2;
-  const oy = (sheet.h - (layout.D + BALCONY_DEPTH) * pxPerM) / 2;
-  const types = [...new Set(layout.rooms.map((r) => r.type))];
-  const categories = types.map((t, i) => ({ id: i + 1, name: `공간_${t}` }));
-  const idOf = Object.fromEntries(types.map((t, i) => [t, i + 1]));
-  const annotations = layout.rooms.map((r, i) => {
-    const x0 = ox + r.x * pxPerM;
-    const y0 = oy + r.y * pxPerM;
-    const x1 = x0 + r.w * pxPerM;
-    const y1 = y0 + r.h * pxPerM;
-    const round = (v) => Math.round(v * 10) / 10;
+const SHEET = { w: 4963, h: 3509 };
+
+/** 직사각형(m) 목록 → COCO. items: [{ category, x, y, w, h, attributes }] */
+function coco(layout, items, { pxPerM, fileName }) {
+  const ox = (SHEET.w - layout.W * pxPerM) / 2;
+  const oy = (SHEET.h - (layout.D + BALCONY_DEPTH) * pxPerM) / 2;
+  const names = [...new Set(items.map((it) => it.category))];
+  const categories = names.map((name, i) => ({ id: i + 1, name }));
+  const round = (v) => Math.round(v * 10) / 10;
+  const annotations = items.map((it, i) => {
+    const x0 = ox + it.x * pxPerM;
+    const y0 = oy + it.y * pxPerM;
+    const x1 = x0 + it.w * pxPerM;
+    const y1 = y0 + it.h * pxPerM;
     return {
       id: i + 1,
       image_id: 1,
-      category_id: idOf[r.type],
+      category_id: names.indexOf(it.category) + 1,
       segmentation: [[x0, y0, x1, y0, x1, y1, x0, y1].map(round)],
       area: round((x1 - x0) * (y1 - y0)),
       bbox: [x0, y0, x1 - x0, y1 - y0].map(round),
       iscrowd: 0,
-      attributes: { name: r.name },
+      attributes: it.attributes || {},
     };
   });
-  return { images: [{ id: 1, width: sheet.w, height: sheet.h, file_name: fileName }], categories, annotations };
+  return { images: [{ id: 1, width: SHEET.w, height: SHEET.h, file_name: fileName }], categories, annotations };
+}
+
+const spaceItems = (layout) => layout.rooms.map((r) => ({ category: `공간_${r.type}`, x: r.x, y: r.y, w: r.w, h: r.h, attributes: { name: r.name } }));
+
+/** 평면을 AI 허브 SPA 라벨(COCO) 형식으로 바꾼다. 종이 4963×3509px, 1m = pxPerM px. 평가에는 이 라벨을 쓴다. */
+export function toLabel(layout, { pxPerM = 100, fileName = 'generated.png' } = {}) {
+  return coco(layout, spaceItems(layout), { pxPerM, fileName });
+}
+
+/**
+ * 모든 요소 라벨: 공간(SPA) + 출입문·창호(STR) + 설비(OBJ)를 한 COCO 파일에. 문·창은 벽 두께 0.2m 띠로 쓴다.
+ * 범주 이름은 AI 허브와 같다(공간_*, 구조_출입문, 구조_창호, 객체_*).
+ */
+export function toFullLabel(layout, { pxPerM = 100, fileName = 'generated_full.png' } = {}) {
+  const t = 0.1;
+  const openings = (layout.openings || [])
+    .filter((o) => o.kind !== 'opening')
+    .map((o) => ({
+      category: o.kind === 'door' ? '구조_출입문' : '구조_창호',
+      x: Math.min(o.x1, o.x2) - (o.v ? t : 0),
+      y: Math.min(o.y1, o.y2) - (o.v ? 0 : t),
+      w: Math.abs(o.x2 - o.x1) + (o.v ? 2 * t : 0),
+      h: Math.abs(o.y2 - o.y1) + (o.v ? 0 : 2 * t),
+      attributes: { kind: o.kind === 'sliding' ? '발코니 미닫이' : o.kind === 'door' ? (o.entry ? '현관문' : '여닫이문') : '창' },
+    }));
+  const fixtures = (layout.fixtures || []).filter((f) => FIXTURE_TYPES.includes(f.type)).map((f) => ({ category: `객체_${f.type}`, x: f.x, y: f.y, w: f.w, h: f.h }));
+  return coco(layout, [...spaceItems(layout), ...openings, ...fixtures], { pxPerM, fileName });
 }
