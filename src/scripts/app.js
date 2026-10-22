@@ -25,7 +25,7 @@ const state = {
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const fmtScore = (v) => (v === null || v === undefined ? '–' : v.toFixed(0));
-const isRatio = (key) => key.startsWith('ratio_') || key.endsWith('Share') || key.endsWith('Pct');
+const isRatio = (key) => key.startsWith('ratio_') || key.endsWith('Share') || key.endsWith('Pct') || key === 'exteriorExposure';
 function fmtValue(key, v) {
   if (v === null || v === undefined || Number.isNaN(v)) return '–';
   return isRatio(key) ? `${(v * 100).toFixed(1)}%` : v.toFixed(2);
@@ -217,8 +217,8 @@ function renderUnit() {
     )
     .join('')}</ul>`;
 
-  const gateNote = unit.capped
-    ? `<div class="error-box"><b>관문 규칙 미충족:</b> ${esc(unit.failedGates.join(', '))}. 다른 점수와 상관없이 총점을 ${unit.score.toFixed(0)}점으로 묶었습니다(원점수 ${unit.rawScore.toFixed(1)}).</div>`
+  const gateNote = unit.validity && !unit.validity.valid
+    ? `<div class="error-box"><b>유효하지 않은 평면:</b> ${esc(unit.validity.failed.join(', '))}. 관문 규칙을 어긴 평면은 전형성 점수와 따로 판정합니다${unit.capped ? `. 단일 점수로는 ${unit.score.toFixed(0)}점으로 묶었습니다(원점수 ${unit.rawScore.toFixed(1)})` : ''}.</div>`
     : '';
   const featureGroups = groups.filter((g) => g !== unit.groups.rules);
   const featuresHtml = featureTable(featureGroups);
@@ -387,7 +387,7 @@ function featureTable(groups) {
         g.items
           .map((it) => {
             const tip = it.stats
-              ? `${it.label}\n이 도면 ${fmtValue(it.key, it.value)} · 기준 중앙값 ${fmtValue(it.key, it.stats.median)}\n기준 범위 ${fmtValue(it.key, it.stats.min)} ~ ${fmtValue(it.key, it.stats.max)} (n=${it.stats.n})\nz = ${it.z === null ? '–' : it.z.toFixed(2)}${it.direction === 'higher' ? '\n높을수록 유리: 중앙값보다 크면 감점 없음' : ''}`
+              ? `${it.label}\n이 도면 ${fmtValue(it.key, it.value)} · 기준 중앙값 ${fmtValue(it.key, it.stats.median)}\n기준 범위 ${fmtValue(it.key, it.stats.min)} ~ ${fmtValue(it.key, it.stats.max)} (n=${it.stats.n})\n${it.method === 'ecdf' ? `백분위 ${it.percentile === null ? '–' : Math.round(it.percentile * 100)}% (백분위 채점)` : `z = ${it.z === null ? '–' : it.z.toFixed(2)} (Qn 척도)`}${it.adjust ? '\n실 수(K) 보정 잔차로 채점' : ''}${it.weight === 0 ? '\n참고값: 점수에 넣지 않음' : ''}${it.direction === 'higher' ? '\n높을수록 유리: 중앙값보다 크면 감점 없음' : it.direction === 'lower' ? '\n낮을수록 유리: 중앙값보다 작으면 감점 없음' : ''}`
               : it.label;
             return `<tr data-tip="${esc(tip)}">
               <td>${esc(it.label)}</td>

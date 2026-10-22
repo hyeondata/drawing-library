@@ -1,15 +1,36 @@
 // SPA(공간) 라벨 분석: 인접 그래프 → 세대 분리 → 공간구문 지표·면적 구성·평면 정합성.
 import { COMMON_TYPES, GENOTYPE_ORDER, LIVING_RANK_EXCLUDE, MAIN_TYPES, THRESHOLDS } from './config.js';
-import { bboxGap, bboxOf, contactLength, polygonDistance } from './geometry.js';
+import { bboxGap, contactLength, minAreaRect, perimeter, polygonDistance } from './geometry.js';
 import { bfs, kendallTauB, nodeMetrics, ringiness } from './syntax.js';
 
 const AREA_TYPES = ['거실', '주방', '침실', '화장실', '발코니', '드레스룸', '현관', '기타'];
 // 외벽 쪽 공간. 외벽은 단열층 때문에 더 두꺼워 별도 기준을 쓴다.
 const EXTERIOR_TYPES = new Set(['발코니', '실외기실', '다목적공간']);
 
+/**
+ * 도면 축척 보정. 모든 도면이 같은 크기(약 4963×3509px)의 종이에 맞춰 그려져 있어,
+ * 같은 1px가 도면마다 다른 실제 길이를 뜻한다(침실 한 변 중앙값이 160~487px로 약 3배 차이).
+ * 침실 한 변(√면적) 중앙값을 자로 삼아, 기준 도면(referenceBedSide px)에 맞춘 배율 s로 픽셀 기준값을 늘이거나 줄인다.
+ */
+export function drawingScale(spaces) {
+  const sides = spaces.filter((x) => x.type === '침실').map((x) => Math.sqrt(x.area)).sort((a, b) => a - b);
+  if (!sides.length) return 1;
+  const m = sides.length % 2 ? sides[(sides.length - 1) / 2] : (sides[sides.length / 2 - 1] + sides[sides.length / 2]) / 2;
+  return Math.min(2.5, Math.max(0.4, m / THRESHOLDS.referenceBedSide));
+}
+function scaledThresholds(s) {
+  const T = { ...THRESHOLDS, scale: s };
+  // 벽 두께(간격)는 도면 선 굵기를 따라 축척과 거의 무관하다(표본: 간격 중앙값 7~26px이 침실 크기와 무관).
+  // 그래서 간격 기준은 그대로 두고, 길이·면적 기준(접촉 길이, 덕트 면적, 창 길이)만 축척에 맞춘다.
+  // 접촉 길이는 늘리기만 한다. 간격 기준(32px)이 고정이라 40px 아래로 줄이면 모서리만 스치는 실도 링크가 된다.
+  T.minContact = THRESHOLDS.minContact * Math.max(1, s);
+  T.ductMaxArea = THRESHOLDS.ductMaxArea * s * s;
+  return T;
+}
+
 /** 인접 링크 목록: [i, j, 접촉 길이, 벽 두께(간격)]. */
-function buildAdjacency(spaces) {
-  const { adjacencyGap, exteriorGap, minContact } = THRESHOLDS;
+function buildAdjacency(spaces, T) {
+  const { adjacencyGap, exteriorGap, minContact } = T;
   const edges = [];
   for (let i = 0; i < spaces.length; i++) {
     for (let j = i + 1; j < spaces.length; j++) {
@@ -127,7 +148,7 @@ function assignUnits(spaces, edges) {
   return { units, unitOf, rootless, stranded };
 }
 
-function analyzeUnit(unit, spaces, edges, rootless, stranded) {
+function analyzeUnit(unit, spaces, edges, rootless, stranded, T) {
   const members = unit.members;
   const local = new Map(members.map((g, l) => [g, l]));
   const adj = members.map(() => []);
@@ -149,7 +170,7 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
   // ---- 공간구문 그래프 ----
   // 덕트·PS(작거나 현관에서 닿지 않는 '기타')는 빼고, 현관에 세대 밖(외부) 노드를 붙인다.
   // 외부 노드는 Byun & Choi(2016) 등 문헌 값과 같은 규약으로 비교하기 위해서다.
-  const isDuct = (l) => typeOf(l) === '기타' && (isCut(l) || spaces[members[l]].area < THRESHOLDS.ductMaxArea);
+  const isDuct = (l) => typeOf(l) === '기타' && (isCut(l) || spaces[members[l]].area < T.ductMaxArea);
   const inSyntax = locals.map((l) => !isDuct(l) && !isCut(l));
   const ext = members.length; // 외부 노드 번호
   const sAdj = [...adj.map((ns, l) => (inSyntax[l] ? ns.filter((n) => inSyntax[n]) : [])), []];
@@ -186,8 +207,17 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
   const bedI = meanInteg('침실');
 
   // 유전형 부합도: 기능실 평균 통합도 순서와 기준 순서(GENOTYPE_ORDER)의 Kendall τ_b.
-  const geno = GENOTYPE_ORDER.map((t, k) => [meanInteg(t), GENOTYPE_ORDER.length - k]).filter(([v]) => v !== null);
-  const genotypeTau = geno.length >= 3 ? kendallTauB(geno.map((g) => g[0]), geno.map((g) => g[1])) : null;
+  // v0.3.0: 5유형이 모두 있을 때만 계산한다. 3유형이면 τ가 {−1, −1/3, 1/3, 1}뿐이라 5유형 세대와 비교할 수 없다.
+  const genoValues = GENOTYPE_ORDER.map((t) => meanInteg(t));
+  const genoComplete = genoValues.every((v) => v !== null);
+  const genotypeTau = genoComplete ? kendallTauB(genoValues, GENOTYPE_ORDER.map((t, k) => GENOTYPE_ORDER.length - k)) : null;
+  // 유전형 프로필: 5유형 통합도를 평면 안에서 표준화한 벡터. 기준 분포의 중앙 벡터와의 거리(연속 지표)를 채점 단계에서 구한다.
+  let genotypeProfile = null;
+  if (genoComplete) {
+    const m = mean(genoValues);
+    const sd = Math.sqrt(mean(genoValues.map((v) => (v - m) ** 2)));
+    genotypeProfile = genoValues.map((v) => (sd ? (v - m) / sd : 0));
+  }
 
   // 공·사 깊이 차: 개인 공간이 공용 공간보다 몇 단계 더 깊은가.
   const depthOf = (types) => mean(finite(locals.filter((l) => types.includes(typeOf(l)) && inSyntax[l]).map((l) => sDepth[l])));
@@ -207,18 +237,37 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
   const bedAreas = bedNodes.map((l) => spaces[members[l]].area).sort((a, b) => b - a);
   const masterBedroomRatio = bedAreas.length >= 2 ? bedAreas[0] / mean(bedAreas.slice(1)) : null;
 
-  // 실 직사각형도: 거실·침실·주방의 면적 / 외접 사각형 면적(면적 가중 평균).
-  const rectRooms = locals.filter((l) => ['거실', '침실', '주방'].includes(typeOf(l))).map((l) => spaces[members[l]]);
-  const rectArea = rectRooms.reduce((s, r) => s + r.area, 0);
-  const roomRectangularity = rectArea
-    ? rectRooms.reduce((s, r) => {
-        const [x0, y0, x1, y1] = bboxOf(r.polys);
-        return s + r.area * Math.min(1, r.area / Math.max(1, (x1 - x0) * (y1 - y0)));
-      }, 0) / rectArea
-    : null;
+  // 실 형태: 거실·침실·주방의 회전 최소 외접 사각형(MBR) 기준 직사각형도와 종횡비(면적 가중 평균), 침실 최소 폭.
+  const HABITABLE = ['거실', '침실', '주방'];
+  const rectRooms = locals.filter((l) => HABITABLE.includes(typeOf(l))).map((l) => {
+    const sp = spaces[members[l]];
+    return { sp, type: typeOf(l), mbr: minAreaRect(sp.polys) };
+  });
+  const rectArea = rectRooms.reduce((s, r) => s + r.sp.area, 0);
+  const weighted = (f) => (rectArea ? rectRooms.reduce((s, r) => s + r.sp.area * f(r), 0) / rectArea : null);
+  const roomRectangularity = weighted((r) => Math.min(1, r.sp.area / Math.max(1, r.mbr.area)));
+  const roomAspectRatio = weighted((r) => (r.mbr.short ? r.mbr.long / r.mbr.short : 1));
+  // 축척이 도면마다 달라 절대 폭(m)은 비교할 수 없으므로, 가장 좁은 침실 폭을 침실 한 변 중앙값으로 나눈 상대 폭을 쓴다.
+  const bedShorts = rectRooms.filter((r) => r.type === '침실').map((r) => r.mbr.short);
+  const bedroomMinWidth = bedShorts.length ? Math.min(...bedShorts) / (THRESHOLDS.referenceBedSide * T.scale) : null;
+
+  // 외기 접면: 거실·침실·주방 경계 가운데 다른 실내 공간과 맞닿지 않은(세대 밖이나 발코니·실외기실로 열린) 길이.
+  // 막는 공간: 같은 도면의 모든 실(다른 세대·공용부 포함) 중 발코니·실외기실이 아닌 것.
+  const OPEN_TO = new Set(['발코니', '실외기실']);
+  const exposure = rectRooms.map((r) => {
+    const near = spaces.filter((o) => o !== r.sp && !OPEN_TO.has(o.type) && bboxGap(o.bbox, r.sp.bbox) <= T.exteriorGap);
+    const blocked = near.length ? contactLength(r.sp.polys, near.flatMap((o) => o.polys), T.exteriorGap) : 0;
+    const per = perimeter(r.sp.polys);
+    return { type: r.type, per, ext: Math.max(0, per - blocked) };
+  });
+  const perSum = exposure.reduce((s, e) => s + e.per, 0);
+  const exteriorExposure = perSum ? exposure.reduce((s, e) => s + e.ext, 0) / perSum : null;
+  const livable = exposure.filter((e) => e.type !== '주방');
+  const windowRoomShare = livable.length ? livable.filter((e) => e.ext >= THRESHOLDS.windowMinLength * T.scale).length / livable.length : null;
 
   const features = {
     nodeCount: functional.length,
+    bedroomCount: bedNodes.length,
     // 화면 참고용(채점 제외): v0.1 지표
     livingDepth: livingNodes.length ? Math.min(...livingNodes.map((l) => depth[l])) : null,
     ringiness: ringiness(members.length, localEdges.length),
@@ -226,6 +275,7 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
     livingBedroomRatio: ratio(livingI === -Infinity ? null : livingI, bedI),
     kitchenBedroomRatio: ratio(meanInteg('주방'), bedI),
     genotypeTau,
+    genotypeProfile,
     privacyDepthGap: privDepth !== null && pubDepth !== null ? privDepth - pubDepth : null,
     meanIntegration: mean(finite(functional.map((l) => integ[l]))),
     livingControl,
@@ -234,6 +284,11 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
     masterBedroomRatio,
     // 형태
     roomRectangularity,
+    roomAspectRatio,
+    bedroomMinWidth,
+    // 외기 접면
+    exteriorExposure,
+    windowRoomShare,
   };
   for (const t of AREA_TYPES) features[`ratio_${t}`] = totalArea ? areaByType[t] / totalArea : 0;
   for (const k of Object.keys(features)) if (features[k] === Infinity || features[k] === -Infinity) features[k] = null;
@@ -301,6 +356,22 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
   rule('publicBath', '침실을 거치지 않는 공용 화장실', 1, publicBath ? 1 : 0,
     baths.length ? (publicBath ? '있음' : '모든 화장실이 침실 안쪽') : '화장실 없음');
 
+  // 채광 가능: 모든 거실·침실이 외기나 발코니에 창을 낼 만큼(배율 1에서 81px ≈ 0.9m) 열려 있다. 표본 35세대 모두 통과해 분포 지표 대신 규칙으로 둔다.
+  const dark = livable.filter((e) => e.ext < THRESHOLDS.windowMinLength * T.scale);
+  rule('daylight', '모든 거실·침실이 외기·발코니에 접함', 1, livable.length ? 1 - dark.length / livable.length : 0,
+    dark.length ? `외기에 닿지 않는 실: ${dark.map((e) => e.type).join(', ')}` : '모두 접함');
+
+  // 안방 부속실(Zeng et al. 2025): 가장 큰 침실이 화장실과, 드레스룸이 있으면 드레스룸과도 맞닿는다.
+  if (bedNodes.length >= 2) {
+    const master = [...bedNodes].sort((a, b) => spaces[members[b]].area - spaces[members[a]].area)[0];
+    const near = new Set(adj[master].map(typeOf));
+    const wantDress = ofType('드레스룸').length > 0;
+    const got = (near.has('화장실') ? 1 : 0) + (wantDress && near.has('드레스룸') ? 1 : 0);
+    const need = 1 + (wantDress ? 1 : 0);
+    rule('masterSuite', '안방에 딸린 화장실(·드레스룸)', 1, got / need,
+      [near.has('화장실') ? '화장실 있음' : '화장실 없음', wantDress ? (near.has('드레스룸') ? '드레스룸 있음' : '드레스룸 떨어짐') : null].filter(Boolean).join(' · '));
+  }
+
   return {
     index: unit.index,
     rootSpace: unit.root,
@@ -321,12 +392,14 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded) {
 
 export function analyzeSPA(parsed) {
   const spaces = parsed.items.filter((it) => it.group === '공간');
-  const edges = buildAdjacency(spaces);
+  const T = scaledThresholds(drawingScale(spaces));
+  const edges = buildAdjacency(spaces, T);
   const { units, unitOf, rootless, stranded } = assignUnits(spaces, edges);
   return {
     kind: 'SPA',
     spaces: spaces.map((s, i) => ({ id: s.id, type: s.type, area: s.area, center: s.center, polys: s.polys, unit: unitOf[i], common: COMMON_TYPES.has(s.type) })),
     edges: edges.map(([i, j, contact, gap]) => [i, j, contact, Math.round(gap)]),
-    units: units.map((u) => analyzeUnit(u, spaces, edges, rootless, stranded)),
+    scale: T.scale,
+    units: units.map((u) => analyzeUnit(u, spaces, edges, rootless, stranded, T)),
   };
 }

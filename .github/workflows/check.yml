@@ -34,6 +34,13 @@ jobs:
             echo "::error::예시 도면이 라벨과 다릅니다. npm run drawings 후 커밋하세요."
             exit 1
           }
+      - name: Validation results are up to date
+        run: |
+          npm run results
+          git diff --exit-code -- evidence/results || {
+            echo "::error::검증 결과가 모델과 다릅니다. npm run results 후 커밋하세요."
+            exit 1
+          }
       - run: npx astro build
       - run: npm run deploy -- --dry-run
       - name: Score table

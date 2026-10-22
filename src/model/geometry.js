@@ -163,3 +163,61 @@ export function overlapRatio(polysA, polysB, samples = 12) {
   }
   return inA ? inBoth / inA : 0;
 }
+
+/** 다각형 둘레 길이(픽셀). */
+export function perimeter(polys) {
+  let s = 0;
+  for (const pts of polys) for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) s += Math.hypot(pts[i][0] - pts[j][0], pts[i][1] - pts[j][1]);
+  return s;
+}
+
+/** 점 집합의 볼록 껍질(Andrew 단조 사슬). */
+export function convexHull(points) {
+  const p = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower = [];
+  for (const q of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop();
+    lower.push(q);
+  }
+  const upper = [];
+  for (let i = p.length - 1; i >= 0; i--) {
+    const q = p[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop();
+    upper.push(q);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/**
+ * 최소 면적 외접 사각형(회전 허용). 볼록 껍질의 각 변 방향으로 돌려 보며 가장 작은 사각형을 찾는다.
+ * 도면이 기울어져도 값이 바뀌지 않는다(Rosin 1999의 MBR 직사각형도).
+ * 반환: { area, long, short }
+ */
+export function minAreaRect(polys) {
+  const hull = convexHull(polys.flat());
+  if (hull.length < 3) return { area: 0, long: 0, short: 0 };
+  let best = null;
+  for (let i = 0; i < hull.length; i++) {
+    const [ax, ay] = hull[i];
+    const [bx, by] = hull[(i + 1) % hull.length];
+    const len = Math.hypot(bx - ax, by - ay);
+    if (!len) continue;
+    const ux = (bx - ax) / len;
+    const uy = (by - ay) / len;
+    let [u0, u1, v0, v1] = [Infinity, -Infinity, Infinity, -Infinity];
+    for (const [x, y] of hull) {
+      const u = x * ux + y * uy;
+      const v = -x * uy + y * ux;
+      u0 = Math.min(u0, u);
+      u1 = Math.max(u1, u);
+      v0 = Math.min(v0, v);
+      v1 = Math.max(v1, v);
+    }
+    const w = u1 - u0;
+    const h = v1 - v0;
+    if (!best || w * h < best.area) best = { area: w * h, long: Math.max(w, h), short: Math.min(w, h) };
+  }
+  return best;
+}

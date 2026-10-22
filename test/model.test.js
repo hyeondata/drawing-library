@@ -4,7 +4,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { GATE_CAP } from '../src/model/config.js';
-import { analyze, closenessScore, detectKind, evaluate, robustStats } from '../src/model/index.js';
+import { analyze, closenessScore, detectKind, ecdf, evaluate, percentileScore, qnScale, robustStats } from '../src/model/index.js';
+import { minAreaRect } from '../src/model/geometry.js';
 import { diamondValue, kendallTauB, nodeMetrics } from '../src/model/syntax.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -104,11 +105,11 @@ test('방향이 정해진 지표는 유리한 쪽으로 벗어나도 감점하�
 });
 
 test('공간구문 그래프는 작은 기타(덕트)를 빼고 외부 노드를 붙인다', () => {
-  const duct = { name: '공간_기타', x: 0, y: 230, w: 60, h: 60 }; // 3,600px² < ductMaxArea, 화장실과 맞닿음
+  const duct = { name: '공간_기타', x: 0, y: 230, w: 40, h: 40 }; // 1,600px² < 축척 보정한 ductMaxArea, 화장실과 맞닿음
   const names = [...NAMES, '공간_기타'];
   const label = coco(goodPlan);
   label.categories = names.map((name, i) => ({ id: i + 1, name }));
-  label.annotations.push({ id: 99, image_id: 1, category_id: names.length, segmentation: [[0, 230, 60, 230, 60, 290, 0, 290]], bbox: [0, 230, 60, 60], area: 3600, attributes: {} });
+  label.annotations.push({ id: 99, image_id: 1, category_id: names.length, segmentation: [[0, 230, 40, 230, 40, 270, 0, 270]], bbox: [0, 230, 40, 40], area: 1600, attributes: {} });
   const u = analyze(label, 'SPA').units[0];
   const ductNode = u.nodes.find((n) => n.type === '기타');
   assert.equal(ductNode.duct, true);
@@ -126,10 +127,52 @@ test('관문 규칙을 어기면 총점이 상한에 묶인다', () => {
   assert.ok(r.units[0].score <= GATE_CAP);
 });
 
-test('강건 통계는 한 값으로 모인 분포에서 최소 척도를 쓴다', () => {
-  const s = robustStats([1, 1, 1, 1], 0.5);
-  assert.equal(s.median, 1);
-  assert.equal(s.scale, 0.5);
+test('Qn 척도: 한 값으로 모이면 0, 정규 표본에서는 표준편차에 가깝다', () => {
+  assert.equal(robustStats([1, 1, 1, 1]).scale, 0);
+  // 표준정규 분위수 50개로 만든 표본: Qn ≈ 1
+  const z = Array.from({ length: 50 }, (_, i) => {
+    const p = (i + 0.5) / 50;
+    // Acklam 근사 대신 간단한 로지스틱 근사(충분히 정확)
+    return Math.log(p / (1 - p)) / 1.702;
+  }).sort((a, b) => a - b);
+  const q = qnScale(z);
+  assert.ok(q > 0.85 && q < 1.15, `Qn=${q}`);
+});
+
+test('백분위 점수: 중앙은 100, 양끝은 0에 가깝고, 단측은 유리한 쪽을 감점하지 않는다', () => {
+  const sorted = [0, 0.2, 0.4, 0.6, 0.8, 1];
+  assert.equal(percentileScore(ecdf(0.5, sorted), undefined), 100);
+  assert.ok(percentileScore(ecdf(-1, sorted), undefined) === 0);
+  assert.equal(percentileScore(ecdf(1, sorted), 'higher'), 100);
+  assert.ok(percentileScore(ecdf(0, sorted), 'higher') < 20);
+});
+
+test('회전 최소 외접 사각형은 도면이 기울어도 같은 직사각형도를 준다', () => {
+  const rot = (pts, a) => pts.map(([x, y]) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)]);
+  const sq = [[0, 0], [300, 0], [300, 200], [0, 200]];
+  const r0 = minAreaRect([sq]);
+  const r1 = minAreaRect([rot(sq, 0.6)]);
+  assert.ok(Math.abs(r0.area - 60000) < 1 && Math.abs(r1.area - 60000) < 1);
+  assert.ok(Math.abs(r1.long / r1.short - 1.5) < 1e-6);
+});
+
+test('축척 보정: 도면을 2배로 그려도 지표와 규칙 판정이 같다', () => {
+  const big = goodPlan.map((r) => ({ ...r, x: r.x * 2, y: r.y * 2, w: r.w * 2, h: r.h * 2 }));
+  const a = analyze(coco(goodPlan), 'SPA');
+  const b = analyze(coco(big), 'SPA');
+  assert.ok(Math.abs(b.scale / a.scale - 2) < 1e-9);
+  assert.deepEqual(b.units[0].rules.map((r) => r.pass), a.units[0].rules.map((r) => r.pass));
+  for (const k of ['livingBedroomRatio', 'genotypeTau', 'roomRectangularity', 'bedroomMinWidth']) {
+    assert.ok(Math.abs((a.units[0].features[k] ?? 0) - (b.units[0].features[k] ?? 0)) < 0.02, k);
+  }
+  // 외기 접면은 벽 간격 기준(고정 px)을 써서 축척 불변이 아니다(문서의 한계 참고). 여기서는 검사하지 않는다.
+});
+
+test('관문 결과는 점수와 별도로 유효성으로 출력되고, 상한은 끌 수 있다', () => {
+  const plan = [...goodPlan, rect('공간_침실', 645, 165, 150, 135)];
+  const r = evaluate(coco(plan), { baseline, kind: 'SPA', options: { gateCap: null } });
+  assert.equal(r.units[0].validity.valid, false);
+  assert.equal(r.units[0].capped, false);
 });
 
 test('평가 시 자기 자신은 기준 분포에서 빠진다', () => {

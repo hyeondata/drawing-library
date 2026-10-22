@@ -14,7 +14,10 @@
     "evaluate": "node scripts/evaluate.mjs",
     "test": "node --test \"test/**/*.test.js\"",
     "check": "npm test && npm run baseline && npm run drawings",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "sensitivity": "node scripts/sensitivity.mjs",
+    "validate": "node scripts/validate.mjs",
+    "results": "node scripts/validate.mjs && node scripts/sensitivity.mjs"
   },
   "dependencies": {
     "astro": "^7.4.2"
