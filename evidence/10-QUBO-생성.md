@@ -102,4 +102,4 @@ QPU 결과에는 체인 끊김 비율·최대 체인 길이·annealing_time·num
 
 ## 공간구문 대리 항(2026-10-23)
 
-공간구문 변수를 생성에 직접 넣기 위해, SCI(E)·SSCI 논문의 변수(거실/침실·주방/침실 통합도 비: Byun & Choi 2016, Choi et al. 2014 / 유전형 τ: Hillier et al. 1987 / 공·사 깊이 차: Ham & Lee 2017, Park et al. 2024)를 보정 데이터(조건 20개, 배치 9,567개)에서 정확히 계산하고 QUBO 항 φ로 릿지 회귀해 대리 가중치를 만들었다(`npm run syntax`가 아니라 `node scripts/syntax-surrogate.mjs`, 결과 [results/syntax-surrogate.md](results/syntax-surrogate.md)). 공간구문 선호를 고르면 E = E_보정 + λ·s·Σ v_t φ_t(λ = 0.5)로 더한다. 교차검증 대리 ρ: 거실/침실 비 0.80, 주방/침실 비 0.71, 공·사 깊이 차 0.63, τ 0.47. 생성 화면의 평면 진단 '공간구문' 보기에서 정당화 그래프와 변수 값, 반영 여부를 보인다.
+공간구문 변수를 생성에 직접 넣기 위해, SCI(E)·SSCI 논문의 변수(거실/침실·주방/침실 통합도 비: Byun & Choi 2016, Choi et al. 2014 / 유전형 τ: Hillier et al. 1987 / 공·사 깊이 차: Ham & Lee 2017, Park et al. 2024)를 보정 데이터(조건 20개, 배치 9,567개)에서 정확히 계산하고 QUBO 항 φ로 릿지 회귀해 대리 가중치를 만들었다(`node scripts/syntax-surrogate.mjs`, 결과 [results/syntax-surrogate.md](results/syntax-surrogate.md)). 공간구문 선호를 고르면 E = E_보정 + λ·s·Σ v_t φ_t(λ = 0.5)로 더한다. 교차검증 대리 ρ: 거실/침실 비 0.80, 주방/침실 비 0.71, 공·사 깊이 차 0.63, τ 0.47. 생성 화면의 평면 진단 '공간구문' 보기에서 정당화 그래프와 변수 값, 반영 여부를 보인다.
