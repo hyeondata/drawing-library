@@ -3486,3 +3486,39 @@ table.plain td.num {
   align-items: center;
   gap: 4px;
 }
+.mt-ex {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.mt-ex summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.mt-ex > div {
+  margin-top: 6px;
+  overflow-x: auto;
+}
+.mt-why {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 10px 10px 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.mt-why p,
+.mt-why ul {
+  margin: 4px 0 0;
+}
+.mt-mini {
+  font-size: 12px;
+  margin: 6px 0;
+}
+.mt-steps > li {
+  margin: 8px 0;
+}
