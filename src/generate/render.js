@@ -1,5 +1,6 @@
 // 생성한 평면을 SVG 문자열로 그린다(흰 종이 위 도면이라 화면 테마와 상관없이 같은 색).
 import { FIXTURE_COLORS, STR_STYLE, roomGroupOf } from '../model/drawing-style.js';
+import { netDims } from './net-dims.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
@@ -7,7 +8,8 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
  * layout(m) → SVG. 1m = 40 단위. 실 이름·면적과 바깥 치수(mm)를 적는다.
  * mode: 'space'(실만, 예시 도면의 SPA처럼) | 'full'(모든 요소: 실 + 문·창(STR) + 설비(OBJ)).
  */
-export function layoutSvg(layout, { title = '', showArea = true, mode = 'space', stage = null } = {}) {
+export function layoutSvg(layout, { title = '', showArea = true, mode = 'space', stage = null, dims = 'center' } = {}) {
+  const net = dims === 'net' && !stage ? netDims(layout) : null;
   // stage(생성 과정 1~8): 1 전용면적 윤곽, 2 앞·뒤 띠, 3 실 배치, 4 폭 나누기, 5 복도·부속실, 6 문·개구부, 7 창·발코니 문, 8 설비(완성)
   if (stage) {
     const keep = stage >= 8 ? null : stage >= 7 ? ['door', 'opening', 'window', 'sliding'] : stage >= 6 ? ['door', 'opening'] : [];
@@ -70,7 +72,11 @@ export function layoutSvg(layout, { title = '', showArea = true, mode = 'space',
     // 실 폭에 맞춰 글자 크기를 줄인다.
     const fs = Math.max(9, Math.min(17, (r.w * S * 0.9) / Math.max(2, [...r.name].length), r.h * S * 0.3));
     parts.push(`<text x="${cx.toFixed(1)}" y="${(cy - (showArea || stage === 4 ? 4 : -5)).toFixed(1)}" font-size="${fs}" font-weight="700" text-anchor="middle" fill="#1b1a22">${esc(r.name)}</text>`);
-    if (showArea) parts.push(`<text x="${cx.toFixed(1)}" y="${(cy + fs - 2).toFixed(1)}" font-size="${fs - 4}" text-anchor="middle" fill="#55536a">${(r.w * r.h).toFixed(1)}㎡</text>`);
+    if (showArea && net?.[r.key] && r.w * S > 80 && r.h * S > 72) {
+      const nd = net[r.key];
+      parts.push(`<text x="${cx.toFixed(1)}" y="${(cy + fs - 2).toFixed(1)}" font-size="${fs - 4}" text-anchor="middle" fill="#55536a">안목 ${nd.area.toFixed(1)}㎡</text>`);
+      parts.push(`<text x="${cx.toFixed(1)}" y="${(cy + 2 * fs - 4).toFixed(1)}" font-size="${Math.max(9, fs - 5)}" text-anchor="middle" fill="#0b7285">${Math.round(nd.nw * 1000)}×${Math.round(nd.nh * 1000)}</text>`);
+    } else if (showArea) parts.push(`<text x="${cx.toFixed(1)}" y="${(cy + fs - 2).toFixed(1)}" font-size="${fs - 4}" text-anchor="middle" fill="#55536a">${(net?.[r.key] ? net[r.key].area : r.w * r.h).toFixed(1)}㎡</text>`);
     else if (stage === 4) parts.push(`<text x="${cx.toFixed(1)}" y="${(cy + fs - 2).toFixed(1)}" font-size="${Math.max(9, fs - 3)}" font-weight="600" text-anchor="middle" fill="#5b3ff0">폭 ${r.w.toFixed(2)}m</text>`);
   }
   // 치수: 전체 폭과 깊이(mm)

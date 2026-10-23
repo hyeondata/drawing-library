@@ -4,6 +4,7 @@ import { MIN_SIDE } from '../generate/layout.js';
 import { renderFormulas } from './generate-formulas.js';
 import { renderDiagnosis } from './generate-diagnosis.js';
 import { deviation } from '../generate/metrics.js';
+import { WALL, netDims } from '../generate/net-dims.js';
 import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 
@@ -368,7 +369,7 @@ function renderResult() {
   const legend = state.view === 'full'
     ? `<ul class="ex-legend gen-legend" aria-label="범례">${FULL_LEGEND.map((l) => `<li><i style="background:${l.fill};border-color:${l.stroke ?? l.fill}"></i>${esc(l.label)}</li>`).join('')}</ul>`
     : '';
-  $('#gen-plan').innerHTML = `${layoutSvg(c.layout, { title: titleOf(spec, state.current), mode: state.view })}${legend}<figcaption class="note">전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡ (${(c.layout.W).toFixed(2)} × ${c.layout.D.toFixed(2)}m) · ${top.length}안 중 ${state.current + 1}번째 · 후보 ${state.ms ? `${Math.round(state.ms / 100) / 10}초` : ''}</figcaption>`;
+  $('#gen-plan').innerHTML = `${layoutSvg(c.layout, { title: titleOf(spec, state.current), mode: state.view, dims: state.dims || 'center' })}${legend}<figcaption class="note">전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡ (${(c.layout.W).toFixed(2)} × ${c.layout.D.toFixed(2)}m) · ${top.length}안 중 ${state.current + 1}번째 · 후보 ${state.ms ? `${Math.round(state.ms / 100) / 10}초` : ''}</figcaption>`;
 
   const m2 = (share) => share * spec.area;
   const rows = [
@@ -385,10 +386,13 @@ function renderResult() {
     })
     .join('');
   const indoor = c.layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실');
+  const net = netDims(c.layout);
   const roomRows = [...c.layout.rooms]
     .sort((a, b) => b.w * b.h - a.w * a.h)
-    .map((r) => `<tr><td>${esc(r.name)}</td><td class="mono">${(r.w * r.h).toFixed(1)}</td><td class="mono">${r.w.toFixed(2)} × ${r.h.toFixed(2)}</td></tr>`)
+    .map((r) => `<tr><td>${esc(r.name)}</td><td class="mono">${r.w.toFixed(2)} × ${r.h.toFixed(2)}</td><td class="mono">${(r.w * r.h).toFixed(1)}</td><td class="mono">${net[r.key].nw.toFixed(2)} × ${net[r.key].nh.toFixed(2)}</td><td class="mono">${net[r.key].area.toFixed(1)}</td></tr>`)
     .join('');
+  const indoorKeys = c.layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실').map((r) => r.key);
+  const netSum = indoorKeys.reduce((t, k) => t + net[k].area, 0);
   const applied = [...spec.prefs.map((k) => PREF[k].title), spec.baths >= 2 ? '화장실 2개' : '화장실 1개', spec.dress ? '드레스룸' : null, spec.multi ? '다목적실' : null, spec.balcony ? '전면 발코니' : '확장형', spec.outdoorUnit ? '실외기실' : null].filter(Boolean);
   const opens = c.layout.openings || [];
   const cnt = (k) => opens.filter((o) => o.kind === k).length;
@@ -405,8 +409,9 @@ function renderResult() {
     <h3>목표 면적과 생성 면적</h3>
     <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th><th>차이(±5% 띠)</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="note">초록 ±5% 이내, 노랑 ±10% 이내, 빨강 그 밖(실무 도구 Snaptrude의 기본 허용 범위 ±5%를 참고).</p>
-    <details class="gen-rooms"><summary>실 목록(${c.layout.rooms.length}개)</summary>
-      <table class="gen-table"><thead><tr><th>실</th><th>면적 ㎡</th><th>폭 × 깊이 m</th></tr></thead><tbody>${roomRows}</tbody></table>
+    <details class="gen-rooms" open><summary>실 목록(${c.layout.rooms.length}개): 중심선 치수와 안목 치수</summary>
+      <table class="gen-table"><thead><tr><th>실</th><th>중심선 폭 × 깊이 m</th><th>중심선 ㎡</th><th>안목 폭 × 깊이 m</th><th>안목 ㎡</th></tr></thead><tbody>${roomRows}</tbody></table>
+      <p class="note">중심선 치수는 벽 가운데선 기준, 안목 치수는 벽 두께의 절반씩을 뺀 실내 유효 치수입니다(외벽·발코니 쪽 ${WALL.rc}m, 내벽 ${WALL.inner}m, AI 허브 형식 내보내기의 벽체와 같은 규칙). 실내 안목 면적 합계 ${netSum.toFixed(1)}㎡ (중심선 전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡의 ${((netSum / (c.layout.W * c.layout.D)) * 100).toFixed(0)}%). 법정 전용면적은 벽 중심선 기준이라 중심선 값과 비교합니다.</p>
     </details>`;
   renderProcess();
   renderDiagnosis({ top, current: state.current, spec });
@@ -418,7 +423,7 @@ function renderResult() {
 
 function currentSvg() {
   const c = state.top[state.current];
-  return layoutSvg(c.layout, { title: titleOf(state.spec, state.current), mode: state.view });
+  return layoutSvg(c.layout, { title: titleOf(state.spec, state.current), mode: state.view, dims: state.dims || 'center' });
 }
 const download = (blob, name) => {
   const a = document.createElement('a');
@@ -437,6 +442,13 @@ document.querySelectorAll('[data-aihub]').forEach((b) =>
   b.addEventListener('click', () => {
     if (b.dataset.aihub === 'ALL') ['SPA', 'STR', 'OBJ'].forEach((k, i) => setTimeout(() => saveAihub(k), i * 400));
     else saveAihub(b.dataset.aihub);
+  }),
+);
+document.querySelectorAll('[data-dims]').forEach((b) =>
+  b.addEventListener('click', () => {
+    state.dims = b.dataset.dims;
+    document.querySelectorAll('[data-dims]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    if (state.top?.length) renderResult();
   }),
 );
 document.querySelectorAll('[data-view]').forEach((b) =>

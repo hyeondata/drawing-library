@@ -1240,3 +1240,31 @@ export function solarFreeform(assign, P, openings, { front = 180, lat = 37.57 } 
       return { k: r.k, type: r.type, faces: [...new Set(fs.map((f) => Math.round(f.az)))], facingName: [...new Set(fs.map((f) => dirName(f.az)))].slice(0, 2).join('·'), ...sun };
     });
 }
+
+/**
+ * 안목 면적(근사): 칸 면적 − Σ(경계 변 길이 × 벽 두께의 절반). 실내–바깥·실내–발코니 = 외벽 0.2m, 실내끼리 = 내벽 0.12m.
+ * 모서리에서 겹쳐 빼는 작은 넓이는 무시한다(ㄱ자 실의 오목한 모서리 등).
+ */
+export function netAreas(assign, P) {
+  const { nx, ny, sx, sy, rooms } = P;
+  const out = {};
+  for (let j = 0; j < ny; j++)
+    for (let i = 0; i < nx; i++) {
+      const k = assign[j * nx + i];
+      if (k < 0) continue;
+      const me = rooms[k];
+      const o = (out[k] ||= { area: 0, cut: 0 });
+      o.area += sx * sy;
+      for (const [di, dj] of N4) {
+        const ii = i + di;
+        const jj = j + dj;
+        const v = ii < 0 || jj < 0 || ii >= nx || jj >= ny ? -1 : assign[jj * nx + ii];
+        if (v === k) continue;
+        const edge = di ? sy : sx;
+        const otherOut = v < 0 || OUTDOOR.has(rooms[v].type);
+        const t = otherOut !== OUTDOOR.has(me.type) || (v < 0 && !OUTDOOR.has(me.type)) ? 0.2 : 0.12;
+        o.cut += edge * (t / 2);
+      }
+    }
+  return Object.fromEntries(Object.entries(out).map(([k, o]) => [k, Math.max(0, o.area - o.cut)]));
+}

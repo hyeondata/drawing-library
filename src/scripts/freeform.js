@@ -1,5 +1,5 @@
 // 자유형 평면 페이지: 기준 세대 고르기 → 조건 → 생성(워커) → 결과·계산 과정·식·비교·내려받기
-import { CELL, FREEDOM, WEIGHTS, balconyRuns, buildProblem, roomPolygons, solarFreeform, transformUnit } from '../freeform/engine.js';
+import { CELL, FREEDOM, WEIGHTS, balconyRuns, buildProblem, netAreas, roomPolygons, solarFreeform, transformUnit } from '../freeform/engine.js';
 import { DIRS } from '../generate/metrics.js';
 import { sunTimeline } from '../generate/sun-view.js';
 import { jpgSvg } from '../generate/syntax-view.js';
@@ -263,6 +263,7 @@ function renderResult() {
   $('#ff-plan').innerHTML = `${planSvg(c.assign, P, { openings: c.openings, names, mode: st.view, title, areaOf: (k) => m2Of(c, k), front: st.front, sunOf: (k) => solOf[k] })}<figcaption class="note">기준 세대 ${esc(st.unit.id)} · 외곽 ${esc(OMODE[st.params.omode])}${st.params.outlineFree ? '(+외곽 다듬기)' : ''} · ${FREEDOM[st.params.freedom].label} · 변화 ${st.params.jitter} · 시드 ${c.seed} · ${(c.ms / 1000).toFixed(1)}초</figcaption>`;
 
   const s = c.summary;
+  const netA = netAreas(c.assign, P);
   const rooms = s.rooms.filter((r) => !(r.fixed && r.m2 < 1.5));
   const non = rooms.filter((r) => !r.fixed && !OUTDOOR.has(r.type) && r.corners > 4);
   const needOk = s.need.filter((n) => n.ok).length;
@@ -273,7 +274,7 @@ function renderResult() {
     .map((r) => {
       const d = dev(r);
       const cls = d === null ? '' : Math.abs(d) <= 5 ? 'good-text' : Math.abs(d) <= 10 ? 'warn-text' : 'error-text';
-      return `<tr><td>${esc(names[r.k] || r.type)}${r.fixed ? ' <span class="note">(고정)</span>' : ''}</td><td class="mono">${r.target ? r.target.toFixed(1) : '—'}</td><td class="mono">${r.m2.toFixed(1)}</td><td class="mono ${cls}">${d === null ? '—' : `${d >= 0 ? '+' : ''}${d.toFixed(0)}%`}</td><td>${r.corners > 4 ? `<b class="ff-non">${esc(r.shape)}</b>` : esc(r.shape)}</td><td class="mono">${(r.rect * 100).toFixed(0)}%</td></tr>`;
+      return `<tr><td>${esc(names[r.k] || r.type)}${r.fixed ? ' <span class="note">(고정)</span>' : ''}</td><td class="mono">${r.target ? r.target.toFixed(1) : '—'}</td><td class="mono">${r.m2.toFixed(1)}</td><td class="mono ${cls}">${d === null ? '—' : `${d >= 0 ? '+' : ''}${d.toFixed(0)}%`}</td><td class="mono">${(netA[r.k] ?? 0).toFixed(1)}</td><td>${r.corners > 4 ? `<b class="ff-non">${esc(r.shape)}</b>` : esc(r.shape)}</td><td class="mono">${(r.rect * 100).toFixed(0)}%</td></tr>`;
     })
     .join('');
   const typeName = (k) => names[k] || P.rooms[k].type;
@@ -289,8 +290,8 @@ function renderResult() {
     </div>
     ${c.unreachable.length ? `<p class="note error-text">현관에서 문으로 갈 수 없는 실: ${esc(c.unreachable.map(typeName).join(', '))}. 공용 실에 맞닿지 않아 문을 낼 곳이 없습니다. 시드나 변화 정도를 바꿔 보세요.</p>` : ''}
     <h3>실별 면적과 모양</h3>
-    <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th><th>차이</th><th>모양</th><th>사각형 비율</th></tr></thead><tbody>${rows}</tbody></table>
-    <p class="note">목표 면적은 기준 세대의 실 면적 비율을 고른 전용면적에 맞춘 값입니다. 모양은 꼭짓점 수(4 직사각형, 6 ㄱ자, 8 ㄷ자·계단형), 사각형 비율은 면적 ÷ 외접 사각형입니다. 사선 외벽에 닿은 실은 격자 계단 때문에 꼭짓점이 많게 셉니다.</p>
+    <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th><th>차이</th><th>안목 ㎡</th><th>모양</th><th>사각형 비율</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="note">목표 면적은 기준 세대의 실 면적 비율을 고른 전용면적에 맞춘 값입니다. 모양은 꼭짓점 수(4 직사각형, 6 ㄱ자, 8 ㄷ자·계단형), 사각형 비율은 면적 ÷ 외접 사각형입니다. 사선 외벽에 닿은 실은 격자 계단 때문에 꼭짓점이 많게 셉니다. 생성 ㎡는 벽 중심선 기준, 안목 ㎡는 경계마다 벽 두께의 절반(외벽·발코니 쪽 0.1m, 내벽 0.06m)을 뺀 근사값입니다.</p>
     <h3>향과 동지 일조(장애물 없음)</h3>
     ${sunTimeline(sol.map((x) => ({ ...x, name: names[x.k] || x.type })))}
     <p class="note">앞쪽(도면 아래) ${Math.round(st.front)}°, 위도 ${st.lat}°. 창마다 바깥 방향으로 향을 정하고, 동지 08~16시(진태양시)에 해 고도가 0보다 크고 창 방향과 해 방위 차가 85° 미만이면 해가 든다고 셉니다. 판례 기준: 총 4시간 또는 09~15시 연속 2시간(대법원 98다23850 등). 이웃 동·발코니 깊이 그림자는 넣지 않은 최대치입니다.</p>

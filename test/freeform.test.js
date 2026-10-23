@@ -129,3 +129,18 @@ test('자유형 공간구문: 원본 배치에서 정의대로 계산되고(통�
   // 목표를 넘으면 벌점이 줄어든다(경첩)
   assert.ok(syntaxPenalty({ ...sx, livingBedroomRatio: 3, genotypeTau: 1 }, ['livingCentral']) === 0);
 });
+
+import { netAreas } from '../src/freeform/engine.js';
+
+test('자유형 안목 면적: 칸 면적보다 작고, 경계 길이 × 벽 절반 두께만큼 줄어든다', () => {
+  const u = units.find((x) => x.id === '037105612-1') || units[0];
+  const P = setup(u);
+  const a = Int16Array.from(P.grid);
+  const net = netAreas(a, P);
+  for (const r of P.rooms) {
+    const cells = a.reduce((n, v) => n + (v === r.k ? 1 : 0), 0);
+    if (!cells) continue;
+    const gross = cells * P.sx * P.sy;
+    assert.ok(net[r.k] < gross && net[r.k] > gross * 0.5, `${r.type} ${net[r.k]} / ${gross}`);
+  }
+});
