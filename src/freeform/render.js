@@ -161,3 +161,63 @@ export function planSvg(assign, P, { openings = [], names = {}, mode = 'full', t
   if (title) parts.push(`<text x="${vw / 2}" y="${vh - 12}" text-anchor="middle" font-size="16" font-weight="700" fill="#222">${esc(title)}</text>`);
   return `<svg viewBox="0 0 ${vw.toFixed(0)} ${vh.toFixed(0)}" role="img" aria-label="${esc(title || '생성 평면')}">${parts.join('')}</svg>`;
 }
+
+/**
+ * 원본(기준 세대)에서 지켜야 할 연결을 생성 평면 위에 겹쳐 그린다.
+ * links: [{ p, q, status: 'met'|'wall'|'missing', label }], STATUS: 색·점선 정의(request-graph.js)
+ */
+export function graphOverlaySvg(assign, P, { links = [], names = {}, STATUS }) {
+  const S = 40;
+  const pad = 50;
+  const { nx, ny, sx, sy } = P;
+  const X = (x) => pad + x * S;
+  const Y = (y) => pad + y * S;
+  const vw = nx * sx * S + pad * 2;
+  const vh = ny * sy * S + pad * 2;
+  const parts = [`<rect width="${vw.toFixed(0)}" height="${vh.toFixed(0)}" fill="#fff"/>`];
+  const present = P.rooms.filter((r) => assign.includes(r.k));
+  const center = {};
+  for (const r of present) {
+    const loops = roomPolygons(assign, P, r.k);
+    const out = OUTDOOR.has(r.type);
+    parts.push(`<path d="${pathOf(loops, X, Y)}" fill="${out ? '#f4f4f1' : '#f7f6f2'}" fill-rule="evenodd" stroke="#b9b7c2" stroke-width="1.2"${out ? ' stroke-dasharray="5 4"' : ''}/>`);
+    // 중심: 실 칸 가운데 가장 안쪽 칸
+    let best = null;
+    let bd = -1;
+    const at = (i, j) => (i < 0 || j < 0 || i >= nx || j >= ny ? -1 : assign[j * nx + i]);
+    for (let k = 0; k < assign.length; k++) {
+      if (assign[k] !== r.k) continue;
+      const i = k % nx;
+      const j = Math.floor(k / nx);
+      let d = 0;
+      while (d < 40 && at(i + d + 1, j) === r.k && at(i - d - 1, j) === r.k && at(i, j + d + 1) === r.k && at(i, j - d - 1) === r.k) d++;
+      if (d > bd) ((bd = d), (best = [i, j]));
+    }
+    if (best) center[r.k] = [X((best[0] + 0.5) * sx), Y((best[1] + 0.5) * sy)];
+  }
+  const seen = new Map();
+  for (const e of links) {
+    const a = center[e.p];
+    const b = center[e.q];
+    if (!a || !b) continue;
+    const st = STATUS[e.status];
+    const key = [e.p, e.q].sort().join('|');
+    const k = seen.get(key) || 0;
+    seen.set(key, k + 1);
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const bend = (k % 2 ? -1 : 1) * (8 + 12 * k);
+    const qx = (a[0] + b[0]) / 2 + (-(b[1] - a[1]) / len) * bend;
+    const qy = (a[1] + b[1]) / 2 + ((b[0] - a[0]) / len) * bend;
+    parts.push(`<path d="M${a[0]} ${a[1]}Q${qx} ${qy} ${b[0]} ${b[1]}" fill="none" stroke="${st.color}" stroke-width="4.5" stroke-linecap="round"${st.dash ? ` stroke-dasharray="${st.dash}"` : ''}><title>${esc(e.label)}: ${esc(st.label)}</title></path>`);
+    if (e.status === 'missing') parts.push(`<text x="${qx}" y="${qy + 5}" text-anchor="middle" font-size="15" font-weight="800" fill="${st.color}">?</text>`);
+  }
+  for (const r of present) {
+    if (OUTDOOR.has(r.type) || !center[r.k]) continue;
+    if (r.fixed && r.cells * sx * sy < 1.5) continue;
+    const [x, y] = center[r.k];
+    const used = links.some((e) => e.p === r.k || e.q === r.k);
+    parts.push(`<circle cx="${x}" cy="${y}" r="${used ? 7 : 4}" fill="${used ? '#2b2a33' : '#b9b7c2'}" stroke="#fff" stroke-width="2"/>`);
+    parts.push(`<text x="${x}" y="${y - 12}" text-anchor="middle" font-size="12" font-weight="600" fill="#22212b" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(names[r.k] || r.type)}</text>`);
+  }
+  return `<svg viewBox="0 0 ${vw.toFixed(0)} ${vh.toFixed(0)}" role="img" aria-label="원본 연결 겹쳐 보기">${parts.join('')}</svg>`;
+}

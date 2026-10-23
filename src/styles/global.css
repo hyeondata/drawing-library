@@ -3360,3 +3360,29 @@ table.plain td.num {
 .mt-sec .gen-table td:not(.mono) {
   text-align: left;
 }
+.gen-graph-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+  color: var(--text-secondary, var(--text-muted));
+}
+.gen-graph-legend li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.gen-graph-table {
+  font-size: 13px;
+}
+.gen-graph-table th,
+.gen-graph-table td:not(.mono) {
+  text-align: left;
+}
+.gen-graph-table .note {
+  margin: 0;
+  font-size: 11px;
+}

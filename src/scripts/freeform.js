@@ -1,7 +1,8 @@
 // 자유형 평면 페이지: 기준 세대 고르기 → 조건 → 생성(워커) → 결과·계산 과정·식·비교·내려받기
 import { CELL, FREEDOM, WEIGHTS, balconyRuns, buildProblem, roomPolygons, transformUnit } from '../freeform/engine.js';
 import { TEMPLATES, maskConnected, maskFromUnit, maskSvg, templateMask, trim } from '../freeform/outline.js';
-import { planSvg, roomNames, unitSvg } from '../freeform/render.js';
+import { graphOverlaySvg, planSvg, roomNames, unitSvg } from '../freeform/render.js';
+import { STATUS } from '../generate/request-graph.js';
 import { AIHUB_CATEGORIES } from '../generate/aihub.js';
 
 const $ = (s) => document.querySelector(s);
@@ -282,10 +283,30 @@ function renderResult() {
     $('#ff-slider').value = String(c.snaps.length - 1);
     st.lastCand = c;
   }
+  renderGraph(c, names);
   renderTime();
   renderFormula();
   $('#ff-cmp-orig').innerHTML = unitSvg(st.unit, { scale: st.P.scale, title: '원본(라벨)' });
   $('#ff-cmp-gen').innerHTML = planSvg(c.assign, P, { openings: c.openings, names, mode: 'space', title: `생성 ${st.current + 1}안`, areaOf: (k) => m2Of(c, k) });
+}
+
+// ---------- 요청한 연결 ----------
+function renderGraph(c, names) {
+  const P = st.P;
+  const typeName = (k) => names[k] || P.rooms[k].type;
+  const hasDoor = (p, q) => c.openings.some((o) => (o.kind === 'door' || o.kind === 'opening') && ((o.from === p && o.to === q) || (o.from === q && o.to === p)));
+  const links = c.summary.need.map((e) => ({ ...e, status: hasDoor(e.p, e.q) ? 'met' : e.ok ? 'wall' : 'missing', label: `${typeName(e.p)}–${typeName(e.q)}` }));
+  const cnt = { met: 0, wall: 0, missing: 0 };
+  for (const l of links) cnt[l.status]++;
+  $('#ff-graph').innerHTML = graphOverlaySvg(c.assign, P, { links, names, STATUS });
+  const legend = ['met', 'wall', 'missing'].map((k) => `<li><svg width="34" height="10" aria-hidden="true"><line x1="2" y1="5" x2="32" y2="5" stroke="${STATUS[k].color}" stroke-width="4" stroke-linecap="round"${STATUS[k].dash ? ` stroke-dasharray="${STATUS[k].dash}"` : ''}/></svg>${esc(STATUS[k].label)} <b class="mono">${cnt[k]}</b></li>`).join('');
+  const rows = links
+    .map((l) => `<tr><td>${esc(l.label)}</td><td><span style="color:${STATUS[l.status].color};font-weight:700">${{ met: '✓ 충족', wall: '△ 문 없음', missing: '? 빠짐' }[l.status]}</span></td></tr>`)
+    .join('');
+  $('#ff-graph-text').innerHTML = `<ul class="gen-graph-legend">${legend}</ul>
+    <p class="note">선은 기준 세대 ${esc(st.unit.id)}에서 맞닿아 있던 실 쌍 가운데 문이 필요한 쌍(공용 실과 닿는 쌍, 드레스룸·욕실–침실)입니다. 생성 평면에서 문 폭(0.9m) 이상 맞닿고 문·개구부가 있으면 충족, 맞닿기만 하면 문 없음, 떨어져 있으면 빠짐(?)입니다. 에너지의 '인접' 항이 이 빠짐을 줄입니다.</p>
+    <p class="mono">충족 ${cnt.met} · 문 없음 ${cnt.wall} · 빠짐 ${cnt.missing} / ${links.length} · 간이 편집 거리 ${(cnt.missing + 0.5 * cnt.wall).toFixed(1)}</p>
+    <details class="gen-rooms"><summary>쌍 목록(${links.length})</summary><table class="gen-table gen-graph-table"><thead><tr><th>연결</th><th>결과</th></tr></thead><tbody>${rows}</tbody></table></details>`;
 }
 
 // ---------- 계산 과정 ----------

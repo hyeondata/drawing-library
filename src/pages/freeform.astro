@@ -172,6 +172,14 @@ const drawings = new Set(units.map((u) => u.drawing)).size;
         <div class="ff-formula" id="ff-formula"></div>
       </section>
 
+      <section class="gen-fx" aria-label="요청한 연결">
+        <div class="gen-process-head"><h3>요청한 연결 겹쳐 보기: 기준 세대의 연결이 지켜졌나</h3></div>
+        <div class="ff-compare">
+          <figure class="gen-plan" id="ff-graph"></figure>
+          <div id="ff-graph-text"></div>
+        </div>
+      </section>
+
       <section class="gen-fx" aria-label="원본과 비교">
         <div class="gen-process-head"><h3>원본 세대와 비교</h3></div>
         <div class="ff-compare2">

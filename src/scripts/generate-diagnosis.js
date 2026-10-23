@@ -1,6 +1,7 @@
 // 생성 결과의 '평면 진단': 한국 아파트 평가 지표, 동선 깊이·거리, 채광·환기, 후보 비교와 다양성.
 // 근거와 계산은 src/generate/metrics.js 머리말, 조사 보고서는 reports/평면 생성 화면 추가 시각화.md
 import { ASSUME, diagnose, diversity } from '../generate/metrics.js';
+import { STATUS, compareGraph } from '../generate/request-graph.js';
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -12,6 +13,57 @@ const OK = '#0f7b0f';
 const BAD = '#c4314b';
 
 const st = { mode: 'circ', target: 'master' };
+
+/** 요청한 연결(선)을 생성 평면(실) 위에 겹쳐 그린다. */
+function graphSvg(layout, g) {
+  const S = 40;
+  const pad = 56;
+  const rooms = layout.rooms;
+  const minY = Math.min(0, ...rooms.map((r) => r.y));
+  const maxY = Math.max(...rooms.map((r) => r.y + r.h));
+  const maxX = Math.max(...rooms.map((r) => r.x + r.w));
+  const X = (x) => pad + x * S;
+  const Y = (y) => pad + (y - minY) * S;
+  const by = Object.fromEntries(rooms.map((r) => [r.key, r]));
+  const c = (r) => [X(r.x + r.w / 2), Y(r.y + r.h / 2)];
+  const p = [`<rect width="${maxX * S + pad * 2}" height="${(maxY - minY) * S + pad * 2}" fill="#fff"/>`];
+  for (const r of rooms) {
+    const out = OUTDOOR.has(r.type);
+    p.push(`<rect x="${X(r.x)}" y="${Y(r.y)}" width="${r.w * S}" height="${r.h * S}" fill="${out ? '#f4f4f1' : '#f7f6f2'}" stroke="#b9b7c2" stroke-width="1.2"${out ? ' stroke-dasharray="5 4"' : ''}/>`);
+  }
+  // 선: 같은 두 실 사이 선이 겹치지 않게 살짝 휜다.
+  const seen = new Map();
+  for (const e of g.pairs) {
+    const a = by[e.a];
+    const b = by[e.hit];
+    if (!a || !b) continue;
+    const st2 = STATUS[e.status];
+    const [x1, y1] = c(a);
+    const [x2, y2] = c(b);
+    const key = [e.a, e.hit].sort().join('|');
+    const k = seen.get(key) || 0;
+    seen.set(key, k + 1);
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+    const bend = (k % 2 ? -1 : 1) * (10 + 14 * k);
+    const qx = mx + (-(y2 - y1) / len) * bend;
+    const qy = my + ((x2 - x1) / len) * bend;
+    const w = e.status === 'kept' ? 2 : 4.5;
+    p.push(`<path d="M${x1} ${y1}Q${qx} ${qy} ${x2} ${y2}" fill="none" stroke="${st2.color}" stroke-width="${w}" stroke-linecap="round"${st2.dash ? ` stroke-dasharray="${st2.dash}"` : ''} opacity="${e.status === 'kept' ? 0.7 : 0.95}"><title>${esc(e.label)}: ${esc(st2.label)}</title></path>`);
+    if (e.status === 'violated') p.push(`<text x="${qx}" y="${qy + 5}" text-anchor="middle" font-size="16" font-weight="800" fill="${st2.color}">✕</text>`);
+    if (e.status === 'missing') p.push(`<text x="${qx}" y="${qy + 5}" text-anchor="middle" font-size="15" font-weight="800" fill="${st2.color}">?</text>`);
+  }
+  for (const r of rooms) {
+    if (OUTDOOR.has(r.type)) continue;
+    const [x, y] = c(r);
+    const used = g.pairs.some((e) => e.a === r.key || e.hit === r.key);
+    p.push(`<circle cx="${x}" cy="${y}" r="${used ? 7 : 4}" fill="${used ? '#2b2a33' : '#b9b7c2'}" stroke="#fff" stroke-width="2"/>`);
+    const small = r.w * S < 70 || r.h * S < 46;
+    p.push(`<text x="${x}" y="${y - 12}" text-anchor="middle" font-size="${small ? 10 : 12.5}" font-weight="600" fill="#22212b" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(r.name)}</text>`);
+  }
+  return `<svg viewBox="0 0 ${maxX * S + pad * 2} ${(maxY - minY) * S + pad * 2}" role="img" aria-label="요청한 연결과 생성 결과 겹쳐 보기">${p.join('')}</svg>`;
+}
 
 function planSvg(layout, d, mode, target) {
   const S = 40;
@@ -100,7 +152,11 @@ export function renderDiagnosis({ top, current, spec }) {
   ].filter(([k]) => c.layout.rooms.some((r) => r.key === k));
   if (!targets.some(([k]) => k === st.target)) st.target = targets[0]?.[0];
 
+  const g = compareGraph(spec, c.layout);
+  const wantN = g.pairs.filter((e) => e.kind === 'want').length;
+  const avoidN = g.pairs.length - wantN;
   const cards = [
+    ['요청한 연결', `${g.counts.met}/${wantN} 충족`, `문 없이 맞닿음 ${g.counts.wall} · 빠짐 ${g.counts.missing} · 어김 ${g.counts.violated}/${avoidN}`, '요청 그래프와 결과 그래프 비교(그래프 편집 거리 간이판)'],
     ['전용면적', `${kr.exclusive.toFixed(1)}㎡`, kr.nationalSize ? '국민주택규모(85㎡ 이하)' : '국민주택규모 초과', '주택법 제2조제6호'],
     ['베이', `${kr.bays}베이`, kr.bayRooms.join(' · '), '앞쪽에 닿은 거실·침실 수(법 정의 없음, 시장 관행)'],
     ['맞통풍', kr.cross ? '있음' : '없음', kr.cross ? '앞·뒤 바깥 창이 공용 공간으로 이어짐' : '앞·뒤 창이 공용 공간으로 이어지지 않음', '시장 관행'],
@@ -125,7 +181,7 @@ export function renderDiagnosis({ top, current, spec }) {
   const cmpRows = all
     .map(({ t, d: dd }, i) => {
       const meanDiv = div ? div[i].reduce((s, v) => s + v, 0) / (div.length - 1) : null;
-      return `<tr data-cand="${i}"${i === current ? ' class="on"' : ''}><td><b>${esc(t.tabLabel || `${i + 1}안`)}</b></td><td class="mono">${dd.kr.bays}</td><td>${dd.kr.cross ? '✓' : '✗'}</td><td class="mono">${fmt(dd.walk.kitchen)}</td><td class="mono">${fmt(dd.walk.master)}</td><td class="mono">${devOf(t).toFixed(1)}%</td><td class="mono">${dd.lightFail}</td><td class="mono">${t.doorIssues || 0}</td><td class="mono">${meanDiv === null ? '—' : meanDiv.toFixed(2)}</td></tr>`;
+      return `<tr data-cand="${i}"${i === current ? ' class="on"' : ''}><td><b>${esc(t.tabLabel || `${i + 1}안`)}</b></td><td class="mono">${dd.kr.bays}</td><td>${dd.kr.cross ? '✓' : '✗'}</td><td class="mono">${fmt(dd.walk.kitchen)}</td><td class="mono">${fmt(dd.walk.master)}</td><td class="mono">${devOf(t).toFixed(1)}%</td><td class="mono">${dd.lightFail}</td><td class="mono">${t.doorIssues || 0}</td><td class="mono">${(() => { const gg = compareGraph(spec, t.layout); return `${gg.counts.met}/${gg.pairs.filter((e) => e.kind === 'want').length} · ${gg.counts.violated}`; })()}</td><td class="mono">${meanDiv === null ? '—' : meanDiv.toFixed(2)}</td></tr>`;
     })
     .join('');
   const divSvg = div
@@ -161,26 +217,36 @@ export function renderDiagnosis({ top, current, spec }) {
         <div class="seg" role="tablist" aria-label="진단 보기">
           <button type="button" data-dmode="circ" aria-pressed="${st.mode === 'circ'}">동선 깊이·경로</button>
           <button type="button" data-dmode="light" aria-pressed="${st.mode === 'light'}">베이·채광·환기</button>
+          <button type="button" data-dmode="graph" aria-pressed="${st.mode === 'graph'}">요청한 연결</button>
         </div>
         ${st.mode === 'circ' ? `<label class="gen-diag-route">현관에서 <select id="diag-target">${targets.map(([k, n]) => `<option value="${k}"${k === st.target ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select> 까지 · <b class="mono">${fmt(d.circ.meters[st.target])}</b></label>` : ''}
-        <figure class="gen-plan">${planSvg(c.layout, d, st.mode, st.target)}</figure>
+        <figure class="gen-plan">${st.mode === 'graph' ? graphSvg(c.layout, g) : planSvg(c.layout, d, st.mode, st.target)}</figure>
+        ${st.mode === 'graph' ? `<ul class="gen-graph-legend">${Object.entries(STATUS).map(([k, v]) => `<li><svg width="34" height="10" aria-hidden="true"><line x1="2" y1="5" x2="32" y2="5" stroke="${v.color}" stroke-width="${k === 'kept' ? 2 : 4}" stroke-linecap="round"${v.dash ? ` stroke-dasharray="${v.dash}"` : ''}/></svg>${esc(v.label)} <b class="mono">${g.counts[k]}</b></li>`).join('')}</ul>` : ''}
         <p class="note">${
-          st.mode === 'circ'
+          st.mode === 'graph'
+            ? '선은 조건에서 요청한 연결입니다(기본 규칙 + 고른 선호). 실 사이에 문 폭(0.9m) 이상 맞닿고 문·개구부가 있으면 충족, 맞닿기만 하면 문 없음, 떨어져 있으면 빠짐(?)입니다. 피해야 할 연결(예: 침실–현관)이 맞닿으면 어김(✕)입니다. 후보 실이 여럿인 요청(예: 현관–공용 공간)은 가장 잘 이어진 실로 선을 긋습니다. 평면 생성 논문의 요청 그래프–결과 그래프 비교 그림과 같은 방식입니다.'
+            : st.mode === 'circ'
             ? '색이 진할수록 현관에서 문을 더 많이 지나야 닿는 실입니다(깊이). 공용 공간(현관·거실·주방)은 얕고, 침실·안방은 깊을수록 사생활이 지켜집니다. 점선은 문으로 이어진 실, 주황 선은 고른 실까지 걷는 경로입니다. 발코니 문은 이동 경로에서 뺐습니다.'
             : `굵은 테두리와 번호는 앞쪽에 닿은 거실·침실(베이)입니다. 칸의 비율은 창 면적 ÷ 바닥면적이며 법 기준은 채광 10%·환기 5% 이상입니다(건축물의 피난·방화구조 등의 기준에 관한 규칙 제17조). 도면에 창 높이가 없어 일반 창 ${ASSUME.windowH}m·발코니 문 ${ASSUME.slidingH}m, 여닫는 부분 ${ASSUME.openable * 100}%로 가정했습니다.`
         }</p>
       </div>
-      <div>
+      ${st.mode === 'graph' ? `<div>
+        <h4>요청한 연결 ${g.pairs.length}개</h4>
+        <table class="gen-table gen-graph-table"><thead><tr><th>요청</th><th>종류</th><th>결과</th><th>맞닿음</th></tr></thead><tbody>${g.pairs
+          .map((e) => `<tr><td>${esc(e.label)}<br><span class="note">${esc(e.why)}</span></td><td>${e.kind === 'want' ? '원함' : '피함'}${e.strength === 'pref' ? ' <span class="chip">선호</span>' : ''}</td><td><span style="color:${STATUS[e.status].color};font-weight:700">${{ met: '✓ 충족', wall: '△ 문 없음', missing: '? 빠짐', violated: '✕ 어김', kept: '✓ 지킴' }[e.status]}</span><br><span class="note">${esc(c.layout.rooms.find((r) => r.key === e.hit)?.name || '')}</span></td><td class="mono">${e.contact.toFixed(1)}m</td></tr>`)
+          .join('')}</tbody></table>
+        <p class="note">간이 그래프 편집 거리 = 빠짐 + 어김 + 0.5 × 문 없음 = <b class="mono">${g.counts.ged}</b>(작을수록 요청과 같음). 연구에서는 요청 그래프와 결과에서 다시 만든 그래프의 편집 거리를 '부합도'로 씁니다(House-GAN, HouseDiffusion).</p>
+      </div>` : `<div>
         <h4>채광·환기(거실·침실)</h4>
         <table class="gen-table"><thead><tr><th>실</th><th>㎡</th><th>채광 ≥10%</th><th>환기 ≥5%</th><th>빛</th></tr></thead><tbody>${lightRows}</tbody></table>
         <p class="note">주방은 법의 거실에 드는지 해석이 갈려 참고로만 보입니다. 이웃 동이 없다고 보고 계산했으므로 동지 일조 시간(4시간·연속 2시간, 판례 기준)은 판단하지 않습니다.</p>
-      </div>
+      </div>`}
     </div>
     ${
       top.length > 1
         ? `<h4>후보 비교</h4>
     <div class="gen-diag-cmp">
-      <div class="gen-diag-scroll"><table class="gen-table gen-cmp-table"><thead><tr><th>안</th><th>베이</th><th>맞통풍</th><th>현관→주방</th><th>현관→안방</th><th>면적 오차↓</th><th>채광 미달</th><th>문 동선 문제</th><th>다른 안과 차이</th></tr></thead><tbody>${cmpRows}</tbody></table></div>
+      <div class="gen-diag-scroll"><table class="gen-table gen-cmp-table"><thead><tr><th>안</th><th>베이</th><th>맞통풍</th><th>현관→주방</th><th>현관→안방</th><th>면적 오차↓</th><th>채광 미달</th><th>문 동선 문제</th><th>요청 연결 충족·어김</th><th>다른 안과 차이</th></tr></thead><tbody>${cmpRows}</tbody></table></div>
       ${divSvg}
     </div>
     <p class="note">면적 오차는 거실·주방·안방의 목표 대비 차이 평균입니다. '다른 안과 차이'는 평면을 40×20칸으로 맞춘 뒤 실 종류가 다른 칸의 비율이며(0 같음, 1 완전히 다름), 오른쪽 표는 두 안끼리의 값(%)입니다. 차이가 작으면 사실상 같은 안입니다. 행을 누르면 그 안을 봅니다.</p>`
