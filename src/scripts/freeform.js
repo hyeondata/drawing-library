@@ -1,5 +1,7 @@
 // 자유형 평면 페이지: 기준 세대 고르기 → 조건 → 생성(워커) → 결과·계산 과정·식·비교·내려받기
-import { CELL, FREEDOM, WEIGHTS, balconyRuns, buildProblem, roomPolygons, transformUnit } from '../freeform/engine.js';
+import { CELL, FREEDOM, WEIGHTS, balconyRuns, buildProblem, roomPolygons, solarFreeform, transformUnit } from '../freeform/engine.js';
+import { DIRS } from '../generate/metrics.js';
+import { sunTimeline } from '../generate/sun-view.js';
 import { TEMPLATES, maskConnected, maskFromUnit, maskSvg, templateMask, trim } from '../freeform/outline.js';
 import { graphOverlaySvg, planSvg, roomNames, unitSvg } from '../freeform/render.js';
 import { STATUS } from '../generate/request-graph.js';
@@ -25,6 +27,8 @@ const st = {
   tf: { rot: 0, flipX: false, flipY: false, aspect: 1 },
   tpl: 'L',
   bsides: ['S'],
+  front: 180,
+  lat: 37.57,
   draw: { gx: 40, gy: 30, cells: new Uint8Array(40 * 30) },
 };
 const DG = 2; // 그리기 한 칸 = 계산 칸 2×2 = 0.6m
@@ -248,7 +252,10 @@ function renderResult() {
   $('#ff-tabs').innerHTML = st.cands.map((x, i) => `<button type="button" data-i="${i}" aria-pressed="${i === st.current}">${i + 1}안 <span class="mono">E ${x.summary.total.toFixed(1)}</span></button>`).join('');
   $('#ff-tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => ((st.current = Number(b.dataset.i)), renderResult())));
   const title = `자유형 ${Math.round(st.params.area)}㎡ · ${st.current + 1}안`;
-  $('#ff-plan').innerHTML = `${planSvg(c.assign, P, { openings: c.openings, names, mode: st.view, title, areaOf: (k) => m2Of(c, k) })}<figcaption class="note">기준 세대 ${esc(st.unit.id)} · 외곽 ${esc(OMODE[st.params.omode])}${st.params.outlineFree ? '(+외곽 다듬기)' : ''} · ${FREEDOM[st.params.freedom].label} · 변화 ${st.params.jitter} · 시드 ${c.seed} · ${(c.ms / 1000).toFixed(1)}초</figcaption>`;
+  const sol = solarFreeform(c.assign, P, c.openings, { front: st.front, lat: st.lat });
+  const solOf = Object.fromEntries(sol.map((x) => [x.k, x]));
+  renderOrient();
+  $('#ff-plan').innerHTML = `${planSvg(c.assign, P, { openings: c.openings, names, mode: st.view, title, areaOf: (k) => m2Of(c, k), front: st.front, sunOf: (k) => solOf[k] })}<figcaption class="note">기준 세대 ${esc(st.unit.id)} · 외곽 ${esc(OMODE[st.params.omode])}${st.params.outlineFree ? '(+외곽 다듬기)' : ''} · ${FREEDOM[st.params.freedom].label} · 변화 ${st.params.jitter} · 시드 ${c.seed} · ${(c.ms / 1000).toFixed(1)}초</figcaption>`;
 
   const s = c.summary;
   const rooms = s.rooms.filter((r) => !(r.fixed && r.m2 < 1.5));
@@ -272,11 +279,16 @@ function renderResult() {
       <div><span class="gen-k">사각형 아닌 실</span><b class="mono">${non.length}개</b></div>
       <div><span class="gen-k">원본 인접 유지</span><b class="mono">${needOk} / ${s.need.length}</b></div>
       <div><span class="gen-k">문 동선</span><b class="mono">${c.unreachable.length ? `<span class="error-text">${c.unreachable.length}실 끊김</span>` : '모두 연결'}</b></div>
+      <div><span class="gen-k">거실 향 · 동지 일조</span><b class="mono">${(() => { const lv = sol.find((x) => x.type === '거실'); return lv ? `${lv.facingName}향 · ${lv.total.toFixed(1)}h` : '—'; })()}</b></div>
+      <div><span class="gen-k">판례 기준 충족(거실·침실)</span><b class="mono">${sol.filter((x) => x.type !== '주방' && x.ok).length} / ${sol.filter((x) => x.type !== '주방').length}</b></div>
     </div>
     ${c.unreachable.length ? `<p class="note error-text">현관에서 문으로 갈 수 없는 실: ${esc(c.unreachable.map(typeName).join(', '))}. 공용 실에 맞닿지 않아 문을 낼 곳이 없습니다. 시드나 변화 정도를 바꿔 보세요.</p>` : ''}
     <h3>실별 면적과 모양</h3>
     <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th><th>차이</th><th>모양</th><th>사각형 비율</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="note">목표 면적은 기준 세대의 실 면적 비율을 고른 전용면적에 맞춘 값입니다. 모양은 꼭짓점 수(4 직사각형, 6 ㄱ자, 8 ㄷ자·계단형), 사각형 비율은 면적 ÷ 외접 사각형입니다. 사선 외벽에 닿은 실은 격자 계단 때문에 꼭짓점이 많게 셉니다.</p>
+    <h3>향과 동지 일조(장애물 없음)</h3>
+    ${sunTimeline(sol.map((x) => ({ ...x, name: names[x.k] || x.type })))}
+    <p class="note">앞쪽(도면 아래) ${Math.round(st.front)}°, 위도 ${st.lat}°. 창마다 바깥 방향으로 향을 정하고, 동지 08~16시(진태양시)에 해 고도가 0보다 크고 창 방향과 해 방위 차가 85° 미만이면 해가 든다고 셉니다. 판례 기준: 총 4시간 또는 09~15시 연속 2시간(대법원 98다23850 등). 이웃 동·발코니 깊이 그림자는 넣지 않은 최대치입니다.</p>
     <details class="gen-rooms"><summary>원본 인접 관계 ${needOk}/${s.need.length} 유지(문 폭 0.9m 이상 맞닿음)</summary><ul class="ff-need">${needRows}</ul></details>`;
   if (st.lastCand !== c) {
     $('#ff-slider').max = String(c.snaps.length - 1);
@@ -287,8 +299,28 @@ function renderResult() {
   renderTime();
   renderFormula();
   $('#ff-cmp-orig').innerHTML = unitSvg(st.unit, { scale: st.P.scale, title: '원본(라벨)' });
-  $('#ff-cmp-gen').innerHTML = planSvg(c.assign, P, { openings: c.openings, names, mode: 'space', title: `생성 ${st.current + 1}안`, areaOf: (k) => m2Of(c, k) });
+  $('#ff-cmp-gen').innerHTML = planSvg(c.assign, P, { openings: c.openings, names, mode: 'space', title: `생성 ${st.current + 1}안`, areaOf: (k) => m2Of(c, k), front: st.front });
 }
+
+// ---------- 방위 ----------
+function renderOrient() {
+  $('#ff-dir').innerHTML = DIRS.map(([az, n]) => `<button type="button" data-az="${az}" aria-pressed="${Math.round(st.front) === az}">${n}</button>`).join('');
+  $('#ff-az').value = String(Math.round(st.front));
+  $('#ff-lat').value = String(st.lat);
+}
+const setFront = (v) => {
+  st.front = ((Number(v) % 360) + 360) % 360;
+  if (st.cands.length) renderResult();
+};
+$('#ff-dir').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-az]');
+  if (b) setFront(b.dataset.az);
+});
+$('#ff-az').addEventListener('change', (e) => setFront(e.target.value));
+$('#ff-lat').addEventListener('change', (e) => {
+  st.lat = Math.min(39, Math.max(33, Number(e.target.value) || 37.57));
+  if (st.cands.length) renderResult();
+});
 
 // ---------- 요청한 연결 ----------
 function renderGraph(c, names) {

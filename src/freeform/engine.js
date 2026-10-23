@@ -11,6 +11,8 @@
 //     + wJ Σ[필요한 인접 쌍이 문 폭(0.9m)만큼 맞닿지 않음]  기준 세대의 인접 관계 유지
 //     + wE Σ max(0, 2.0m − 창 낼 수 있는 바깥 벽)_r     거실·침실은 바깥(또는 발코니)에 닿아야 함
 
+import { dirName, sunHours } from '../generate/metrics.js';
+
 export const CELL = 0.3; // m
 const OUTDOOR = new Set(['발코니', '실외기실']);
 export const FIXED = new Set(['현관', '발코니', '실외기실']);
@@ -1121,4 +1123,41 @@ export function summarize(res, P) {
   const doorCells = Math.ceil(0.9 / P.cellM);
   const need = P.need.map(([p, q]) => ({ p, q, ok: (E.stats[p]?.touch.get(q) || 0) >= doorCells }));
   return { rooms, need, total: E.total, terms: E.terms, weights: E.weights };
+}
+
+// ---------- 방위와 동지 일조(자유형) ----------
+
+/**
+ * 창(바깥 창·발코니 문)마다 바깥 방향을 찾아 방위각을 정하고 실별 동지 일조를 낸다(장애물 없음).
+ * 도면 아래(+y) = 앞쪽 = front, 위(−y) = front + 180, 오른쪽(+x) = front − 90, 왼쪽(−x) = front + 90.
+ * 반환 [{ k, type, faces:[방위각], facingName, total, cont, slots, ok }] (거실·침실·주방만)
+ */
+export function solarFreeform(assign, P, openings, { front = 180, lat = 37.57 } = {}) {
+  const { nx, ny, sx, sy, rooms } = P;
+  const at = (x, y) => {
+    const i = Math.floor(x / sx);
+    const j = Math.floor(y / sy);
+    return i < 0 || j < 0 || i >= nx || j >= ny ? -1 : assign[j * nx + i];
+  };
+  const norm = (a) => ((a % 360) + 360) % 360;
+  const faces = {};
+  for (const o of openings) {
+    if (o.kind !== 'window' && o.kind !== 'sliding') continue;
+    const k = o.kind === 'sliding' ? o.from : o.to;
+    if (k === undefined || k === null || k < 0) continue;
+    const mx = (o.x1 + o.x2) / 2;
+    const my = (o.y1 + o.y2) / 2;
+    const e = Math.min(sx, sy) / 2;
+    let az;
+    if (o.v) az = at(mx + e, my) === k ? front + 90 : front - 90; // 실이 오른쪽이면 창은 왼쪽(−x)을 본다
+    else az = at(mx, my + e) === k ? front + 180 : front; // 실이 아래쪽이면 창은 위(−y)를 본다
+    (faces[k] ||= []).push({ az: norm(az), len: Math.hypot(o.x2 - o.x1, o.y2 - o.y1) });
+  }
+  return rooms
+    .filter((r) => ['거실', '침실', '주방'].includes(r.type) && faces[r.k])
+    .map((r) => {
+      const fs = [...faces[r.k]].sort((a, b) => b.len - a.len);
+      const sun = sunHours(fs, { lat });
+      return { k: r.k, type: r.type, faces: [...new Set(fs.map((f) => Math.round(f.az)))], facingName: [...new Set(fs.map((f) => dirName(f.az)))].slice(0, 2).join('·'), ...sun };
+    });
 }

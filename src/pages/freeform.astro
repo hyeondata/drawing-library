@@ -145,6 +145,12 @@ const drawings = new Set(units.map((u) => u.drawing)).size;
           <button type="button" data-v="space" aria-pressed="false">실만</button>
         </div>
       </div>
+      <div class="gen-diag-orient" id="ff-orient">
+        <span>앞쪽(도면 아래, 발코니 쪽)이 바라보는 방위</span>
+        <div class="seg ff-wrap" role="group" id="ff-dir"></div>
+        <label>각도 <input type="number" id="ff-az" min="0" max="359" step="1" value="180" />°</label>
+        <label>위도 <input type="number" id="ff-lat" min="33" max="39" step="0.01" value="37.57" />°N</label>
+      </div>
       <div class="gen-result">
         <figure class="gen-plan" id="ff-plan"></figure>
         <div class="gen-detail" id="ff-detail"></div>

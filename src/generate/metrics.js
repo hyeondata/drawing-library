@@ -219,6 +219,25 @@ export function windowAzimuth(o, room, front) {
   return norm(Math.abs(x - (room.x + room.w)) < e ? front - 90 : Math.abs(x - room.x) < e ? front + 90 : x > room.x + room.w / 2 ? front - 90 : front + 90);
 }
 
+/**
+ * 창이 바라보는 방위 목록(faces: [{ az }])으로 동지 일조(장애물 없음): 08~16시를 step 단위로 보고,
+ * 해 고도 > 0이고 어느 창이든 해 방위와의 차이가 85° 미만이면 해가 든다고 센다.
+ */
+export function sunHours(faces, { lat = 37.57, step = 5 / 60 } = {}) {
+  const slots = [];
+  let cont = 0;
+  let run = 0;
+  for (let t = 8 + step / 2; t < 16; t += step) {
+    const s = sunAt(t, lat);
+    const on = s.alt > 0 && faces.some((f) => Math.abs(((s.az - f.az + 540) % 360) - 180) < 85) ? 1 : 0;
+    slots.push(on);
+    if (t >= 9 && t <= 15 && on) cont = Math.max(cont, (run += step));
+    else run = 0;
+  }
+  const total = slots.reduce((a, v) => a + v, 0) * step;
+  return { total, cont, slots, ok: total >= 4 - 1e-9 || cont >= 2 - 1e-9 };
+}
+
 /** 동지(적위 −23.44°) 진태양시 t시의 해 고도·방위각(북 0°, 시계 방향). */
 export function sunAt(t, lat = 37.57, decl = -23.44) {
   const H = rad(15 * (t - 12));
@@ -250,24 +269,15 @@ export function solarAccess(layout, { front = 180, lat = 37.57, step = 5 / 60 } 
     const az = o.kind === 'sliding' ? windowAzimuth({ ...o }, owner, front) : windowAzimuth(o, owner, front);
     (faces[owner.key] ||= []).push({ az, len: len(o) });
   }
-  const times = [];
-  for (let t = 8; t < 16 - 1e-9; t += step) times.push(t + step / 2);
-  const sun = times.map((t) => sunAt(t, lat));
   return rooms
     .filter((r) => (HABITABLE.has(r.type) || r.type === '주방') && faces[r.key])
     .map((r) => {
       const fs = faces[r.key];
-      const slots = sun.map((s) => (s.alt > 0 && fs.some((f) => Math.abs(((s.az - f.az + 540) % 360) - 180) < 85) ? 1 : 0));
-      let cont = 0;
-      let run = 0;
-      times.forEach((t, i) => {
-        if (t >= 9 && t <= 15 && slots[i]) cont = Math.max(cont, (run += step));
-        else run = 0;
-      });
+      const sun = sunHours(fs, { lat, step });
       const sortedF = [...fs].sort((a, b) => b.len - a.len);
       const main = sortedF[0];
       const names = [...new Set(sortedF.map((f) => dirName(f.az)))].slice(0, 2);
-      const total = slots.reduce((a, v) => a + v, 0) * step;
+      const { total, cont, slots, ok } = sun;
       return { key: r.key, name: r.name, type: r.type, faces: [...new Set(fs.map((f) => Math.round(f.az)))], facing: main.az, facingName: names.join('·'), total, cont, slots, ok: total >= 4 - 1e-9 || cont >= 2 - 1e-9 };
     });
 }

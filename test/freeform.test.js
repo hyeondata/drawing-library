@@ -95,3 +95,21 @@ test('새 외곽: 실내 칸을 모두 실에 나누고, 현관은 바깥에 닿
     assert.equal(res.energy.terms.entry, 0, '현관이 바깥에 닿음');
   }
 });
+
+import { openings as ffOpenings, solarFreeform } from '../src/freeform/engine.js';
+
+test('자유형 방위: 앞쪽을 돌리면 같은 창의 향이 함께 돈다(남 → 동이면 남향 창이 동향)', () => {
+  const u = units.find((x) => x.id === '037105612-1') || units[0];
+  const P = setup(u);
+  const a = Int16Array.from(P.grid);
+  const op = ffOpenings(a, P).openings;
+  const south = solarFreeform(a, P, op, { front: 180 });
+  const east = solarFreeform(a, P, op, { front: 90 });
+  assert.ok(south.length > 0);
+  for (const r of south) {
+    const e = east.find((x) => x.k === r.k);
+    assert.deepEqual(e.faces, r.faces.map((az) => (((az - 90) % 360) + 360) % 360));
+  }
+  // 남향 창이 있는 실은 동지 8시간
+  for (const r of south) if (r.faces.includes(180)) assert.ok(Math.abs(r.total - 8) < 1e-9);
+});

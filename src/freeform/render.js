@@ -1,5 +1,6 @@
 // 자유형 평면 SVG(흰 종이 위 도면이라 화면 테마와 무관한 고정색). 단위 m → 1m = 40.
 import { roomPolygons } from './engine.js';
+import { compass } from '../generate/sun-view.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 // 실 종류 색(기존 생성 화면과 같은 계열)
@@ -65,7 +66,7 @@ export function unitSvg(unit, { scale = 1, title = '', highlight = true, small =
 /**
  * 생성 결과 SVG. assign: 칸 배정, P: setup 결과, opts: { openings, names, mode:'full'|'space', title, highlight:Set(실 k), small }
  */
-export function planSvg(assign, P, { openings = [], names = {}, mode = 'full', title = '', small = false, labels = true, areaOf = null } = {}) {
+export function planSvg(assign, P, { openings = [], names = {}, mode = 'full', title = '', small = false, labels = true, areaOf = null, front = null, sunOf = null } = {}) {
   const S = small ? 14 : 40;
   const pad = small ? 6 : 50;
   const W = P.nx * P.sx;
@@ -157,8 +158,11 @@ export function planSvg(assign, P, { openings = [], names = {}, mode = 'full', t
       const fs = bd >= 3 ? 15 : bd >= 1 ? 12 : 9;
       parts.push(`<text x="${cx}" y="${cy - (m2 !== null && bd >= 1 ? 4 : -4)}" text-anchor="middle" font-size="${fs}" font-weight="600" fill="#22212b">${esc(names[r.k] || r.type)}</text>`);
       if (m2 !== null && bd >= 1) parts.push(`<text x="${cx}" y="${cy + 12}" text-anchor="middle" font-size="11" fill="#55535f">${m2.toFixed(1)}㎡</text>`);
+      const so = sunOf ? sunOf(r.k) : null;
+      if (so && bd >= 2) parts.push(`<text x="${cx}" y="${cy + 25}" text-anchor="middle" font-size="10.5" fill="${so.ok ? '#0f7b0f' : '#b42f2f'}">${esc(so.facingName)}향 · 일조 ${so.total.toFixed(1)}h</text>`);
     }
   if (title) parts.push(`<text x="${vw / 2}" y="${vh - 12}" text-anchor="middle" font-size="16" font-weight="700" fill="#222">${esc(title)}</text>`);
+  if (front !== null && !small) parts.push(compass(vw - 40, 40, front, 18));
   return `<svg viewBox="0 0 ${vw.toFixed(0)} ${vh.toFixed(0)}" role="img" aria-label="${esc(title || '생성 평면')}">${parts.join('')}</svg>`;
 }
 
