@@ -1,0 +1,196 @@
+---
+// 생성 원리: 선택형(도면 생성)과 자유형(자유형 평면)이 어떻게 동작하는지, 단계마다 검증과 근거를 붙여 정리한 읽기용 페이지.
+import Base from '../layouts/Base.astro';
+import Topbar from '../components/Topbar.astro';
+import fs from 'node:fs';
+import path from 'node:path';
+import { SYNTAX } from '../generate/syntax-weights.js';
+import { CALIBRATED } from '../generate/qubo-weights.js';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const shapes = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'shapes.json'), 'utf8'));
+const cv = CALIBRATED.meta.cv;
+const R = {
+  hillier1987: ['Hillier, Hanson & Graham 1987', 'SSCI', 'https://doi.org/10.1068/b140363'],
+  byun2016: ['Byun & Choi 2016', 'SCIE', 'https://doi.org/10.3130/jaabe.15.41'],
+  choi2014: ['Choi et al. 2014', 'SCIE', 'https://doi.org/10.3130/jaabe.13.563'],
+  seo2007: ['Seo 2007', 'SSCI', 'https://doi.org/10.1068/b32134'],
+  ham2017: ['Ham & Lee 2017', 'SCIE·SSCI', 'https://doi.org/10.3390/su9010031'],
+  park2024: ['Park, Ergan & Feng 2024', 'SCIE', 'https://doi.org/10.1016/j.autcon.2023.105243'],
+  lucas2014: ['Lucas 2014', 'SCIE', 'https://doi.org/10.3389/fphy.2014.00005'],
+  ayodele2022: ['Ayodele 2022', '학회', 'https://arxiv.org/abs/2206.11040'],
+  jin2011: ['Jin 2011', 'SCIE', 'https://doi.org/10.1016/j.swevo.2011.05.001'],
+  dunning2018: ['Dunning et al. 2018', 'SCIE', 'https://doi.org/10.1287/ijoc.2017.0798'],
+  michalek2002: ['Michalek et al. 2002', 'SCIE', 'https://doi.org/10.1080/03052150214016'],
+  merrell2010: ['Merrell et al. 2010', 'SCIE', 'https://doi.org/10.1145/1882261.1866203'],
+  lopes2010: ['Lopes et al. 2010', '학회', 'https://publications.graphics.tudelft.nl/papers/584'],
+  kirk1983: ['Kirkpatrick et al. 1983', 'SCIE', 'https://doi.org/10.1126/science.220.4598.671'],
+  househgan: ['Nauata et al. 2021(House-GAN++)', '학회', 'https://arxiv.org/abs/2103.02574'],
+};
+const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="noopener">${R[id][0]} · ${R[id][1]}</a>`;
+---
+
+<Base title="생성 원리 · 평면 생성 랩" description="선택형(도면 생성)과 자유형(자유형 평면)이 평면을 만드는 방식을 단계별로, 검증 결과와 근거 논문을 붙여 설명합니다.">
+  <Topbar current="how" />
+
+  <section class="hero hero-compact">
+    <p class="eyebrow">선택형 · 자유형 · 검증 · 근거</p>
+    <h1>평면은 이렇게 <span class="gradient-text">만들어집니다</span></h1>
+    <p class="lede">이 사이트에는 평면을 만드는 방법이 두 가지 있습니다. <b>선택형</b>(도면 생성 탭)은 조건을 고르면 한국 판상형 아파트 문법으로 평면을 만들고, <b>자유형</b>(자유형 평면 탭)은 실제 아파트 세대(AI 허브 Sample)를 바탕으로 ㄱ자·ㄷ자 같은 사각형이 아닌 실까지 만듭니다. 단계마다 무엇을 하는지, 어떻게 검증했는지, 무엇을 근거로 했는지를 적었습니다. 식과 알고리즘의 자세한 계산은 <a href={`${base}method/`}>방법과 근거</a>에 있습니다.</p>
+  </section>
+
+  <main class="mt">
+    <nav class="mt-toc" aria-label="목차">
+      <ol>
+        <li><a href="#cmp">한눈에 비교</a></li>
+        <li><a href="#sel">선택형: 단계별</a></li>
+        <li><a href="#free">자유형: 단계별</a></li>
+        <li><a href="#common">두 방식이 같이 쓰는 것</a></li>
+        <li><a href="#verify">검증 요약</a></li>
+        <li><a href="#limits">한계</a></li>
+      </ol>
+    </nav>
+
+    <section id="cmp" class="mt-sec">
+      <h2>1. 한눈에 비교</h2>
+      <div class="mt-scroll">
+        <table class="gen-table hw-table">
+          <thead><tr><th></th><th>선택형(도면 생성)</th><th>자유형(자유형 평면)</th></tr></thead>
+          <tbody>
+            <tr><td>출발점</td><td>고른 조건(평수·방 개수·구성·선호)</td><td>실제 아파트 세대 하나(Sample {shapes.length}세대 중 선택)</td></tr>
+            <tr><td>평면의 틀</td><td>판상형 문법: 앞 띠(거실·침실) + 뒤 띠(주방·현관·욕실)</td><td>기준 세대의 외곽(또는 바꾼 외곽)을 0.3m 칸으로 나눔</td></tr>
+            <tr><td>실 모양</td><td>직사각형</td><td>칸 묶음 → 직사각형·ㄱ자·ㄷ자</td></tr>
+            <tr><td>무엇을 최적화하나</td><td>실 배치(어느 실이 어느 칸에) → QUBO 또는 직접 탐색, 치수 → 다듬기</td><td>칸을 어느 실에 줄지 → 에너지를 담금질로 줄임</td></tr>
+            <tr><td>최적화 방법</td><td>풀이기 11종 중 선택(tabu 계열·SA·PT·SQA·SB·분기한정·열거) 또는 모델 직접 탐색</td><td>제약 성장으로 시작 → 담금질(벽 밀기 이동)</td></tr>
+            <tr><td>공간구문 반영</td><td>QUBO 대리 항(SCI(E) 변수를 회귀로 근사)</td><td>에너지에서 직접 계산(근사 없음)</td></tr>
+            <tr><td>마지막 선택</td><td>목적함수 J(평가 모델 45% · 면적 25% · 선호 30%)</td><td>에너지가 가장 낮은 안</td></tr>
+            <tr><td>계산 시간</td><td>후보 생성 약 1~3초(풀이기당 0.1~1초)</td><td>후보 하나 약 2~3초(이동 3만 번)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">둘 다 브라우저 안에서 계산하고, 결과를 AI 허브 라벨과 같은 형식의 JSON으로 내려받을 수 있습니다.</p>
+    </section>
+
+    <section id="sel" class="mt-sec">
+      <h2>2. 선택형: 단계별</h2>
+      <ol class="mt-flow">
+        <li><b>조건 고르기</b><span>평수·방·구성·선호</span></li>
+        <li><b>목표 정하기</b><span>실별 목표 면적</span></li>
+        <li><b>배치 찾기</b><span>QUBO 또는 직접 탐색</span></li>
+        <li><b>평면으로 풀기</b><span>판상형 문법</span></li>
+        <li><b>문·창·설비</b><span>규칙 + 동선 점검</span></li>
+        <li><b>고르기·보여 주기</b><span>J · 진단</span></li>
+      </ol>
+
+      <div class="hw-step">
+        <h3>① 조건 고르기 → 목표 정하기</h3>
+        <p>평수, 거실 크기, 침실 수, 작은방 크기·안방 비중, 넣을 실(드레스룸·다목적실·발코니 등), 공간구문 선호(거실 중심형·사생활·대면형 주방), 생활 선호를 차례로 고릅니다.</p>
+        <p><b>선택지는 실제 데이터에서 나옵니다.</b> 거실 크기 선택지는 AI 허브 라벨의 실제 세대(35세대)에서 잰 "전용면적 대비 거실 면적비"의 분위수(하위 25%·중앙값·상위 25%·10%)이고, 작은방·안방도 같은 방식입니다. 그래서 고른 값이 실제 아파트에서 흔한 범위 안에 있습니다.</p>
+      </div>
+
+      <div class="hw-step">
+        <h3>② 배치 찾기: 어느 실이 어느 칸에 가나</h3>
+        <p>판상형은 앞 띠에 거실과 침실, 뒤 띠에 주방·현관·욕실을 나란히 놓는 한국 아파트의 대표 구조입니다 <Fragment set:html={cite('seo2007')} /> <Fragment set:html={cite('byun2016')} />. 그래서 "평면 만들기"의 핵심 결정은 <b>각 띠에서 실의 순서</b>입니다. 이 결정을 두 가지 방법으로 찾습니다.</p>
+        <ul>
+          <li><b>QUBO 경로</b>: "실 r이 칸 s에 간다"를 0/1 변수로 두고, 좋은 이웃 관계(주방–거실 맞닿음 등)는 보상, 나쁜 관계(침실–현관)는 감점하는 에너지를 만듭니다. "실마다 칸 하나, 칸마다 실 하나"는 벌점으로 넣습니다 <Fragment set:html={cite('lucas2014')} />. 벌점은 지켜야 할 최소 크기로 정합니다 <Fragment set:html={cite('ayodele2022')} />. 이 에너지를 풀이기 11종 중 고른 것으로 풉니다(양자 어닐러 D-Wave에 그대로 보낼 수 있는 형식).</li>
+          <li><b>직접 탐색 경로</b>: 평면을 무작위로 400개 만들고 좋은 4개에서 조금씩 바꿔 400번 더 찾습니다 <Fragment set:html={cite('michalek2002')} />.</li>
+        </ul>
+        <p><b>QUBO 가중치는 데이터로 맞췄습니다.</b> 처음엔 문헌을 보고 손으로 정했는데, 에너지가 가장 낮은 배치가 꼭 좋은 평면은 아니었습니다. 조건 20개·배치 9,567개에서 평가 점수에 맞게 다시 정했더니 에너지–점수 상관이 {cv.hand.rho.toFixed(2)} → {cv.calibrated.rho.toFixed(2)}, 에너지 최소 배치의 점수 백분위가 {(cv.hand.topPct * 100).toFixed(0)}% → {(cv.calibrated.topPct * 100).toFixed(0)}%로 좋아졌습니다(조건을 빼고 맞춘 교차검증) <Fragment set:html={cite('jin2011')} />.</p>
+        <p><b>공간구문 선호는 대리 항으로 넣습니다.</b> 통합도·깊이는 그래프 전체를 따라가는 값이라 QUBO 식에 그대로 못 넣습니다. 그래서 SCI(E) 논문의 변수 — 거실/침실 통합도 비 <Fragment set:html={cite('byun2016')} />, 유전형 순서 <Fragment set:html={cite('hillier1987')} />, 공·사 깊이 차 <Fragment set:html={cite('ham2017')} /> — 를 데이터에서 정확히 계산해 QUBO 항으로 회귀했습니다. 예: 거실/침실 비의 근사 정확도 ρ = {SYNTAX.livingBedroomRatio.cv['0.5'].rho.toFixed(2)}, 거실 중심형을 고르면 에너지 최소 배치의 이 값 백분위가 {Math.round(SYNTAX.livingBedroomRatio.cv['0'].varPct * 100)}% → {Math.round(SYNTAX.livingBedroomRatio.cv['0.5'].varPct * 100)}%로 오릅니다.</p>
+      </div>
+
+      <div class="hw-step">
+        <h3>③ 평면으로 풀기 → 문·창·설비</h3>
+        <p>순서가 정해지면 띠의 폭을 나눕니다. <b>최소 폭(욕실 1.5, 침실 2.4, 안방 3.0, 거실 3.6m)을 먼저 주고</b> 남는 폭을 원하는 크기에 비례해 나누므로 너무 좁은 실이 생기지 않습니다. 깊이·폭 같은 연속값은 30번 조금씩 바꿔 다듬습니다. 문은 규칙으로 답니다(침실은 복도·거실 쪽, 부속실은 안방 쪽, 공용 공간끼리는 트기). 그다음 문으로 이어진 그래프에서 현관부터 모든 실에 갈 수 있는지, 침실을 지나야 하는 실이 없는지 점검합니다.</p>
+      </div>
+
+      <div class="hw-step">
+        <h3>④ 고르기와 보여 주기</h3>
+        <p>후보마다 목적함수 J = 0.45·평가 모델 점수 + 0.25·목표 면적 부합 + 0.30·선호 점수 − 감점(무효 40, 좁은 실·동선 문제 15)을 계산해 배치가 서로 다른 상위 3안을 보여 줍니다. 평가 모델은 실제 아파트 35세대 분포와 얼마나 닮았는지를 공간구문·면적·형태·정합성으로 잽니다 <Fragment set:html={cite('byun2016')} /> <Fragment set:html={cite('park2024')} />.</p>
+        <p>결과 화면은 생성 과정 8단계, 계산 시간에 따른 변화, 식과 변수(영향도), <b>평면 진단</b>(국민주택규모·베이·맞통풍·동선 깊이·채광·환기·요청한 연결·공간구문·실제 방위와 동지 일조), 후보 비교, QUBO 에너지–점수 산점도를 보여 줍니다.</p>
+      </div>
+    </section>
+
+    <section id="free" class="mt-sec">
+      <h2>3. 자유형: 단계별</h2>
+      <ol class="mt-flow">
+        <li><b>세대 고르기</b><span>Sample {shapes.length}세대</span></li>
+        <li><b>외곽 정하기</b><span>원본·변형·모양·그리기</span></li>
+        <li><b>격자로 나누기</b><span>0.3m 칸</span></li>
+        <li><b>처음 나누기</b><span>제약 성장</span></li>
+        <li><b>다듬기</b><span>담금질</span></li>
+        <li><b>문·창·진단</b><span>동선·일조·공간구문</span></li>
+      </ol>
+
+      <div class="hw-step">
+        <h3>① 세대 고르기 → 외곽 정하기</h3>
+        <p>AI 허브 Sample 20장을 평가 모델로 세대별로 나누고, 면적이 외접 사각형의 85% 미만인 실(ㄱ자 거실 등)이 있는 세대 {shapes.length}개를 골라 두었습니다. 한 세대를 고르면 그 세대의 <b>실 구성·면적 비율·실 사이 연결</b>을 물려받습니다.</p>
+        <p>외곽은 원본 그대로, 원본을 회전·뒤집기·늘이기, 템플릿(직사각형·ㄱ자·ㄷ자·凸자·엇갈림), 직접 그리기 중에서 정합니다. 발코니는 고른 면(앞·뒤·왼쪽·오른쪽)의 바깥 외벽을 따라 1.5m로 둡니다.</p>
+      </div>
+
+      <div class="hw-step">
+        <h3>② 격자로 나누기 → 처음 나누기</h3>
+        <p>세대를 0.3m 칸으로 나누고, 칸마다 어느 실인지 정하는 문제로 바꿉니다. 실은 "이어진 칸 묶음"이라 직사각형뿐 아니라 ㄱ자·ㄷ자가 됩니다. 처음 배치는 <b>제약 성장</b>으로 만듭니다 <Fragment set:html={cite('lopes2010')} />: 실마다 씨앗을 놓고, 모자란 실부터 직사각형으로 한 줄씩 키우다가 막히면 일부만 넓혀 ㄱ자로 키웁니다.</p>
+      </div>
+
+      <div class="hw-step">
+        <h3>③ 다듬기: 담금질로 에너지 줄이기</h3>
+        <p>에너지는 "고쳐야 할 점의 합"입니다: 목표 면적과의 차이, 쓸데없이 구불구불함, 꼭짓점이 너무 많음, 가구를 못 놓을 만큼 좁은 부분, 원본에서 이어졌던 실이 떨어짐, 거실·침실에 창이 없음, <b>현관에서 문으로 갈 수 없는 실</b>, 침실을 지나야 들어가는 실, (고르면) 공간구문 목표 미달. 담금질 <Fragment set:html={cite('kirk1983')} /> <Fragment set:html={cite('merrell2010')} />은 이 합을 줄이는 쪽으로 칸을 옮기되, 처음에는 나빠지는 이동도 가끔 받아들여 막다른 배치에서 빠져나옵니다.</p>
+        <p><b>"벽 밀기"를 주 이동으로 씁니다.</b> 칸 하나씩 옮기면 거의 매번 꼭짓점이 늘어 에너지가 오릅니다(실측: 가능한 이동 282개 중 좋아지는 것 10개). 그래서 두 실이 맞닿은 벽 한 줄을 통째로 한 칸 미는 이동을 80% 씁니다. 실이 둘로 쪼개지는 이동은 하지 않습니다. 이 변경으로 에너지가 82 → 16으로 줄었습니다.</p>
+        <p><b>공간구문은 직접 계산합니다.</b> 자유형은 QUBO가 아니라서 매 이동마다 평가 모델과 같은 정의로 통합도·깊이를 계산해 문헌 목표(거실/침실 비 1.9, 공·사 깊이 차 1.5)에 못 미친 만큼 벌점을 줍니다.</p>
+      </div>
+
+      <div class="hw-step">
+        <h3>④ 문·창 → 진단</h3>
+        <p>공용 실끼리는 트고, 나머지 실은 현관에서 이어진 공용 실 쪽부터 차례로 문을 냅니다. 거실·침실이 발코니에 닿으면 발코니 문, 아니면 가장 긴 바깥 벽에 창을 냅니다. 결과 화면은 실별 면적·모양, 원본 연결 유지, 계산 과정(에너지 그래프와 그 시점 배치), 식(항별 기여), 공간구문 정당화 그래프, 방위와 동지 일조를 보여 줍니다.</p>
+      </div>
+    </section>
+
+    <section id="common" class="mt-sec">
+      <h2>4. 두 방식이 같이 쓰는 것</h2>
+      <ul>
+        <li><b>공간구문 정의</b>: 실 = 노드, 맞닿음 = 링크, 덕트 제외, 현관에 외부 노드, 통합도 = 1/RRA <Fragment set:html={cite('byun2016')} />. 평가 모델의 계산 함수를 그대로 씁니다.</li>
+        <li><b>방위와 동지 일조</b>: 앞쪽(발코니 쪽) 방위와 위도를 넣으면 창마다 향을 정하고, 동지 08~16시 태양 위치로 해 드는 시간을 계산해 판례 기준(총 4시간 또는 연속 2시간)과 비교합니다. 이웃 동 그림자가 없는 최대치입니다.</li>
+        <li><b>요청한 연결 겹쳐 보기</b>: 요청(규칙·선호 또는 원본 세대)의 연결을 결과 평면 위에 충족·문 없음·빠짐·어김으로 그립니다 <Fragment set:html={cite('househgan')} />.</li>
+        <li><b>AI 허브 형식 내보내기</b>: Sample과 같은 23개 범주, COCO 형식 JSON.</li>
+      </ul>
+    </section>
+
+    <section id="verify" class="mt-sec">
+      <h2>5. 검증 요약</h2>
+      <div class="mt-scroll">
+        <table class="gen-table hw-table">
+          <thead><tr><th>무엇을</th><th>어떻게</th><th>결과</th></tr></thead>
+          <tbody>
+            <tr><td>QUBO 풀이기 비교</td><td>조건 4개 × 시드 30개 × 알고리즘 11개, 같은 예산(평가 횟수로 고정) <Fragment set:html={cite('dunning2018')} /></td><td>tabu 계열·분기한정·열거는 매번 최적, SA·PT·SQA·SB는 29~53%. 풀이기보다 가중치가 평면 품질을 좌우</td></tr>
+            <tr><td>정답 교차 확인</td><td>내보낸 QUBO를 Python에서 D-Wave SA·Tabu와 OR-Tools CP-SAT로 풂</td><td>브라우저 정확해와 같은 최적 에너지</td></tr>
+            <tr><td>가중치 보정</td><td>조건 20개·배치 9,567개, 조건 단위 5겹 교차검증</td><td>에너지–점수 ρ {cv.hand.rho.toFixed(2)} → {cv.calibrated.rho.toFixed(2)}, 최소 배치 백분위 {(cv.hand.topPct * 100).toFixed(0)}% → {(cv.calibrated.topPct * 100).toFixed(0)}%</td></tr>
+            <tr><td>공간구문 대리 항</td><td>같은 데이터, 조건 단위 교차검증</td><td>근사 ρ: {Object.values(SYNTAX).map((v) => `${v.label} ${v.cv['0.5'].rho.toFixed(2)}`).join(', ')}</td></tr>
+            <tr><td>자유형 문 동선</td><td>세대 32개 × 시드 2(64안)</td><td>끊긴 안 33 → 6(접근 항·문 배치 순서 수정 뒤)</td></tr>
+            <tr><td>자유형 면적·모양</td><td>자동 테스트</td><td>고른 면적 ±3%, 실은 항상 한 덩어리, 다각형 면적 = 칸 면적, 바깥 구멍 없음, 현관은 바깥에 닿음</td></tr>
+            <tr><td>자유형 공간구문</td><td>세대 6개 × 시드 2</td><td>거실 중심형: 거실/침실 비 1.65 → 1.96. 사생활: 깊이 차 0.54 → 0.66(강하게 0.74)</td></tr>
+            <tr><td>일조 계산</td><td>자동 테스트</td><td>서울 동지 정오 해 고도 29.0°(= 90 − 37.57 − 23.44), 남향 창 8시간·북향 0시간</td></tr>
+            <tr><td>전체</td><td>node --test</td><td>테스트 44개 통과, 화면은 PC·모바일에서 직접 생성해 확인</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="limits" class="mt-sec">
+      <h2>6. 한계</h2>
+      <ul>
+        <li><b>선행 연구</b>: 주거 평면을 QUBO로 정식화한 동료 심사 논문은 찾지 못했습니다(가장 가까운 것은 공장 배치). QUBO 항과 가중치는 설계 가정이며, 데이터로 보정한 뒤에도 순위 점수는 기존 직접 탐색이 조금 앞섭니다.</li>
+        <li><b>양자 결과 아님</b>: SA·SQA는 D-Wave QPU 실행 전의 임시 대체입니다.</li>
+        <li><b>그래프 규약</b>: 공간구문은 원래 문으로 이어진 그래프에서 정의하지만, 평가 모델은 벽을 맞댄 그래프를 씁니다(근거 문서 02).</li>
+        <li><b>자유형</b>: 벽 두께 없이 칸 경계를 벽으로 그립니다. 사선 외벽은 계단으로 근사합니다. 사생활 선호의 효과는 작습니다(기준 세대의 현관 위치와 연결이 고정).</li>
+        <li><b>일조</b>: 이웃 동·처마 그림자를 넣지 않은 최대치입니다.</li>
+        <li>모든 결과는 설계 검토 전 단계의 배치 아이디어입니다.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>평면 생성 랩 · 생성 원리</span>
+    <span>자세한 식은 '방법과 근거'</span>
+  </footer>
+</Base>

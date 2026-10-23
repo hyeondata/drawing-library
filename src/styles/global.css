@@ -3522,3 +3522,26 @@ table.plain td.num {
 .mt-steps > li {
   margin: 8px 0;
 }
+.hw-step {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-1);
+}
+.hw-step h3 {
+  margin: 0 0 6px;
+}
+.hw-table {
+  min-width: 640px;
+  font-size: 13.5px;
+}
+.hw-table th,
+.hw-table td {
+  text-align: left !important;
+  vertical-align: top;
+}
+.hw-table td:first-child {
+  font-weight: 600;
+  white-space: nowrap;
+}
