@@ -1,0 +1,109 @@
+---
+// 쉽게 보기: 5살도 이해할 수 있게, 평면 생성을 '집 퍼즐 놀이'로 설명한다.
+// 점수는 실제 생성 코드(qubo.js의 buildQubo·energy, 손으로 정한 가중치)로 계산하고, 별·얼굴로만 바꿔 보여 준다.
+import Base from '../layouts/Base.astro';
+import Topbar from '../components/Topbar.astro';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<Base title="쉽게 보기 · 평면 생성 랩" description="집에 방을 어디에 둘지 컴퓨터가 정하는 방법을 5살도 알 수 있게 집 퍼즐 놀이로 설명합니다.">
+  <Topbar current="easy" />
+  <main class="page ez-page">
+    <section class="ez-hero">
+      <p class="ez-big">🏠</p>
+      <h1>집 퍼즐 놀이</h1>
+      <p class="ez-lead">컴퓨터가 집을 어떻게 그리는지 같이 알아봐요!</p>
+    </section>
+
+    <section class="ez-card">
+      <h2>1. 방 조각이 있어요</h2>
+      <p>집에는 방이 여러 개 있어요.</p>
+      <div class="ez-chips" id="ez-pieces"></div>
+      <p>이 방 조각들을 집 안에 쏙쏙 넣을 거예요.</p>
+    </section>
+
+    <section class="ez-card">
+      <h2>2. 집에는 두 줄이 있어요</h2>
+      <p>☀️ <b>해님 쪽 줄</b>에는 거실과 침실이 들어가요. 햇빛을 많이 받아야 하니까요.</p>
+      <p>🌙 <b>뒤쪽 줄</b>에는 주방, 현관, 화장실이 들어가요.</p>
+    </section>
+
+    <section class="ez-card">
+      <h2>3. 약속이 두 개 있어요</h2>
+      <div class="ez-rules">
+        <div class="ez-rule">☝️ <b>한 칸에는 방 하나만!</b></div>
+        <div class="ez-rule">✌️ <b>방은 모두 꼭 들어가요!</b></div>
+      </div>
+      <p>약속을 어기면? 아주아주 큰 벌을 받아요. 😡</p>
+      <button type="button" class="button-ghost ez-btn" id="ez-break">약속을 어겨 보면? (거실을 두 칸에)</button>
+      <p class="ez-say" id="ez-break-out"></p>
+    </section>
+
+    <section class="ez-card">
+      <h2>4. 방들도 친구가 있어요</h2>
+      <p>어떤 방은 가까이 있으면 좋아요. 😊</p>
+      <div class="ez-pairs">
+        <div class="ez-pair good">🍳 주방 ❤️ 🛋️ 거실<small>밥 먹으러 가기 가까워요</small></div>
+        <div class="ez-pair good">🚪 현관 ❤️ 🛋️ 거실<small>들어오면 바로 거실</small></div>
+        <div class="ez-pair good">🚽 화장실 ❤️ 🍳 주방<small>물 쓰는 곳은 모여요</small></div>
+      </div>
+      <p>어떤 방은 가까이 있으면 싫어요. 😢</p>
+      <div class="ez-pairs">
+        <div class="ez-pair bad">🛏️ 침실 💤 🚪 현관<small>쿵쿵, 시끄러워요</small></div>
+        <div class="ez-pair bad">🛏️ 침실 💤 🛋️ 거실<small>TV 소리가 들려요</small></div>
+      </div>
+    </section>
+
+    <section class="ez-card ez-play">
+      <h2>5. 내가 해 볼래요!</h2>
+      <p>같은 줄에 있는 방 <b>두 개를 차례로 누르면</b> 자리가 바뀌어요.</p>
+      <div class="ez-board-wrap">
+        <div class="ez-board" id="ez-board"></div>
+        <div class="ez-score" id="ez-score"></div>
+      </div>
+      <div id="ez-why"></div>
+      <p class="ez-small" id="ez-check"></p>
+    </section>
+
+    <section class="ez-card">
+      <h2>6. 컴퓨터 친구도 해 봐요</h2>
+      <p>컴퓨터는 아주 빨라요. 집을 놓는 방법을 <b id="ez-total">모두</b> 하나하나 다 해 봐요.</p>
+      <button type="button" class="button-primary ez-btn" id="ez-run">컴퓨터야, 해 줘! 🤖</button>
+      <div class="ez-run" id="ez-run-view"></div>
+    </section>
+
+    <section class="ez-card">
+      <h2>7. 방 크기는 케이크 자르기처럼</h2>
+      <p>자리가 정해지면 줄을 케이크처럼 잘라요. 🎂</p>
+      <p>🛋️ 거실은 <b>큰 조각</b>, 🚽 화장실은 <b>작은 조각</b>을 가져요. 그런데 너무 얇게 자르면 안 돼요. 침대가 안 들어가니까요!</p>
+      <div id="ez-cake"></div>
+      <div class="ez-plan" id="ez-plan"></div>
+      <p class="ez-small">5번에서 내가 만든 자리로 그린 집이에요. 자리를 바꾸면 그림도 바뀌어요.</p>
+    </section>
+
+    <section class="ez-card">
+      <h2>8. 정리해요</h2>
+      <ol class="ez-sum">
+        <li>방 조각을 두 줄에 넣어요. 🧩</li>
+        <li>약속을 지키고, 친구 방끼리 가깝게 놓으면 별을 받아요. ⭐</li>
+        <li>컴퓨터는 모든 방법을 다 해 보고 별이 가장 많은 집을 골라요. 🤖</li>
+        <li>마지막으로 케이크처럼 잘라 방 크기를 정해요. 🎂</li>
+      </ol>
+    </section>
+
+    <section class="ez-adult">
+      <h2>어른을 위한 메모</h2>
+      <ul>
+        <li>"방 조각을 칸에 넣기"는 이진 변수 x(실, 칸)이고, "약속"은 원-핫 제약을 벌점 P(Σx − 1)²으로 바꾼 것입니다. "친구 사이"는 실 쌍의 인접 항이며, 이것을 모두 합친 식을 <b>QUBO</b>라고 부릅니다.</li>
+        <li>별은 실제 에너지 E를 이 집에서 가능한 모든 배치(<span id="ez-n-all"></span>가지) 가운데 위치로 바꾼 것입니다(가장 좋은 배치 ⭐5, 가장 나쁜 배치 ⭐0). 점수 = −E입니다.</li>
+        <li>이 놀이는 84㎡·침실 3개 집과, 처음에 사람이 정한 <b>손 가중치</b>를 씁니다(아이에게 설명하기 쉬운 규칙). 실제 생성기는 실제 아파트로 다시 맞춘 보정 가중치를 씁니다.</li>
+        <li>단계별 식과 코드는 <a href={`${base}qubo-step/`}>QUBO 따라가기</a> 탭에 있습니다.</li>
+      </ul>
+    </section>
+  </main>
+  <script id="ez-data" type="application/json" set:html={JSON.stringify({ base })} />
+  <script>
+    import '../scripts/easy.js';
+  </script>
+</Base>

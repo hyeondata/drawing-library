@@ -1,7 +1,7 @@
 ---
 
 interface Props {
-  current: 'generate' | 'freeform' | 'how' | 'method' | 'code' | 'qubo';
+  current: 'generate' | 'freeform' | 'how' | 'method' | 'code' | 'qubo' | 'easy';
 }
 const { current } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -19,5 +19,6 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <a href={`${base}method/`} aria-current={current === 'method' ? 'page' : undefined}>방법과 근거</a>
     <a href={`${base}code/`} aria-current={current === 'code' ? 'page' : undefined}>코드로 보기</a>
     <a href={`${base}qubo-step/`} aria-current={current === 'qubo' ? 'page' : undefined}>QUBO 따라가기</a>
+    <a href={`${base}easy/`} aria-current={current === 'easy' ? 'page' : undefined}>쉽게 보기</a>
   </nav>
 </header>

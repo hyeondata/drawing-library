@@ -3903,3 +3903,285 @@ table.plain td.num {
   flex-wrap: wrap;
   gap: 6px;
 }
+/* ---- 쉽게 보기(집 퍼즐 놀이) ---- */
+.ez-page {
+  max-width: 860px;
+  font-size: 18px;
+  line-height: 1.8;
+}
+.ez-hero {
+  text-align: center;
+  padding: 18px 0 6px;
+}
+.ez-big {
+  font-size: 64px;
+  margin: 0;
+  line-height: 1.2;
+}
+.ez-hero h1 {
+  font-size: 36px;
+  margin: 4px 0;
+}
+.ez-lead {
+  font-size: 20px;
+  color: var(--text-secondary);
+}
+.ez-card {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px 20px;
+  margin: 16px 0;
+}
+.ez-card h2 {
+  font-size: 24px;
+  margin: 0 0 8px;
+}
+.ez-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ez-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+}
+.ez-living {
+  background: #f8e7c4;
+}
+.ez-bed {
+  background: #d9e6f7;
+}
+.ez-kitchen {
+  background: #f6dcc0;
+}
+.ez-entrance {
+  background: #e7def3;
+}
+.ez-bath {
+  background: #d3eee6;
+}
+.ez-living,
+.ez-bed,
+.ez-kitchen,
+.ez-entrance,
+.ez-bath {
+  color: #1e1e24;
+}
+.ez-rules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 6px 0;
+}
+.ez-rule {
+  background: var(--accent-soft);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 20px;
+}
+.ez-btn {
+  font-size: 17px;
+  padding: 10px 16px;
+  min-height: 44px;
+}
+.ez-say {
+  font-size: 17px;
+}
+.ez-pairs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 6px 0 12px;
+}
+.ez-pair {
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+}
+.ez-pair small {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+.ez-pair.good {
+  border: 2px solid #3aa36b;
+}
+.ez-pair.bad {
+  border: 2px solid #e0806a;
+}
+.ez-board-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 170px;
+  gap: 14px;
+  align-items: center;
+}
+.ez-house {
+  border: 6px solid #2b2b33;
+  border-radius: 10px;
+  padding: 0;
+  background: #fff;
+  overflow: hidden;
+}
+.ez-side {
+  text-align: center;
+  font-size: 14px;
+  color: #555;
+  background: #eef0f6;
+  padding: 2px 0;
+}
+.ez-side.sun {
+  background: #fff3c4;
+}
+.ez-row {
+  display: flex;
+}
+.ez-room {
+  flex: 1;
+  min-width: 0;
+  min-height: 92px;
+  border: 2px solid #2b2b33;
+  margin: -1px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 0;
+  font-family: inherit;
+}
+.ez-row.back .ez-room {
+  min-height: 72px;
+}
+.ez-emo {
+  font-size: 34px;
+  line-height: 1;
+}
+.ez-room.picked {
+  outline: 5px solid #ffb300;
+  outline-offset: -6px;
+  transform: scale(0.97);
+}
+.ez-house.small .ez-room {
+  min-height: 44px;
+  font-size: 11px;
+  cursor: default;
+}
+.ez-house.small .ez-emo {
+  font-size: 20px;
+}
+.ez-house.small {
+  border-width: 4px;
+}
+.ez-score {
+  text-align: center;
+}
+.ez-face {
+  font-size: 72px;
+  line-height: 1.1;
+}
+.ez-stars {
+  font-size: 22px;
+  letter-spacing: 1px;
+}
+.ez-win {
+  font-weight: 700;
+  color: #2f8a57;
+}
+.ez-small {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.ez-why {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 4px;
+}
+.ez-why li {
+  padding: 6px 10px;
+  border-radius: 10px;
+  margin: 4px 0;
+  font-size: 16px;
+}
+.ez-why li.good {
+  background: rgba(58, 163, 107, 0.12);
+}
+.ez-why li.bad {
+  background: rgba(224, 128, 106, 0.14);
+}
+.ez-why b {
+  float: right;
+}
+.ez-run-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+.ez-cake {
+  display: flex;
+  height: 70px;
+  border: 3px solid #2b2b33;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.ez-slice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 2px dashed #2b2b33;
+  background: #fbe3ea;
+  font-size: 14px;
+  min-width: 0;
+}
+.ez-slice:last-child {
+  border-right: 0;
+}
+.ez-slice span {
+  font-size: 24px;
+}
+.ez-plan svg {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+}
+.ez-sum li {
+  font-size: 20px;
+  margin: 6px 0;
+}
+.ez-adult {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 10px;
+}
+.ez-adult h2 {
+  font-size: 16px;
+}
+@media (max-width: 640px) {
+  .ez-board-wrap {
+    grid-template-columns: 1fr;
+  }
+  .ez-run-grid {
+    grid-template-columns: 1fr;
+  }
+  .ez-room {
+    font-size: 13px;
+    min-height: 76px;
+  }
+  .ez-emo {
+    font-size: 26px;
+  }
+}
