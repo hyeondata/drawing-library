@@ -225,7 +225,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
           <thead><tr><th>무엇을</th><th>어떻게</th><th>결과</th></tr></thead>
           <tbody>
             <tr><td>QUBO 풀이기 비교</td><td>조건 4개 × 시드 30개 × 알고리즘 11개, 같은 예산(평가 횟수로 고정) <Fragment set:html={cite('dunning2018')} /></td><td>tabu 계열·분기한정·열거는 매번 최적, SA·PT·SQA·SB는 29~53%. 풀이기보다 가중치가 평면 품질을 좌우</td></tr>
-            <tr><td>정답 교차 확인</td><td>내보낸 QUBO를 Python에서 D-Wave SA·Tabu와 OR-Tools CP-SAT로 풂</td><td>브라우저 정확해와 같은 최적 에너지</td></tr>
+            <tr><td>정답 교차 확인</td><td>내보낸 QUBO를 Python에서 D-Wave SA·Tabu와 OR-Tools CP-SAT로 풂</td><td>브라우저 전역 최적해와 같은 에너지</td></tr>
             <tr><td>가중치 보정</td><td>조건 20개·배치 9,567개, 조건 단위 5겹 교차검증</td><td>에너지–점수 ρ {cv.hand.rho.toFixed(2)} → {cv.calibrated.rho.toFixed(2)}, 최소 배치 백분위 {(cv.hand.topPct * 100).toFixed(0)}% → {(cv.calibrated.topPct * 100).toFixed(0)}%</td></tr>
             <tr><td>공간구문 대리 항</td><td>같은 데이터, 조건 단위 교차검증</td><td>근사 ρ: {Object.values(SYNTAX).map((v) => `${v.label} ${v.cv['0.5'].rho.toFixed(2)}`).join(', ')}</td></tr>
             <tr><td>자유형 문 동선</td><td>세대 32개 × 시드 2(64안)</td><td>끊긴 안 33 → 6(접근 항·문 배치 순서 수정 뒤)</td></tr>

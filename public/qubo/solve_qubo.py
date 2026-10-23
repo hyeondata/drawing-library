@@ -3,8 +3,8 @@
 사용 예:
   pip install dimod dwave-samplers           # SA·Tabu(고전, QPU 임시 대체)
   pip install dwave-system                    # QPU·Hybrid (Leap 토큰 필요: dwave config create)
-  pip install gurobipy                        # 정확해(라이선스 필요)
-  pip install ortools                         # 정확해(CP-SAT, 무료)
+  pip install gurobipy                        # 전역 최적해 보장(라이선스 필요)
+  pip install ortools                         # 전역 최적해 보장(CP-SAT, 무료)
 
   python solve_qubo.py floorplan_qubo_84m2_3bed.json --solver sa
   python solve_qubo.py floorplan_qubo_84m2_3bed.json --solver sqa                 # 경로적분 SQA(양자 몬테카를로 근사)
@@ -13,15 +13,15 @@
   python solve_qubo.py floorplan_qubo_84m2_3bed.json --solver cpsat
 
 결과: 최저 에너지, 원-핫 제약 충족 여부, 실별 칸(앞 띠·뒤 띠 순서)을 출력하고 <입력>_<solver>.json으로 저장한다.
-브라우저의 '정확해(열거)' 최적 에너지와 같은지로 검증할 수 있다.
+브라우저의 '전수 열거(전역 최적해)' 에너지와 같은지로 검증할 수 있다.
 
 주의(논문 보고):
 - SA·Tabu는 고전 알고리즘이다. QPU 결과가 나오기 전의 임시 대체이며 "양자 어닐링 결과"로 보고하지 않는다.
 - QPU 결과에는 체인 끊김 비율, 최대 체인 길이, annealing_time, num_reads, QPU access time을 함께 적는다.
-  --optimum(브라우저 '정확해(열거)' 또는 CP-SAT로 증명한 최적 에너지)을 주면 읽기당 성공 확률 s와
+  --optimum(브라우저 '전수 열거(전역 최적해)' 또는 CP-SAT로 증명한 최적 에너지)을 주면 읽기당 성공 확률 s와
   TTS99 = annealing_time × log(1−0.99)/log(1−s)를 계산한다(Rønnow et al. 2014).
 - 우리 QUBO(변수 25~60개)는 dense 클릭 임베딩이 가능한 크기(Pegasus 약 180, Zephyr Z12 약 184)라 qpu-clique를 권장한다.
-- 원-핫 벌점이 들어간 QUBO는 고전 정확해 솔버에 불리할 수 있다. Gurobi·CP-SAT에는 --native로 원래 정식화
+- 원-핫 벌점이 들어간 QUBO는 고전 전역 최적해 보장 솔버에 불리할 수 있다. Gurobi·CP-SAT에는 --native로 원래 정식화
   (원-핫을 등식 제약으로, 목적함수는 벌점 없이)를 준다.
 """
 import argparse
@@ -172,7 +172,7 @@ def main():
     ap.add_argument("--optimum", type=float, default=None, help="증명된 최적 에너지(성공 확률·TTS99 계산용)")
     ap.add_argument("--reads", type=int, default=100)
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--native", action="store_true", help="정확해 솔버에 원-핫을 등식 제약으로 준다")
+    ap.add_argument("--native", action="store_true", help="전역 최적해 보장 솔버에 원-핫을 등식 제약으로 준다")
     a = ap.parse_args()
     data, linear, quadratic, offset = load(a.qubo)
     t0 = time.time()

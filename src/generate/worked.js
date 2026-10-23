@@ -48,7 +48,7 @@ export function workedExamples(q, nameOf, start) {
   const ov = (i, j) => Math.max(0, Math.min((i + 1) / m, (j + 1) / k) - Math.max(i / m, j / k)) / Math.min(1 / m, 1 / k);
   const ovTable = Array.from({ length: m }, (_, i) => Array.from({ length: k }, (_, j) => f(ov(i, j), 3)));
 
-  // ---- 최적 배치(정확해)와 항별 분해 ----
+  // ---- 전역 최적해 배치와 항별 분해 ----
   const ex = runSolver('exact', q, { seed: 1, budgetMs: 3000 });
   const xs = ex.samples[0].x;
   const phiOf = (x) => features(q, x);

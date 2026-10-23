@@ -199,7 +199,7 @@ const FAMILY = { d2ts: 'tabu', pr: 'tabu', memetic: 'tabu', tabu: 'tabu', sa: 's
 const FAMILY_STYLE = {
   tabu: { color: 'var(--cat-1)', label: 'tabu 계열(D²TS·PR·Memetic·Tabu)' },
   stoch: { color: 'var(--cat-2)', label: '확률적(SA·SQA·PT·SB)' },
-  exact: { color: 'var(--cat-3)', label: '정확해(CP-SAT 방식·열거)' },
+  exact: { color: 'var(--cat-3)', label: '전역 최적해 보장(CP-SAT 방식·열거)' },
 };
 function renderScatter(cmp) {
   const box = $('#gen-scatter');

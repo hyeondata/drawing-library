@@ -78,7 +78,7 @@ export function setupSteppers({ q, nameOf, opt, base, spec, baseline }) {
       case 'leaf':
         return `<b>모든 칸을 채운 배치</b>: E = ${f(e.e, 3)} ${e.improved ? '<b class="good-text">— 최고해 갱신</b>' : ''} (지금까지 최고 ${f(e.best, 3)}) · ${ok}`;
       case 'enum':
-        return `<b>배정 하나 계산</b>: E = ${f(e.e, 3)}, 지금까지 최소 ${f(Math.min(e.e, e.best), 3)}. 원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 차례로 다 계산하므로, 마지막의 최소가 곧 전역 최적입니다. · ${ok}`;
+        return `<b>배정 하나 계산</b>: E = ${f(e.e, 3)}, 지금까지 최소 ${f(Math.min(e.e, e.best), 3)}. 원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 차례로 다 계산하므로, 마지막의 최소가 곧 전역 최적해입니다. · ${ok}`;
       case 'model':
         return `<b>평가 #${e.i}</b>(${e.phase === 'random' ? '무작위 탐색' : '국소 탐색: 좋은 안의 변수를 조금 바꿈'}): 깊이 D = ${f(e.params.depth)}m, 앞 띠 비율 f = ${f(e.params.frontShare)}, 작은방 폭 w = ${f(e.params.bedWidth)}m, 안방 깊이 g = ${f(e.params.masterDepth)} → 평면을 만들어 채점. 목적함수 J = <b>${f(e.objective, 1)}</b>(평가 모델 ${f(e.model, 1)}, 면적 부합 ${f(e.fit, 1)}${e.narrow ? `, 좁은 실 ${e.narrow}개 감점` : ''}), 지금까지 최고 ${f(e.best, 1)}`;
       case 'ff-move': {

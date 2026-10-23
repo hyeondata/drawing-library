@@ -122,7 +122,7 @@ const sections = [
   { step: true, id: 'sqa', title: '8. SQA (경로적분 양자 몬테카를로)', run: 'sqa', what: ['QUBO → 이징(J = M/4, h = q_ii/2 + ΣM/4), Trotter 사본 16개를 B = −½ ln tanh(Γ/PT)로 묶고 Γ를 2.5 → 0.01로 줄입니다(Santoro 외 2002). 고전 컴퓨터의 대리입니다.'], code: show(S, 'sqa') },
   { step: true, id: 'sb', title: '9. Simulated Bifurcation (dSB)', run: 'sb', what: ['스핀을 위치 x·운동량 y로 바꿔 y += (−(1−a)x + c₀ΣK sgn(x))Δt, x += yΔt, |x| > 1이면 벽. a를 0 → 1로 올린 뒤 sgn(x)를 해로 읽습니다(Goto 외 2021). 일차 항은 +1 보조 스핀.'], code: show(S, 'simulatedBifurcation') },
   { step: true, id: 'cpsat', title: '10. CP-SAT 방식(분기한정)', run: 'cpsat', what: ['칸을 차례로 채우며 실마다 한 번만(AllDifferent), 하한 = 지금 에너지 + 남은 칸의 최소 기여 + 남은 칸 쌍의 음수 결합. 하한 ≥ 최고해면 가지를 자릅니다.'], code: show(S, 'cpBranchAndBound') },
-  { step: true, id: 'exact', title: '11. 정확해(열거)', run: 'exact', what: ['원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 계산합니다. 벌점이 유효하므로 QUBO 전역 최적 = 다른 풀이기의 정답지.'], code: show(S, 'exact') },
+  { step: true, id: 'exact', title: '11. 전수 열거(전역 최적해)', run: 'exact', what: ['원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 계산합니다. 벌점이 유효하므로 QUBO 전역 최적해 = 다른 풀이기의 정답지.'], code: show(S, 'exact') },
   {
     step: true, stepKey: 'model', id: 'model', title: '11-1. 기존: 모델 직접 탐색(QUBO 없이)', run: null,
     what: ['QUBO를 거치지 않고, 평면 변수(깊이 D·앞 띠 비율 f·작은방 폭 w·안방 깊이 g·실 순서 등)를 무작위로 뽑아 평면을 만들고 목적함수 J로 채점합니다(무작위 탐색). 그다음 좋은 안 몇 개에서 변수를 조금씩 바꿔 더 좋아지면 옮겨 갑니다(국소 탐색). 이 방식은 모든 변수를 매번 함께 정해 평면 하나를 통째로 평가합니다.'],

@@ -1,6 +1,6 @@
 // QUBO 풀이기(브라우저·Node 공용, 순수 JS). 모두 같은 시간 예산(ms)과 같은 시드로 돈다.
 // 공통: 한 변수 뒤집기 변화량 Δ_i = (1−2x_i)(q_ii + Σ_j q_ij x_j), 뒤집은 뒤 Δ_i ← −Δ_i, Δ_j += (1−2x_j) q_ij (new_i − old_i).
-// 비교 대상은 첨부 가이드의 최소 비교 세트(D²TS·Path Relinking·튜닝된 SA·Parallel Tempering·Simulated Bifurcation·정확해)와
+// 비교 대상은 첨부 가이드의 최소 비교 세트(D²TS·Path Relinking·튜닝된 SA·Parallel Tempering·Simulated Bifurcation·전수 열거)와
 // tabu 내장 memetic. SA는 D-Wave QPU 결과가 나오기 전까지의 '임시 대체'이며 양자 어닐링 결과가 아니다.
 import { energy, feasible } from './qubo.js';
 import { rng as makeRng } from './layout.js';
@@ -503,7 +503,7 @@ function* permutations(list) {
 }
 
 function exact(q, { deadline, pool, count, ev }) {
-  // 원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 열거해 에너지 최소를 찾는다. 벌점이 유효하므로 이것이 QUBO 전역 최적이다.
+  // 원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 열거해 에너지 최소를 찾는다. 벌점이 유효하므로 이것이 QUBO 전역 최적해이다.
   // Gurobi·CP-SAT의 브라우저 안 대체(내보낸 모델로 Python에서 같은 최적값을 확인할 수 있다).
   const { front, back } = q.bands;
   const fact = (k) => (k <= 1 ? 1 : k * fact(k - 1));
@@ -558,8 +558,8 @@ export const SOLVERS = [
   { key: 'pt', name: 'Parallel Tempering', full: 'Parallel Tempering (replica exchange)', family: '고전 메타휴리스틱(MCMC)', cite: 'Hukushima & Nemoto 1996', run: parallelTempering },
   { key: 'sqa', name: 'SQA', full: '경로적분 Simulated Quantum Annealing (양자 몬테카를로)', family: 'QPU 대리(고전 양자 MC)', cite: 'Santoro et al. 2002; Martoňák et al. 2002', provisional: true, run: sqa },
   { key: 'sb', name: 'Simulated Bifurcation', full: 'discrete Simulated Bifurcation (dSB)', family: '양자영감·병렬', cite: 'Goto et al. 2019, 2021', run: simulatedBifurcation },
-  { key: 'cpsat', name: 'CP-SAT 방식', full: '제약 프로그래밍 분기한정 (CP-SAT의 브라우저 대체)', family: '정확해(제약 프로그래밍)', cite: 'OR-Tools CP-SAT는 Python 스크립트', run: cpBranchAndBound },
-  { key: 'exact', name: '정확해(열거)', full: '전수 열거 (Gurobi·CP-SAT 대체)', family: '정확해', cite: '—', run: exact },
+  { key: 'cpsat', name: 'CP-SAT 방식', full: '제약 프로그래밍 분기한정 (CP-SAT의 브라우저 대체)', family: '전역 최적해 보장(제약 프로그래밍)', cite: 'OR-Tools CP-SAT는 Python 스크립트', run: cpBranchAndBound },
+  { key: 'exact', name: '전수 열거(전역 최적해)', full: '전수 열거 (Gurobi·CP-SAT 대체)', family: '전역 최적해 보장', cite: '—', run: exact },
 ];
 
 /**

@@ -182,7 +182,7 @@ for (const a of ALGOS) {
 }
 lines.push('');
 lines.push(`- Friedman 검정(순위 점수, 블록 ${N}개, 알고리즘 ${k}개): χ² = ${chi2.toFixed(2)}, 자유도 ${df}, p ≈ ${pFriedman < 1e-4 ? pFriedman.toExponential(1) : pFriedman.toFixed(4)} (Wilson–Hilferty 근사).`);
-lines.push(`- TTS₉₉ = 실행 한 번의 예산(${BUDGET}ms) × ln(0.01)/ln(1 − 최적 도달률): 99% 확률로 한 번은 최적에 닿는 데 드는 시간(Rønnow et al. 2014). 정확해(열거)의 실제 열거 시간은 예산보다 훨씬 짧습니다.`);
+lines.push(`- TTS₉₉ = 실행 한 번의 예산(${BUDGET}ms) × ln(0.01)/ln(1 − 최적 도달률): 99% 확률로 한 번은 최적에 닿는 데 드는 시간(Rønnow et al. 2014). 전수 열거(전역 최적해)의 실제 열거 시간은 예산보다 훨씬 짧습니다.`);
 lines.push(`- QUBO 에너지와 순위 점수의 스피어만 ρ = ${fmt(rho, 2)} (QUBO 풀이기 해 ${pairs.length}개). 음수일수록 에너지가 낮은 해가 좋은 평면입니다.`);
 lines.push('- 최적 도달률·에너지 차는 풀이기 성능입니다: 풀이기는 앞 띠 침실 수가 다른 템플릿 2개를 예산을 나눠 풀고, 템플릿마다 찾은 최저 에너지와 전수 열거 최적값의 차 가운데 큰 쪽을 씁니다(모든 템플릿에서 최적이면 도달). \'기존\'의 에너지 차는 그 평면의 배치를 QUBO 변수로 옮겨 잰 값입니다.');
 lines.push('');

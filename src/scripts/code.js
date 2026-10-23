@@ -27,7 +27,7 @@ const orderText = (x) => {
   const o = decode(q, x);
   return `앞 ${o.front.map((k) => nameOf[k] ?? k).join('·')} / 뒤 ${o.back.map((k) => nameOf[k] ?? k).join('·')}${o.repaired ? ' (복구)' : ''}`;
 };
-$('#cd-qinfo').innerHTML = `변수 <b>${q.n}</b>개(앞 띠 ${q.bands.front.rooms.length}실 × ${q.bands.front.slots}칸, 뒤 띠 ${q.bands.back.rooms.length}실 × ${q.bands.back.slots}칸), 원-핫 묶음 ${q.groups.length}개, 벌점 P = <b>${q.penalty}</b>, 정확해로 구한 최적 에너지 <b>${opt.toFixed(3)}</b>. 아래 실행은 모두 이 QUBO를 씁니다(평가 횟수 예산으로 돌려 같은 시드면 결과가 같습니다).`;
+$('#cd-qinfo').innerHTML = `변수 <b>${q.n}</b>개(앞 띠 ${q.bands.front.rooms.length}실 × ${q.bands.front.slots}칸, 뒤 띠 ${q.bands.back.rooms.length}실 × ${q.bands.back.slots}칸), 원-핫 묶음 ${q.groups.length}개, 벌점 P = <b>${q.penalty}</b>, 전역 최적해의 에너지 <b>${opt.toFixed(3)}</b>. 아래 실행은 모두 이 QUBO를 씁니다(평가 횟수 예산으로 돌려 같은 시드면 결과가 같습니다).`;
 
 function runQubo(key, box, budget, seed) {
   const t0 = performance.now();

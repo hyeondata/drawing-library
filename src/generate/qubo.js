@@ -269,7 +269,7 @@ export function decode(q, x) {
   return { front: f, back: order.back, repaired };
 }
 
-/** 앞·뒤 순서 → 해 벡터(정확해 열거와 시험에 쓴다). */
+/** 앞·뒤 순서 → 해 벡터(전수 열거와 시험에 쓴다). */
 export function encode(q, front, back) {
   const x = new Uint8Array(q.n);
   q.vars.forEach((vr, i) => {
