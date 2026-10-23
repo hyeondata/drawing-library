@@ -7,6 +7,7 @@
 // 해를 판상형 문법(layout.js)으로 풀어 낸 뒤 평가 모델이 채점한다.
 import { programOf } from './layout.js';
 import { CALIBRATED } from './qubo-weights.js';
+import { SYNTAX, SYNTAX_LAMBDA } from './syntax-weights.js';
 
 /**
  * QUBO 항 목록. hand = 처음 손으로 정한 가중치(근거: 평가 규칙·문헌), pref = 그 선호를 고르면 곱하는 배수.
@@ -43,6 +44,26 @@ export function weightsOf(set = 'calibrated') {
   return Object.fromEntries(TERMS.map((t) => [t.id, t.hand]));
 }
 
+/**
+ * 공간구문 대리 항 더하기: 고른 공간구문 선호(거실 중심·사생활·대면형 주방)마다 해당 변수의 대리 가중치 v를
+ * λ·s배 해서 더한다(E = E_기본 + λ·s·Σ v_t φ_t, s = ‖w_기본‖₁/‖v‖₁). v는 SCI(E) 논문의 공간구문 변수를
+ * 평가 모델 규약으로 정확히 계산해 φ로 회귀한 것(scripts/syntax-surrogate.mjs, evidence/results/syntax-surrogate.md).
+ * 반환: { weights, added: [{ key, label, pref, refs, scale }] }
+ */
+export function withSyntax(W, prefs = [], { lambda = SYNTAX_LAMBDA } = {}) {
+  const added = [];
+  const out = { ...W };
+  const l1 = (o) => Object.values(o).reduce((s, x) => s + Math.abs(x || 0), 0);
+  const base = l1(W);
+  for (const [key, v] of Object.entries(SYNTAX || {})) {
+    if (!prefs.includes(v.pref)) continue;
+    const scale = (lambda * base) / Math.max(1e-9, l1(v.weights));
+    for (const [id, x] of Object.entries(v.weights)) out[id] = (out[id] ?? 0) + scale * x;
+    added.push({ key, label: v.label, pref: v.pref, refs: v.refs, scale });
+  }
+  return { weights: out, added };
+}
+
 /** 선호(사양의 prefs)에 따라 커지는 항의 배수. */
 const boost = (spec, key, k = 1.6) => (spec.prefs.includes(key) ? k : 1);
 
@@ -59,8 +80,10 @@ export function frontBedCount(spec) {
  * 반환: { n, vars: [{ room, slot, band }], diag: Float64Array, M: Float64Array(n*n, 대칭, 대각 0), offset,
  *         bands: { front: { rooms, slots }, back: { rooms, slots } }, groups: 원-핫 묶음 목록, penalty, terms }
  */
-export function buildQubo(spec, { frontBeds = null, weights = 'calibrated' } = {}) {
-  const W = weightsOf(weights);
+export function buildQubo(spec, { frontBeds = null, weights = 'calibrated', syntax = true } = {}) {
+  // 공간구문 대리 항은 정해진 가중치 세트(보정·손)에만 더한다(직접 준 가중치 객체는 그대로).
+  const sx = syntax && typeof weights === 'string' ? withSyntax(weightsOf(weights), spec.prefs || []) : { weights: weightsOf(weights), added: [] };
+  const W = sx.weights;
   const program = programOf(spec);
   const by = Object.fromEntries(program.map((r) => [r.key, r]));
   const kFront = frontBeds ?? frontBedCount(spec);
@@ -188,7 +211,7 @@ export function buildQubo(spec, { frontBeds = null, weights = 'calibrated' } = {
     for (let p = 0; p < g.length; p++) for (let q = p + 1; q < g.length; q++) addPair(g[p], g[q], 2 * penalty);
     offset += penalty;
   }
-  return { n, vars, diag, M, offset, bands: { front: { rooms: frontRooms, slots: m }, back: { rooms: backRooms, slots: k } }, groups, penalty, terms, unit, weights: W, frontBeds: kFront };
+  return { n, vars, diag, M, offset, bands: { front: { rooms: frontRooms, slots: m }, back: { rooms: backRooms, slots: k } }, groups, penalty, terms, unit, weights: W, frontBeds: kFront, syntaxTerms: sx.added };
 }
 
 /** 해 x의 항별 단위 값 φ_t(x) (TERMS 순서). 에너지(벌점 제외) = Σ w_t φ_t. */

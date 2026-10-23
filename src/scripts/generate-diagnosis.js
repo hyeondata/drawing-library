@@ -3,6 +3,53 @@
 import { ASSUME, DIRS, diagnose, dirName, diversity, solarAccess } from '../generate/metrics.js';
 import { STATUS, compareGraph } from '../generate/request-graph.js';
 import { compass, sunTimeline } from '../generate/sun-view.js';
+import { analyze } from '../model/index.js';
+import { toLabel } from '../generate/layout.js';
+import { SYNTAX, SYNTAX_LAMBDA } from '../generate/syntax-weights.js';
+
+// 공간구문 변수의 문헌 범위(근거 문서 02): 거실/침실·주방/침실 비는 Byun & Choi 2016 표에서 계산한 거실 중심 군집 범위.
+const SX_INFO = {
+  livingBedroomRatio: { label: '거실/침실 통합도 비', ref: 'Byun & Choi 2016(SCIE)', range: '거실 중심 군집 1.56~2.29', pref: 'livingCentral' },
+  kitchenBedroomRatio: { label: '주방/침실 통합도 비', ref: 'Byun & Choi 2016(SCIE)', range: '1.04~1.58', pref: 'kitchenLink' },
+  genotypeTau: { label: '거실 중심 유전형 순위 부합도 τ', ref: 'Hillier 외 1987(SSCI)', range: '1에 가까울수록 거실>주방>…>침실 순', pref: 'livingCentral' },
+  privacyDepthGap: { label: '공·사 깊이 차(침실 − 거실·주방)', ref: 'Ham & Lee 2017(SCIE·SSCI)', range: '클수록 침실이 깊음(사적)', pref: 'privacy' },
+};
+
+/** 현관에서의 깊이로 층을 나눈 정당화 그래프(JPG). 노드 색 = 통합도(진할수록 통합). */
+function jpgSvg(layout, unit, spaces) {
+  const nodes = unit.nodes.filter((nd) => !['발코니', '실외기실'].includes(nd.type));
+  const ids = new Set(nodes.map((nd) => nd.space));
+  const levels = {};
+  for (const nd of nodes) (levels[nd.depth] ||= []).push(nd);
+  const maxD = Math.max(...Object.keys(levels).map(Number));
+  const W = 560;
+  const rowH = 74;
+  const H = (maxD + 1) * rowH + 40;
+  const pos = {};
+  for (const [d, list] of Object.entries(levels)) {
+    list.sort((a, b) => (layout.rooms[a.space]?.x ?? 0) - (layout.rooms[b.space]?.x ?? 0));
+    list.forEach((nd, i) => (pos[nd.space] = [((i + 1) * W) / (list.length + 1), H - 30 - Number(d) * rowH]));
+  }
+  const ints = nodes.map((nd) => nd.integration).filter(Number.isFinite);
+  const lo = Math.min(...ints);
+  const hi = Math.max(...ints);
+  const col = (v) => DEPTH[Math.min(DEPTH.length - 1, Math.max(0, Math.round(((v - lo) / (hi - lo || 1)) * (DEPTH.length - 1))))];
+  const parts = [];
+  for (let d = 0; d <= maxD; d++) parts.push(`<line x1="0" x2="${W}" y1="${H - 30 - d * rowH}" y2="${H - 30 - d * rowH}" stroke="#e4e2ea" stroke-dasharray="3 4"/><text x="4" y="${H - 34 - d * rowH}" font-size="10" fill="#8a8794">깊이 ${d}</text>`);
+  for (const [a, b] of unit.edges) {
+    if (!ids.has(a) || !ids.has(b)) continue;
+    parts.push(`<line x1="${pos[a][0]}" y1="${pos[a][1]}" x2="${pos[b][0]}" y2="${pos[b][1]}" stroke="#8a8794" stroke-width="1.5"/>`);
+  }
+  for (const nd of nodes) {
+    const [x, y] = pos[nd.space];
+    const k = Math.round(((nd.integration - lo) / (hi - lo || 1)) * (DEPTH.length - 1));
+    const name = layout.rooms[nd.space]?.name || nd.type;
+    parts.push(`<circle cx="${x}" cy="${y}" r="17" fill="${col(nd.integration)}" stroke="#2b2a33" stroke-width="1.2"><title>${esc(name)}: 깊이 ${nd.depth}, 통합도 ${nd.integration.toFixed(2)}</title></circle>`);
+    parts.push(`<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="${ink(k)}">${nd.integration.toFixed(2)}</text>`);
+    parts.push(`<text x="${x}" y="${y - 22}" text-anchor="middle" font-size="11" font-weight="600" fill="#22212b" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(name)}</text>`);
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="정당화 그래프(현관 기준 깊이, 통합도)" style="background:#fff">${parts.join('')}</svg>`;
+}
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -159,6 +206,9 @@ export function renderDiagnosis({ top, current, spec }) {
   if (!targets.some(([k]) => k === st.target)) st.target = targets[0]?.[0];
 
   const g = compareGraph(spec, c.layout);
+  const sxa = analyze(toLabel(c.layout), 'SPA');
+  const sxu = sxa.units[0];
+  const sxv = sxu.features || {};
   const wantN = g.pairs.filter((e) => e.kind === 'want').length;
   const avoidN = g.pairs.length - wantN;
   const cards = [
@@ -236,19 +286,34 @@ export function renderDiagnosis({ top, current, spec }) {
           <button type="button" data-dmode="circ" aria-pressed="${st.mode === 'circ'}">동선 깊이·경로</button>
           <button type="button" data-dmode="light" aria-pressed="${st.mode === 'light'}">베이·채광·환기</button>
           <button type="button" data-dmode="graph" aria-pressed="${st.mode === 'graph'}">요청한 연결</button>
+          <button type="button" data-dmode="syntax" aria-pressed="${st.mode === 'syntax'}">공간구문</button>
         </div>
         ${st.mode === 'circ' ? `<label class="gen-diag-route">현관에서 <select id="diag-target">${targets.map(([k, n]) => `<option value="${k}"${k === st.target ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select> 까지 · <b class="mono">${fmt(d.circ.meters[st.target])}</b></label>` : ''}
-        <figure class="gen-plan">${st.mode === 'graph' ? graphSvg(c.layout, g) : planSvg(c.layout, d, st.mode, st.target)}</figure>
+        <figure class="gen-plan">${st.mode === 'syntax' ? jpgSvg(c.layout, sxu, sxa.spaces) : st.mode === 'graph' ? graphSvg(c.layout, g) : planSvg(c.layout, d, st.mode, st.target)}</figure>
         ${st.mode === 'graph' ? `<ul class="gen-graph-legend">${Object.entries(STATUS).map(([k, v]) => `<li><svg width="34" height="10" aria-hidden="true"><line x1="2" y1="5" x2="32" y2="5" stroke="${v.color}" stroke-width="${k === 'kept' ? 2 : 4}" stroke-linecap="round"${v.dash ? ` stroke-dasharray="${v.dash}"` : ''}/></svg>${esc(v.label)} <b class="mono">${g.counts[k]}</b></li>`).join('')}</ul>` : ''}
         <p class="note">${
-          st.mode === 'graph'
+          st.mode === 'syntax'
+            ? '정당화 그래프(justified plan graph): 현관을 맨 아래(깊이 0)에 두고, 맞닿은 실을 한 단계씩 위로 쌓았습니다. 숫자와 색은 실의 통합도(1/RRA, 진할수록 다른 실들에서 가깝게 닿는 중심 공간)입니다. 거실 중심형이면 거실이 가장 진하고, 침실은 위층(깊은 곳)에 놓입니다(Hillier & Hanson 1984; Byun & Choi 2016). 평가 모델과 같은 인접 그래프 규약입니다.'
+            : st.mode === 'graph'
             ? '선은 조건에서 요청한 연결입니다(기본 규칙 + 고른 선호). 실 사이에 문 폭(0.9m) 이상 맞닿고 문·개구부가 있으면 충족, 맞닿기만 하면 문 없음, 떨어져 있으면 빠짐(?)입니다. 피해야 할 연결(예: 침실–현관)이 맞닿으면 어김(✕)입니다. 후보 실이 여럿인 요청(예: 현관–공용 공간)은 가장 잘 이어진 실로 선을 긋습니다. 평면 생성 논문의 요청 그래프–결과 그래프 비교 그림과 같은 방식입니다.'
             : st.mode === 'circ'
             ? '색이 진할수록 현관에서 문을 더 많이 지나야 닿는 실입니다(깊이). 공용 공간(현관·거실·주방)은 얕고, 침실·안방은 깊을수록 사생활이 지켜집니다. 점선은 문으로 이어진 실, 주황 선은 고른 실까지 걷는 경로입니다. 발코니 문은 이동 경로에서 뺐습니다.'
             : `굵은 테두리와 번호는 앞쪽에 닿은 거실·침실(베이)입니다. 칸의 비율은 창 면적 ÷ 바닥면적이며 법 기준은 채광 10%·환기 5% 이상입니다(건축물의 피난·방화구조 등의 기준에 관한 규칙 제17조). 도면에 창 높이가 없어 일반 창 ${ASSUME.windowH}m·발코니 문 ${ASSUME.slidingH}m, 여닫는 부분 ${ASSUME.openable * 100}%로 가정했습니다.`
         }</p>
       </div>
-      ${st.mode === 'graph' ? `<div>
+      ${st.mode === 'syntax' ? `<div>
+        <h4>공간구문 변수(이 안)</h4>
+        <table class="gen-table gen-graph-table"><thead><tr><th>변수</th><th>값</th><th>생성에 반영</th></tr></thead><tbody>${Object.entries(SX_INFO)
+          .map(([k, info]) => {
+            const val = sxv[k];
+            const on = (spec.prefs || []).includes(info.pref);
+            const cv = SYNTAX?.[k]?.cv?.[String(SYNTAX_LAMBDA)] || SYNTAX?.[k]?.cv?.[SYNTAX_LAMBDA];
+            const cv0 = SYNTAX?.[k]?.cv?.['0'];
+            return `<tr><td>${esc(info.label)}<br><span class="note">${esc(info.ref)} · ${esc(info.range)}</span></td><td class="mono">${Number.isFinite(val) ? val.toFixed(2) : '—'}</td><td>${on ? '<b class="good-text">✓ QUBO 대리 항 추가</b>' : '<span class="note">선호를 고르면 추가</span>'}${cv ? `<br><span class="note">대리 ρ ${cv.rho.toFixed(2)} · 최소 배치 백분위 ${Math.round(cv0.varPct * 100)}→${Math.round(cv.varPct * 100)}%</span>` : ''}</td></tr>`;
+          })
+          .join('')}</tbody></table>
+        <p class="note">통합도·깊이는 그래프 전체를 따라가는 값이라 QUBO(이차식)에 그대로 넣을 수 없습니다. 그래서 조건 20개·배치 9,567개에서 이 변수들을 정확히 계산해 QUBO 항의 선형 결합으로 회귀한 '대리 항'을 만들었고, 공간구문 선호(거실 중심형·사생활·대면형 주방)를 고르면 그 항을 λ = ${SYNTAX_LAMBDA}로 에너지에 더합니다(Jin 2011의 대리 모델). '최소 배치 백분위'는 조건 단위 교차검증에서 에너지 최소 배치의 변수 값이 그 조건 안에서 몇 백분위인지를 대리 항 없을 때 → 있을 때로 보인 것입니다(evidence/results/syntax-surrogate.md).</p>
+      </div>` : st.mode === 'graph' ? `<div>
         <h4>요청한 연결 ${g.pairs.length}개</h4>
         <table class="gen-table gen-graph-table"><thead><tr><th>요청</th><th>종류</th><th>결과</th><th>맞닿음</th></tr></thead><tbody>${g.pairs
           .map((e) => `<tr><td>${esc(e.label)}<br><span class="note">${esc(e.why)}</span></td><td>${e.kind === 'want' ? '원함' : '피함'}${e.strength === 'pref' ? ' <span class="chip">선호</span>' : ''}</td><td><span style="color:${STATUS[e.status].color};font-weight:700">${{ met: '✓ 충족', wall: '△ 문 없음', missing: '? 빠짐', violated: '✕ 어김', kept: '✓ 지킴' }[e.status]}</span><br><span class="note">${esc(c.layout.rooms.find((r) => r.key === e.hit)?.name || '')}</span></td><td class="mono">${e.contact.toFixed(1)}m</td></tr>`)

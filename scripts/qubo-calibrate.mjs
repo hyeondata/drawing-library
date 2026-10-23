@@ -59,7 +59,7 @@ const t0 = Date.now();
 specs.forEach((spec, si) => {
   const kmax = frontBedCount(spec);
   for (const k of [...new Set([kmax, kmax - 1])].filter((x) => x >= 0)) {
-    const q = buildQubo(spec, { frontBeds: k, weights: 'hand' });
+    const q = buildQubo(spec, { frontBeds: k, weights: 'hand', syntax: false });
     const { front, back } = q.bands;
     const r = rng(1000 + si * 10 + k);
     const total = fact(front.slots) * fact(back.slots);

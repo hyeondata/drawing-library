@@ -15,6 +15,7 @@ import { buildLayout } from '../generate/layout.js';
 import { encode, features, weightsOf } from '../generate/qubo.js';
 import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
 import { workedExamples } from '../generate/worked.js';
+import { SYNTAX, SYNTAX_LAMBDA } from '../generate/syntax-weights.js';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -448,6 +449,18 @@ const EX = {
       <Fragment set:html={scLegend} />
       <p class="note">3.5절의 84㎡ 조건에서 원-핫을 지키는 모든 배치를 기본 치수로 평면에 풀어 평가 모델 점수를 쟀습니다(빌드 때 계산). 순위 점수 J 대신 모델 점수를 쓴 이유: 다듬기 전 기본 치수에서는 좁은 실(−15)·무효(−40) 감점이 J를 몇 개 띠로 갈라 놓아, 배치 자체의 차이가 가려지기 때문입니다. 감점 대상인 배치는 속이 빈 점으로 그렸습니다. 가로는 벌점을 뺀 목적 항 에너지, 굵은 테두리는 템플릿마다 에너지가 가장 낮은 배치, 곧 QUBO를 정확히 푸는 풀이기가 고르는 배치입니다. ρ는 템플릿별 스피어만 상관을 점 수로 가중 평균한 값이며, 음수일수록 "에너지가 낮으면 평면이 좋다"는 뜻입니다. 이 한 조건에서 에너지 최소 배치의 모델 점수: 손 {scHand.minJ.map((m) => `앞 침실 ${m.k + 1}개 ${m.J.toFixed(1)}(하위 ${m.pct.toFixed(0)}%)`).join(', ')} → 보정 {scCal.minJ.map((m) => `앞 침실 ${m.k + 1}개 ${m.J.toFixed(1)}(하위 ${m.pct.toFixed(0)}%)`).join(', ')}. 한 조건의 그림이므로 일반화는 위 표(조건 20개 교차검증)로 판단합니다.</p>
       <p>릿지 회귀는 전체 순서(ρ)는 가장 잘 맞췄지만, 정작 에너지 최소 배치의 평면은 손 가중치보다 나빠졌습니다(후회 −19.3). 우리가 쓰는 것은 에너지 최소 배치 하나이므로, 그 배치의 품질을 직접 줄이는 방법을 골랐습니다. 보정 뒤 정확히 푸는 풀이기들의 평면 모델 점수가 약 3점 올라, 기존 직접 탐색(86.2)과 같은 수준이 됐습니다.</p>
+      <h3>4.1 공간구문 변수를 생성에 직접 넣기: 대리 항</h3>
+      <p>위 보정은 종합 점수에 맞춘 것이라, 공간구문은 그 안에 섞여 간접적으로만 들어갑니다. 통합도·깊이는 그래프 전체를 따라가는 값이라 이차식으로 정확히 쓸 수 없으므로, SCI(E)·SSCI 논문의 공간구문 변수마다 <b>대리 항</b>을 따로 만들었습니다(Jin 2011의 대리 모델 방식).</p>
+      <ol>
+        <li>보정과 같은 조건 20개 × 템플릿의 배치 9,567개를 평면으로 풀고, 평가 모델과 같은 규약으로 공간구문 변수를 정확히 계산합니다.</li>
+        <li>조건·템플릿 안에서 변수를 백분위 순위로 바꾸고, QUBO 항 φ<sub>t</sub>(x)로 릿지 회귀해 대리 가중치 v를 얻습니다(낮은 에너지 = 변수가 큼).</li>
+        <li>생성할 때 공간구문 선호를 고르면 E = E<sub>보정</sub> + λ·s·Σ v<sub>t</sub>φ<sub>t</sub>로 더합니다(s = ‖w<sub>보정</sub>‖₁/‖v‖₁, λ = {SYNTAX_LAMBDA}). 거실 중심형 → 거실/침실 통합도 비·유전형 τ, 사생활 → 공·사 깊이 차, 대면형 주방 → 주방/침실 통합도 비.</li>
+      </ol>
+      <div class="mt-scroll"><table class="gen-table mt-terms">
+        <thead><tr><th>변수</th><th>근거</th><th>대리 ρ</th><th>에너지 최소 배치의 변수 백분위(λ 0 → 0.5 → 1)</th><th>종합 점수 백분위(λ 0 → 0.5 → 1)</th></tr></thead>
+        <tbody>{Object.entries(SYNTAX).map(([k, v]) => <tr><td>{v.label}</td><td>{v.refs}</td><td class="mono">{v.cv['0.5'].rho.toFixed(2)}</td><td class="mono">{['0', '0.5', '1'].map((l) => `${Math.round(v.cv[l].varPct * 100)}%`).join(' → ')}</td><td class="mono">{['0', '0.5', '1'].map((l) => `${Math.round(v.cv[l].objPct * 100)}%`).join(' → ')}</td></tr>)}</tbody>
+      </table></div>
+      <p class="note">조건 단위 5겹 교차검증(빼 둔 조건에서 잰 값). 대리 항을 세게 걸수록 공간구문 변수는 오르지만 종합 점수(면적 부합·다른 선호 포함)는 내려가는 맞바꿈이 있어 λ = {SYNTAX_LAMBDA}를 기본으로 했습니다. τ는 실 순서 전체에 걸린 값이라 대리 ρ가 가장 낮습니다(0.47). 전체 표: evidence/results/syntax-surrogate.md.</p>
     </section>
 
     <section id="solvers" class="mt-sec">
