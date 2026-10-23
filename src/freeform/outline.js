@@ -1,5 +1,5 @@
 // 세대 외곽(마스크) 만들기: 템플릿, 원본 세대에서 가져오기, 칸 그리기. 칸 크기 CELL(0.3m).
-import { CELL, rasterize } from './engine.js';
+import { BALCONY_CELLS, CELL, SIDES, balconyRuns, rasterize } from './engine.js';
 
 const OUTDOOR = new Set(['발코니', '실외기실']);
 
@@ -116,12 +116,19 @@ export function maskConnected(m) {
 }
 
 /** 마스크 미리보기 SVG(외곽선 + 앞쪽 표시). */
-export function maskSvg(m, { title = '', balcony = true } = {}) {
+export function maskSvg(m, { title = '', sides = ['S'] } = {}) {
   const S = 40 * CELL; // 1m = 40
-  const pad = 30;
+  const B = BALCONY_CELLS * S;
+  const pad = 30 + B;
   const vw = m.nx * S + pad * 2;
-  const vh = m.ny * S + pad * 2 + (balcony ? 1.5 * 40 : 0) + (title ? 30 : 0);
+  const vh = m.ny * S + pad * 2 + (title ? 30 : 0);
   const parts = [`<rect width="${vw}" height="${vh}" fill="#fff"/>`];
+  parts.push('<defs><pattern id="mk-hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#9fb7cf" stroke-width="2"/></pattern></defs>');
+  const runs0 = balconyRuns(m, sides);
+  for (const run of runs0) {
+    const d = run.cells.map(([i, j]) => `M${pad + i * S} ${pad + j * S}h${S}v${S}h${-S}z`).join('');
+    parts.push(`<path d="${d}" fill="url(#mk-hatch)" stroke="url(#mk-hatch)" stroke-width="0.6"/>`);
+  }
   const runs = [];
   for (let j = 0; j < m.ny; j++) {
     let s = -1;
@@ -143,7 +150,7 @@ export function maskSvg(m, { title = '', balcony = true } = {}) {
   parts.push(`<path d="${edges.join('')}" stroke="#2b2a33" stroke-width="5" fill="none" stroke-linecap="square"/>`);
   const area = m.cells.reduce((s, v) => s + v, 0) * CELL * CELL;
   parts.push(`<text x="${vw / 2}" y="${pad + (m.ny * S) / 2}" text-anchor="middle" font-size="18" font-weight="700" fill="#22212b">${area.toFixed(1)}㎡</text>`);
-  if (balcony) parts.push(`<text x="${vw / 2}" y="${pad + m.ny * S + 34}" text-anchor="middle" font-size="13" fill="#e8590c">▼ 앞쪽: 가장 낮은 외벽을 따라 발코니</text>`);
+  parts.push(`<text x="${vw / 2}" y="${pad + m.ny * S + B + 22}" text-anchor="middle" font-size="13" fill="#e8590c">▼ 앞(아래) · 발코니 ${runs0.length}곳${sides.length ? ` (${sides.map((x) => SIDES[x]).join('·')})` : ' 없음'}</text>`);
   if (title) parts.push(`<text x="${vw / 2}" y="${vh - 10}" text-anchor="middle" font-size="15" font-weight="700" fill="#222">${title}</text>`);
   return `<svg viewBox="0 0 ${vw.toFixed(0)} ${vh.toFixed(0)}" role="img" aria-label="세대 외곽">${parts.join('')}</svg>`;
 }

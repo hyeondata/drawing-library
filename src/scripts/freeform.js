@@ -1,5 +1,5 @@
 // 자유형 평면 페이지: 기준 세대 고르기 → 조건 → 생성(워커) → 결과·계산 과정·식·비교·내려받기
-import { CELL, FREEDOM, WEIGHTS, buildProblem, roomPolygons, transformUnit } from '../freeform/engine.js';
+import { CELL, FREEDOM, WEIGHTS, balconyRuns, buildProblem, roomPolygons, transformUnit } from '../freeform/engine.js';
 import { TEMPLATES, maskConnected, maskFromUnit, maskSvg, templateMask, trim } from '../freeform/outline.js';
 import { planSvg, roomNames, unitSvg } from '../freeform/render.js';
 import { AIHUB_CATEGORIES } from '../generate/aihub.js';
@@ -23,6 +23,7 @@ const st = {
   omode: 'orig',
   tf: { rot: 0, flipX: false, flipY: false, aspect: 1 },
   tpl: 'L',
+  bsides: ['S'],
   draw: { gx: 40, gy: 30, cells: new Uint8Array(40 * 30) },
 };
 const DG = 2; // 그리기 한 칸 = 계산 칸 2×2 = 0.6m
@@ -81,7 +82,7 @@ const OMODE = { orig: '원본', tf: '원본 변형', tpl: '모양 고르기', dr
 
 function outlineSpec() {
   const area = Number($('#ff-area').value) || interiorOf(st.unit);
-  const extra = { balcony: $('#ff-balcony').checked, outdoorUnit: $('#ff-outunit').checked };
+  const extra = { balconySides: [...st.bsides], outdoorUnit: $('#ff-outunit').checked };
   if (st.omode === 'orig') return { mode: 'orig' };
   if (st.omode === 'tf') return { mode: 'orig', tf: { ...st.tf } };
   if (st.omode === 'tpl') return { mode: 'mask', mask: templateMask(st.tpl, area, { aspect: Number($('#ff-taspect').value), cut: Number($('#ff-tcut').value) }), ...extra };
@@ -126,6 +127,12 @@ function editorSvg() {
   const S = 18;
   const parts = [`<rect width="${gx * S}" height="${gy * S}" fill="#fff"/>`];
   for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) parts.push(`<rect x="${i * S + 0.5}" y="${j * S + 0.5}" width="${S - 1}" height="${S - 1}" fill="${cells[j * gx + i] ? '#f0c987' : '#f3f3f0'}"/>`);
+  // 발코니 미리보기(계산 칸 기준 → 그리기 칸 좌표로)
+  const full = { nx: gx * DG, ny: gy * DG, cells: new Uint8Array(gx * DG * gy * DG) };
+  for (let j = 0; j < full.ny; j++) for (let i = 0; i < full.nx; i++) full.cells[j * full.nx + i] = cells[Math.floor(j / DG) * gx + Math.floor(i / DG)];
+  const pre = [];
+  for (const run of balconyRuns(full, st.bsides)) for (const [i, j] of run.cells) if (i >= 0 && j >= 0 && i < full.nx && j < full.ny) pre.push(`M${(i * S) / DG} ${(j * S) / DG}h${S / DG}v${S / DG}h${-S / DG}z`);
+  if (pre.length) parts.push(`<path d="${pre.join('')}" fill="#9fc3e8" fill-opacity="0.55" pointer-events="none"/>`);
   parts.push(`<text x="${(gx * S) / 2}" y="${gy * S - 6}" text-anchor="middle" font-size="12" fill="#e8590c">▼ 앞(발코니 쪽)</text>`);
   return `<svg viewBox="0 0 ${gx * S} ${gy * S}" class="ff-editor" id="ff-editor" role="img" aria-label="외곽 그리기 격자(한 칸 0.6m)">${parts.join('')}</svg>`;
 }
@@ -145,9 +152,9 @@ function renderOutline() {
   else if (st.omode === 'tpl') {
     const area = Number($('#ff-area').value) || interiorOf(u);
     const m = templateMask(st.tpl, area, { aspect: Number($('#ff-taspect').value), cut: Number($('#ff-tcut').value) });
-    fig.innerHTML = `${maskSvg(m, { title: `${TEMPLATES[st.tpl].label} 외곽`, balcony: $('#ff-balcony').checked })}<figcaption class="note">실 구성·면적 비율·인접은 기준 세대 ${esc(u.id)}에서 가져옵니다.</figcaption>`;
+    fig.innerHTML = `${maskSvg(m, { title: `${TEMPLATES[st.tpl].label} 외곽`, sides: st.bsides })}<figcaption class="note">실 구성·면적 비율·인접은 기준 세대 ${esc(u.id)}에서 가져옵니다.</figcaption>`;
   } else {
-    fig.innerHTML = `${editorSvg()}<figcaption class="note">한 칸 0.6m × 0.6m. 실 구성은 기준 세대 ${esc(u.id)}에서 가져옵니다.</figcaption>`;
+    fig.innerHTML = `${editorSvg()}<figcaption class="note">한 칸 0.6m × 0.6m. 파란 칸 = 발코니가 들어갈 자리(격자 밖으로 나가는 부분은 생략). 실 구성은 기준 세대 ${esc(u.id)}에서 가져옵니다.</figcaption>`;
     const m = drawMask();
     const ok = m.n && maskConnected(m);
     $('#ff-darea').innerHTML = `그린 면적 <b>${(m.n * CELL * CELL).toFixed(1)}㎡</b>${m.n && !ok ? ' <span class="error-text">· 한 덩어리가 아님</span>' : ''}`;
@@ -183,9 +190,7 @@ function bindEditor() {
   svg.addEventListener('pointermove', (e) => e.buttons && apply(e));
   svg.addEventListener('pointerup', () => {
     paint = null;
-    const m = drawMask();
-    const ok = m.n && maskConnected(m);
-    $('#ff-darea').innerHTML = `그린 면적 <b>${(m.n * CELL * CELL).toFixed(1)}㎡</b>${m.n && !ok ? ' <span class="error-text">· 한 덩어리가 아님</span>' : ''}`;
+    renderOutline(); // 면적·발코니 미리보기 갱신
   });
 }
 
@@ -433,7 +438,14 @@ for (const [id, out] of [['#ff-taspect', '#ff-taspect-v'], ['#ff-tcut', '#ff-tcu
     $(out).textContent = Number(e.target.value).toFixed(2);
     renderOutline();
   });
-$('#ff-balcony').addEventListener('change', renderOutline);
+$('#ff-bsides').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const v = b.dataset.v;
+  st.bsides = st.bsides.includes(v) ? st.bsides.filter((x) => x !== v) : [...st.bsides, v];
+  $('#ff-bsides').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(st.bsides.includes(x.dataset.v))));
+  renderOutline();
+});
 $('#ff-area').addEventListener('change', () => st.omode === 'tpl' && renderOutline());
 $('#ff-dload').addEventListener('click', () => (loadDrawFromUnit(), renderOutline()));
 $('#ff-dclear').addEventListener('click', () => ((st.draw.cells = new Uint8Array(st.draw.gx * st.draw.gy)), renderOutline()));

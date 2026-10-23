@@ -146,17 +146,69 @@ export function transformUnit(unit, { rot = 0, flipX = false, flipY = false, asp
   return { ...unit, rooms, W, H };
 }
 
+export const BALCONY_CELLS = 5; // 1.5m
+export const SIDES = { S: '앞(아래)', N: '뒤(위)', W: '왼쪽', E: '오른쪽' };
+
+/**
+ * 발코니 띠: 면마다 줄(열·행)별 가장 바깥 실내 칸을 찾고, 그 위치가 같은 줄이 8칸(2.4m) 이상 이어지면 그 바깥에 깊이 5칸.
+ * 반환 [{ side, len, cells: [[i, j, t]] }] — i, j는 마스크 좌표(바깥이라 음수·범위 밖일 수 있음), t는 띠를 따라 간 순서.
+ * 앞서 놓은 띠와 겹치는 칸은 건너뛴다(모서리).
+ */
+export function balconyRuns(mask, sides, depth = BALCONY_CELLS, minRun = 8) {
+  const { nx, ny, cells } = mask;
+  const on = (i, j) => i >= 0 && j >= 0 && i < nx && j < ny && cells[j * nx + i];
+  const taken = new Set();
+  const out = [];
+  const order = ['S', 'N', 'W', 'E'].filter((s) => sides.includes(s));
+  for (const side of order) {
+    const vertical = side === 'S' || side === 'N'; // 열마다 본다
+    const L = vertical ? nx : ny;
+    const edge = [];
+    for (let a = 0; a < L; a++) {
+      let e = null;
+      if (side === 'S') for (let j = ny - 1; j >= 0; j--) if (on(a, j)) ((e = j), (j = -1));
+      if (side === 'N') for (let j = 0; j < ny; j++) if (on(a, j)) ((e = j), (j = ny));
+      if (side === 'E') for (let i = nx - 1; i >= 0; i--) if (on(i, a)) ((e = i), (i = -1));
+      if (side === 'W') for (let i = 0; i < nx; i++) if (on(i, a)) ((e = i), (i = nx));
+      edge.push(e);
+    }
+    let start = 0;
+    for (let a = 1; a <= L; a++) {
+      if (a < L && edge[a] !== null && edge[a] === edge[start]) continue;
+      const len = a - start;
+      if (edge[start] !== null && len >= minRun) {
+        const cellsRun = [];
+        for (let t = 0; t < len; t++) {
+          const p = start + t;
+          for (let d = 1; d <= depth; d++) {
+            const [i, j] = side === 'S' ? [p, edge[start] + d] : side === 'N' ? [p, edge[start] - d] : side === 'E' ? [edge[start] + d, p] : [edge[start] - d, p];
+            const key = `${i},${j}`;
+            if (taken.has(key) || on(i, j)) continue;
+            taken.add(key);
+            cellsRun.push([i, j, t]);
+          }
+        }
+        if (cellsRun.length) out.push({ side, len, cells: cellsRun });
+      }
+      start = a;
+    }
+  }
+  return out;
+}
+
 /**
  * 새 외곽(마스크)으로 문제 설정. mask: { nx, ny, cells(Uint8Array, 1 = 실내) }, 칸 크기 CELL.
  * 실 구성·면적 비율·인접은 기준 세대에서 가져오고, 현관도 움직인다(바깥 벽에 닿게: 'entry' 항).
- * 발코니: 앞쪽(아래) 가장 낮은 외벽을 따라 1.5m. 실외기실: 발코니 끝 1.5m.
+ * 발코니: 고른 면(S 앞·아래, N 뒤·위, W 왼쪽, E 오른쪽)마다 그 면의 가장 바깥 외벽 중 2.4m 이상 이어진 구간을 따라 1.5m.
+ *   실외기실: 첫 발코니(앞쪽 우선) 끝 1.5m.
  * 초기 배치: 기준 세대 실 중심을 새 외곽 상자로 옮긴 가중 보로노이(면적이 큰 실이 넓게) + 한 덩어리로 정리.
  */
-export function setupMask(unit, mask, { balcony = true, outdoorUnit = false } = {}) {
-  const M = MARGIN;
-  const BAL = balcony ? 5 : 0;
+export function setupMask(unit, mask, { balcony = true, balconySides = null, outdoorUnit = false } = {}) {
+  const sides = balconySides ?? (balcony ? ['S'] : []);
+  const BAL = sides.length ? BALCONY_CELLS : 0;
+  const M = MARGIN + BAL; // 발코니가 어느 면에나 들어가게 사방에 여유
   const nx = mask.nx + 2 * M;
-  const ny = mask.ny + 2 * M + BAL;
+  const ny = mask.ny + 2 * M;
   const grid = new Int16Array(nx * ny).fill(-1);
   const src = unit.rooms.map((r, k) => ({ ...r, k })).filter((r) => !OUTDOOR.has(r.type) && r.area >= 1.5);
   const rooms = src.map((r, i) => ({ k: i, type: r.type, fixed: false, cells: 0, src: r.k }));
@@ -180,13 +232,27 @@ export function setupMask(unit, mask, { balcony = true, outdoorUnit = false } = 
     const cy = p.reduce((t, q) => t + q[1], 0) / p.length;
     return [mx0 + ((cx - bx0) / bw) * mw, my0 + ((cy - by0) / bh) * mh];
   });
-  // 씨앗 먼저(실마다 가장 가까운 빈 칸), 나머지는 가중 보로노이
+  // 씨앗 먼저(실마다 가장 가까운 빈 칸), 나머지는 가중 보로노이.
+  // 현관 씨앗은 발코니가 아닌 바깥에 닿은 칸에서 고른다(복도 쪽 현관문).
+  const runs = balconyRuns(mask, sides);
+  const reserved = new Set(runs.flatMap((r) => r.cells.map(([i, j]) => `${i},${j}`)));
+  const entryOk = (c) => {
+    const i = (c % nx) - M;
+    const j = Math.floor(c / nx) - M;
+    return N4.some(([di, dj]) => {
+      const ii = i + di;
+      const jj = j + dj;
+      const outside = ii < 0 || jj < 0 || ii >= mask.nx || jj >= mask.ny || !mask.cells[jj * mask.nx + ii];
+      return outside && !reserved.has(`${ii},${jj}`);
+    });
+  };
   const taken = new Set();
   centers.forEach(([cx, cy], r) => {
     let best = -1;
     let bd = Infinity;
+    const isEnt = src[r].type === '현관';
     for (const c of inside) {
-      if (taken.has(c)) continue;
+      if (taken.has(c) || (isEnt && !entryOk(c))) continue;
       const d = (c % nx - cx) ** 2 + (Math.floor(c / nx) - cy) ** 2;
       if (d < bd) ((bd = d), (best = c));
     }
@@ -205,28 +271,17 @@ export function setupMask(unit, mask, { balcony = true, outdoorUnit = false } = 
   }
   repairComponents(grid, nx, ny, rooms.length);
   // 발코니·실외기실
-  if (balcony) {
-    const bottom = new Map();
-    for (const c of inside) bottom.set(c % nx, Math.max(bottom.get(c % nx) ?? -1, Math.floor(c / nx)));
-    const J = Math.max(...bottom.values());
-    const cols = [...bottom.entries()].filter(([, j]) => j === J).map(([i]) => i).sort((u, v) => u - v);
-    let best = [];
-    let run = [];
-    for (const i of cols) {
-      if (run.length && i !== run[run.length - 1] + 1) run = [];
-      run.push(i);
-      if (run.length > best.length) best = [...run];
+  let unitDone = !outdoorUnit;
+  for (const run of runs) {
+    const bk = rooms.length;
+    rooms.push({ k: bk, type: '발코니', fixed: true, cells: 0 });
+    let ok = -1;
+    if (!unitDone && run.len >= 14) {
+      ok = rooms.length;
+      rooms.push({ k: ok, type: '실외기실', fixed: true, cells: 0 });
+      unitDone = true;
     }
-    if (best.length >= 8) {
-      const bk = rooms.length;
-      rooms.push({ k: bk, type: '발코니', fixed: true, cells: 0 });
-      let ok = -1;
-      if (outdoorUnit && best.length >= 14) {
-        ok = rooms.length;
-        rooms.push({ k: ok, type: '실외기실', fixed: true, cells: 0 });
-      }
-      for (const i of best) for (let j = J + 1; j <= J + BAL; j++) grid[j * nx + i] = ok >= 0 && i > best[best.length - 1] - 5 ? ok : bk;
-    }
+    for (const [i, j, t] of run.cells) grid[(j + M) * nx + i + M] = ok >= 0 && t >= run.len - 5 ? ok : bk;
   }
   for (const v of grid) if (v >= 0) rooms[v].cells++;
   const movable = rooms.filter((r) => !r.fixed && r.cells > 0).map((r) => r.k);
@@ -335,8 +390,15 @@ export function initial(P, seed = 1, jitter = 0.5) {
     const ty = cy / n + (r() - 0.5) * jj * ny;
     let best = null;
     let bd = Infinity;
+    // 새 외곽에서는 현관 씨앗을 바깥(발코니 아님)에 닿은 칸에 둔다.
+    const needOut = P.custom && rooms[k].type === '현관';
+    const touchesOut = (c) => N4.some(([di, dj]) => {
+      const ii = (c % nx) + di;
+      const jj = Math.floor(c / nx) + dj;
+      return ii < 0 || jj < 0 || ii >= nx || jj >= ny || grid[jj * nx + ii] === -1;
+    });
     for (const c of freeCells) {
-      if (taken.has(c)) continue;
+      if (taken.has(c) || (needOut && !touchesOut(c))) continue;
       const d = (c % nx - tx) ** 2 + (Math.floor(c / nx) - ty) ** 2;
       if (d < bd) ((bd = d), (best = c));
     }
