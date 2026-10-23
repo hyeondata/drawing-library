@@ -1,0 +1,379 @@
+---
+// 방법과 근거: 생성 식, QUBO 정식화, 풀이기별 알고리즘, 자유형 에너지. 표·가중치·예시 QUBO는 빌드 때 실제 코드로 계산한다.
+import Base from '../layouts/Base.astro';
+import Topbar from '../components/Topbar.astro';
+import { TERMS, buildQubo, decode } from '../generate/qubo.js';
+import { CALIBRATED } from '../generate/qubo-weights.js';
+import { runSolver } from '../generate/solvers.js';
+import { programOf } from '../generate/layout.js';
+import { WEIGHTS, FREEDOM, MIN_WIDTH, CELL } from '../freeform/engine.js';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+// ---- 예시 QUBO: 84㎡, 침실 3, 욕실 2, 드레스룸, 선호 없음 ----
+const spec = {
+  area: 84,
+  bedrooms: 3,
+  baths: 2,
+  dress: true,
+  multi: false,
+  outdoorUnit: false,
+  balcony: true,
+  targets: { living: 0.24, kitchen: 0.12, master: 0.15, other: 0.11, bath: 0.05, entrance: 0.04, dress: 0.04, multi: 0.04 },
+  prefs: [],
+};
+const q = buildQubo(spec, { weights: 'calibrated' });
+const nameOf = Object.fromEntries(programOf(spec).map((r) => [r.key, r.name]));
+const ex = runSolver('exact', q, { seed: 1, budgetMs: 3000 });
+const bestX = ex.samples[0].x;
+const order = decode(q, bestX);
+const nGroups = q.groups.length;
+// 목적 항만의 행렬과 벌점 항만의 행렬
+const n = q.n;
+const obj = Array.from({ length: n }, () => new Float64Array(n));
+for (const t of q.terms) {
+  const w = q.weights[t.id] ?? 0;
+  const u = q.unit[t.id];
+  for (const [i, v] of u.lin) obj[i][i] += w * v;
+  for (const [key, v] of u.quad) {
+    const a = Math.floor(key / n);
+    const b = key % n;
+    obj[a][b] += w * v;
+    obj[b][a] += w * v;
+  }
+}
+const full = (i, j) => (i === j ? q.diag[i] : q.M[i * n + j]);
+const pen = (i, j) => full(i, j) - obj[i][j];
+const heat = (f, title, clip) => {
+  const S = 13;
+  const L = 96;
+  const T = 30;
+  const cells = [];
+  const col = (v) => {
+    const t = Math.max(-1, Math.min(1, v / clip));
+    if (Math.abs(t) < 1e-9) return 'var(--surface-2)';
+    // 발산형: 음수(보상) 파랑, 양수(벌점·감점) 주황
+    return t < 0 ? `rgba(42,120,214,${(0.15 + 0.85 * -t).toFixed(3)})` : `rgba(232,89,12,${(0.15 + 0.85 * t).toFixed(3)})`;
+  };
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) {
+      const v = f(i, j);
+      cells.push(`<rect x="${L + j * S}" y="${T + i * S}" width="${S - 1}" height="${S - 1}" fill="${col(v)}"><title>${q.vars[i].room}@${q.vars[i].band}${q.vars[i].slot} × ${q.vars[j].room}@${q.vars[j].band}${q.vars[j].slot}: ${v.toFixed(2)}</title></rect>`);
+    }
+  const labels = q.vars.map((v, i) => `<text x="${L - 4}" y="${T + i * S + 10}" text-anchor="end" class="mt-ax">${nameOf[v.room] ?? v.room}·${v.band === 'front' ? '앞' : '뒤'}${v.slot + 1}</text>`).join('');
+  return `<svg viewBox="0 0 ${L + n * S + 4} ${T + n * S + 4}" role="img" aria-label="${title}"><text x="${L}" y="18" class="mt-ax mt-ttl">${title}</text>${labels}${cells.join('')}</svg>`;
+};
+let objMax = 0;
+for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) objMax = Math.max(objMax, Math.abs(obj[i][j]));
+const heatObj = heat((i, j) => obj[i][j], '목적 항 Σ wₜφₜ (가중치 × 단위 기여)', objMax);
+const heatPen = heat(pen, `원-핫 벌점 P(Σx − 1)² (P = ${q.penalty})`, q.penalty * 2);
+
+// ---- 항 표 ----
+const shape = {
+  kitchenLiving: '이차·앞뒤 맞닿음', entranceLiving: '이차·앞뒤 맞닿음', entranceKitchen: '이차·옆 칸', bathKitchen: '이차·옆 칸', bathEntrance: '이차·옆 칸', bathLiving: '이차·앞뒤 맞닿음', multiKitchen: '이차·옆 칸',
+  bedEntrance: '이차·앞뒤 맞닿음', backBedEntrance: '이차·옆 칸', backBedUnderBed: '이차·앞뒤 맞닿음', backBedKitchen: '이차·옆 칸', bedLiving: '이차·옆 칸', bedBed: '이차·옆 칸',
+  livingOffCenter: '일차·위치', masterNotEnd: '일차·위치', entranceEnd: '일차·위치', kitchenEnd: '일차·위치', backBedEnd: '일차·위치', masterKitchen: '이차·앞뒤 맞닿음', bedOverBath: '이차·앞뒤 맞닿음',
+};
+const termRows = TERMS.map((t) => ({ ...t, shape: shape[t.id] || '', cal: CALIBRATED.weights[t.id] }));
+const cv = CALIBRATED.meta.cv;
+
+// ---- 문헌 ----
+const R = {
+  lucas: { t: 'Lucas 2014, Ising formulations of many NP problems, Front. Phys.', u: 'https://doi.org/10.3389/fphy.2014.00005' },
+  glover19: { t: 'Glover, Kochenberger & Du 2019, QUBO 튜토리얼, 4OR', u: 'https://doi.org/10.1007/s10288-019-00424-y' },
+  ayodele: { t: 'Ayodele 2022, Penalty weights in QUBO formulations: permutation problems, EvoCOP', u: 'https://arxiv.org/abs/2206.11040' },
+  jin: { t: 'Jin 2011, Surrogate-assisted evolutionary computation, Swarm Evol. Comput.', u: 'https://doi.org/10.1016/j.swevo.2011.05.001' },
+  d2ts: { t: 'Glover, Lü & Hao 2010, Diversification-driven tabu search for UBQP, 4OR', u: 'https://doi.org/10.1007/s10288-009-0115-y' },
+  pr: { t: 'Wang, Lü, Glover & Hao 2012, Path relinking for UBQP, EJOR', u: 'https://doi.org/10.1016/j.ejor.2012.07.012' },
+  hma: { t: 'Lü, Glover & Hao 2010, A hybrid metaheuristic approach to solving the UBQP problem, EJOR', u: 'https://doi.org/10.1016/j.ejor.2010.06.039' },
+  palu: { t: 'Palubeckis 2004, Multistart tabu search strategies for UBQP, Ann. Oper. Res.', u: 'https://doi.org/10.1023/B:ANOR.0000039522.58036.68' },
+  kirk: { t: 'Kirkpatrick, Gelatt & Vecchi 1983, Optimization by simulated annealing, Science', u: 'https://doi.org/10.1126/science.220.4598.671' },
+  isakov: { t: 'Isakov et al. 2015, Optimised simulated annealing for Ising spin glasses, CPC', u: 'https://doi.org/10.1016/j.cpc.2015.02.015' },
+  hn: { t: 'Hukushima & Nemoto 1996, Exchange Monte Carlo method, J. Phys. Soc. Jpn.', u: 'https://doi.org/10.1143/JPSJ.65.1604' },
+  goto19: { t: 'Goto, Tatsumura & Dixon 2019, Simulating adiabatic bifurcations, Sci. Adv.', u: 'https://doi.org/10.1126/sciadv.aav2372' },
+  goto21: { t: 'Goto et al. 2021, High-performance combinatorial optimization based on classical mechanics, Sci. Adv.', u: 'https://doi.org/10.1126/sciadv.abe7953' },
+  santoro: { t: 'Santoro, Martoňák, Tosatti & Car 2002, Theory of quantum annealing of an Ising spin glass, Science', u: 'https://doi.org/10.1126/science.1068774' },
+  martonak: { t: 'Martoňák, Santoro & Tosatti 2002, Quantum annealing by the path-integral Monte Carlo method, PRB', u: 'https://doi.org/10.1103/PhysRevB.66.094203' },
+  bucher: { t: 'Bucher et al. 2024, Towards robust benchmarking of quantum optimization algorithms', u: 'https://arxiv.org/abs/2405.07624' },
+  dunning: { t: 'Dunning, Gupta & Silberholz 2018, What works best when? Max-Cut·QUBO 휴리스틱 평가, INFORMS JoC', u: 'https://doi.org/10.1287/ijoc.2017.0798' },
+  ronnow: { t: 'Rønnow et al. 2014, Defining and detecting quantum speedup, Science', u: 'https://doi.org/10.1126/science.1252319' },
+  derrac: { t: 'Derrac et al. 2011, 비모수 검정 튜토리얼, Swarm Evol. Comput.', u: 'https://doi.org/10.1016/j.swevo.2011.02.002' },
+  merrell: { t: 'Merrell, Schkufza & Koltun 2010, Computer-generated residential building layouts, ACM TOG', u: 'https://doi.org/10.1145/1882261.1866203' },
+  michalek: { t: 'Michalek, Choudhary & Papalambros 2002, Architectural layout design optimization, Eng. Optim.', u: 'https://doi.org/10.1080/03052150214016' },
+  lopes: { t: 'Lopes, Tutenel, Smelik, de Kraker & Bidarra 2010, A constrained growth method for procedural floor plan generation, GAME-ON', u: 'https://publications.graphics.tudelft.nl/papers/584' },
+  hussin: { t: 'Hussin & Stützle 2014, Tabu search vs. simulated annealing for QAP, Comput. Oper. Res.', u: 'https://doi.org/10.1016/j.cor.2013.10.007' },
+};
+const cite = (ids) => ids.map((id) => R[id]);
+
+// ---- 풀이기 ----
+// 결과: evidence/10-QUBO-생성.md (30시드 × 4조건, 풀이기당 100ms를 평가 횟수로 고정, 보정 가중치)
+const solvers = [
+  {
+    key: 'model', name: '기존: 모델 직접 탐색', family: '평가 모델을 바로 최적화(QUBO 아님)',
+    idea: 'QUBO를 거치지 않고, 판상형 매개변수(깊이·앞 띠 비율·실 순서·폭 등)를 바꿔 가며 목적함수 J를 직접 키웁니다. 기준선 역할을 합니다.',
+    steps: ['매개변수를 무작위로 400번 뽑아 평면을 만들고 J로 채점합니다.', '상위 4안에서 출발해 매개변수 하나를 조금 바꾸는 국소 탐색을 400번 합니다(나빠지면 되돌림).', '배치가 서로 다른 상위 3안을 보여 줍니다.'],
+    params: '평가 800회(무작위 400 + 국소 400)', refs: ['michalek', 'merrell'],
+    result: '모델 점수 86.2, 순위 점수 87.2(가장 높음). 연속값까지 800번 평가로 맞추기 때문입니다.',
+  },
+  {
+    key: 'd2ts', name: 'D²TS', family: '고전 메타휴리스틱(tabu)',
+    idea: '한 변수씩 뒤집는 tabu 탐색으로 깊이 내려간 뒤, 엘리트 해에서 자주 켜지던 변수를 섞어 흔드는 "다양화" 단계를 번갈아 합니다. 같은 골짜기에 갇히지 않게 하는 것이 핵심입니다.',
+    steps: ['무작위 해에서 tabu 탐색을 합니다: 매번 에너지를 가장 많이 줄이는(또는 가장 덜 늘리는) 변수 하나를 뒤집고, 그 변수는 tenure 동안 다시 못 뒤집게 막습니다. 최고해보다 좋아지면 막혀 있어도 허용합니다(aspiration).', '개선 없이 15n번 지나면 멈추고, 결과를 엘리트 집합(8개)에 넣습니다.', '엘리트 하나를 골라, 변수마다 0.3 × 빈도 + 0.7 × 난수로 순위를 매기고 순위 j를 확률 ∝ j^−1.2로 γ = n/4개 뽑아 뒤집습니다.', '흔든 해에서 다시 tabu 탐색을 합니다. 시간이 다할 때까지 되풀이합니다.'],
+    params: 'tenure = n/50 + rand(1..10), 정지 15n, 엘리트 8, γ = n/4, λ = 1.2', refs: ['d2ts', 'hma'],
+    result: '최적 도달 100%, 모델 점수 86.5 / 순위 점수 86.1',
+  },
+  {
+    key: 'pr', name: 'Path Relinking', family: '고전 메타휴리스틱(tabu)',
+    idea: '좋은 해 두 개 사이의 "경로" 위에도 좋은 해가 있다는 가정입니다. 한 해에서 다른 해 쪽으로 다른 비트를 하나씩 맞춰 가다가 중간 지점을 tabu로 다듬습니다.',
+    steps: ['무작위 해 10개를 tabu로 다듬어 참조 집합을 만듭니다.', '참조 집합에서 두 해 a, b를 고르고, 서로 다른 변수 목록을 만듭니다.', 'a에서 출발해 남은 차이 가운데 에너지를 가장 덜 올리는 변수부터 b 쪽으로 뒤집으며 경로의 1/3~2/3 지점까지 갑니다.', '그 지점을 tabu로 다듬어 참조 집합을 갱신합니다(나쁜 해를 밀어냄).'],
+    params: '참조 집합 10, 경로 1/3~2/3 지점, tabu 정지 5n', refs: ['pr'],
+    result: '최적 도달 100%, 86.2 / 86.0',
+  },
+  {
+    key: 'memetic', name: 'Memetic', family: '고전 메타휴리스틱(진화 + tabu)',
+    idea: '유전 알고리즘의 교차로 해를 섞고, 자식마다 tabu 국소 탐색으로 다듬는 혼합 방식입니다. 섞기는 넓게, tabu는 깊게 탐색합니다.',
+    steps: ['무작위 해 20개를 tabu로 다듬어 개체군을 만듭니다.', '부모 둘을 고르고 균등 교차를 합니다: 두 부모가 같은 비트는 그대로, 다른 비트는 반반 확률.', '자식을 tabu로 다듬어 개체군의 가장 나쁜 개체와 바꿉니다(같은 해는 넣지 않음).'],
+    params: '개체 20, 균등 교차, tabu 정지 3n', refs: ['hma'],
+    result: '최적 도달 100%, 86.4 / 86.0',
+  },
+  {
+    key: 'tabu', name: 'Tabu (D-Wave 방식)', family: '고전 메타휴리스틱(tabu)',
+    idea: 'D-Wave dwave-samplers의 TabuSampler와 같은 다중 시작 tabu(MST2)를 다시 구현했습니다. 섭동·엘리트 집합이 없다는 점에서 D²TS와 다른 알고리즘입니다.',
+    steps: ['읽기(read)마다 무작위 해 또는 지금까지의 최고해에서 번갈아 출발합니다.', 'tenure = min(20, ⌊n/4⌋)로 tabu 탐색을 읽기당 20ms까지 합니다.', '시간이 다할 때까지 읽기를 되풀이하고 가장 좋은 해들을 모읍니다.'],
+    params: 'tenure = min(20, ⌊n/4⌋), 읽기당 20ms', refs: ['palu'],
+    result: '최적 도달 100%, 86.2 / 86.0',
+  },
+  {
+    key: 'sa', name: 'SA (QPU 임시 대체, 잠정)', family: '확률적 탐색 — 양자 결과 아님',
+    idea: '온도를 천천히 내리며 나빠지는 이동도 확률 exp(−βΔ)로 받아들여 국소 최적에서 빠져나옵니다. D-Wave 기본값과 같은 방식으로 맞춰, QPU 결과가 나오기 전까지 비교 자리를 채웁니다.',
+    steps: ['β(역온도) 범위를 정합니다: 뜨거운 쪽 β₀ = ln2 / (한 변수 뒤집기의 최대 변화량), 차가운 쪽 β₁ = ln100 / (가장 작은 0 아닌 계수).', '무작위 해에서 1,000 sweep 동안 β를 기하적으로 β₀ → β₁로 올리며, 매 sweep 변수를 차례로 방문해 Δ ≤ 0이면 뒤집고 아니면 확률 exp(−βΔ)로 뒤집습니다.', '시간이 남으면 새 무작위 해로 다시 시작합니다.'],
+    params: '1,000 sweep, 기하 스케줄, 순차 방문', refs: ['kirk', 'isakov'],
+    result: '최적 도달 50%, 85.3 / 85.5. 양자 어닐링 결과가 아닙니다.',
+  },
+  {
+    key: 'sqa', name: 'SQA (경로적분 양자 몬테카를로)', family: 'QPU 대리 — 고전 컴퓨터에서 실행',
+    idea: '횡자기장 이징 모형을 P개의 Trotter 사본으로 옮겨, 사본 사이 결합으로 양자 터널링을 흉내 냅니다. 횡자기장 Γ를 줄이면 사본들이 하나의 해로 모입니다. SA보다 양자 어닐링에 가까운 고전 대리입니다.',
+    steps: ['QUBO를 이징으로 바꿉니다: s = 2x − 1, J_ij = M_ij/4, h_i = q_ii/2 + Σ_j M_ij/4. 최대 절댓값 1로 정규화합니다.', 'Trotter 사본 16개를 무작위로 둡니다. 사본 사이 결합 B = −½ ln tanh(Γ/PT).', 'Γ를 2.5 → 0.01로 기하적으로 줄이며 300 sweep, 각 스핀을 뒤집을 때 변화 −2sᵢfᵢ/PT + 2Bsᵢ(위·아래 사본)를 메트로폴리스로 받아들입니다.', '모든 사본을 해로 읽어 가장 좋은 것을 고릅니다.'],
+    params: 'Trotter 16, PT = 0.5, Γ 2.5 → 0.01, 300 sweep', refs: ['santoro', 'martonak'],
+    result: '최적 도달 44%, 84.2 / 84.8. QPU 결과가 아닙니다.',
+  },
+  {
+    key: 'pt', name: 'Parallel Tempering', family: '고전 메타휴리스틱(MCMC)',
+    idea: '온도가 다른 사본 여러 개를 동시에 돌리고, 이웃 온도끼리 해를 바꿉니다. 뜨거운 사본은 넓게 돌아다니고, 좋은 해는 차가운 사본으로 내려와 다듬어집니다.',
+    steps: ['β를 β₀ → β₁ 기하 사다리로 8개 둡니다(SA와 같은 범위).', '사본마다 한 sweep 메트로폴리스를 합니다.', '이웃 사본 k, k+1을 확률 min(1, exp((β_k − β_{k+1})(E_k − E_{k+1})))로 교환합니다(짝·홀 번갈아).', '가장 차가운 사본의 해를 20 sweep마다 모읍니다.'],
+    params: '사본 8, 기하 β 사다리, 이웃 교환', refs: ['hn'],
+    result: '최적 도달 53%, 84.9 / 85.3',
+  },
+  {
+    key: 'sb', name: 'Simulated Bifurcation (dSB)', family: '양자영감·병렬',
+    idea: '스핀을 연속 위치 x와 운동량 y로 바꿔 고전 역학 방정식으로 풉니다. 매개변수 a(t)를 0 → 1로 올리면 분기(bifurcation)가 일어나 각 x가 ±1로 갈라지며 해가 됩니다. 모든 변수를 한꺼번에 갱신해 병렬화가 쉽습니다.',
+    steps: ['QUBO를 이징으로 바꾸고, 일차 항은 +1로 고정한 보조 스핀과의 결합으로 넣습니다.', 'yᵢ ← yᵢ + (−(1 − a(t))xᵢ + c₀ Σⱼ Kᵢⱼ sgn(xⱼ))Δt, xᵢ ← xᵢ + yᵢΔt. |xᵢ| > 1이면 xᵢ = sgn(xᵢ), yᵢ = 0(벽).', 'a(t)를 1,000 step 동안 0 → 1로 선형으로 올리고, 마지막에 sgn(x)를 해로 읽습니다.'],
+    params: 'a₀ = 1, c₀ = 0.5 / (rms(K)·√N), Δt = 0.5, 1,000 step', refs: ['goto19', 'goto21'],
+    result: '최적 도달 29%, 83.1 / 84.2. 보조 스핀 처리는 원 논문 밖의 추론입니다.',
+  },
+  {
+    key: 'cpsat', name: 'CP-SAT 방식(분기한정)', family: '정확해(제약 프로그래밍)',
+    idea: '원-핫을 벌점이 아니라 "칸마다 실 하나, 실마다 칸 하나(AllDifferent)" 제약으로 직접 다룹니다. 칸을 차례로 채우며, 낙관적 하한이 지금 최고해보다 나쁘면 그 가지를 잘라 냅니다. OR-Tools CP-SAT는 브라우저에서 돌릴 수 없어 같은 발상으로 대체했습니다.',
+    steps: ['칸을 앞 띠 → 뒤 띠 순서로 하나씩 채웁니다. 각 칸에는 아직 안 쓴 실만 놓을 수 있습니다.', '하한 = 지금까지 에너지 + 남은 칸마다 가능한 최소 기여 + 남은 칸 쌍의 음수 결합 최솟값.', '하한 ≥ 최고해이면 가지를 자릅니다. 값 순서는 기여가 작은 실부터입니다.'],
+    params: '깊이 우선, 낙관적 하한 가지치기', refs: ['bucher'],
+    result: '최적 도달 100%, 84.8 / 84.8. 에너지가 같은 최적 배치가 여럿일 때 다른 배치를 먼저 찾아 평면 점수가 다릅니다.',
+  },
+  {
+    key: 'exact', name: '정확해(전수 열거)', family: '정확해',
+    idea: '원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 다 계산합니다. 벌점이 유효하므로(아래) 이것이 QUBO 전역 최적입니다. Gurobi·CP-SAT의 브라우저 안 대체이자, 다른 풀이기의 정답지입니다.',
+    steps: ['앞 띠 순열마다 앞 띠 에너지를 계산합니다.', '뒤 띠 순열마다 뒤 띠 에너지와 앞뒤 결합을 더합니다.', '가장 낮은 것부터 6개를 모읍니다. 300만 가지를 넘으면 건너뜁니다.'],
+    params: `이 예시: 앞 ${q.bands.front.slots}! × 뒤 ${q.bands.back.slots}!`, refs: ['bucher'],
+    result: '최적 도달 100%(정의상), 86.2 / 86.0',
+  },
+];
+const freedomRows = Object.entries(FREEDOM);
+---
+
+<Base title="방법과 근거 · 평면 생성 랩" description="판상형 생성 식, QUBO 정식화와 가중치 보정, 풀이기 11종의 알고리즘, 자유형 평면의 에너지를 근거 문헌과 함께 설명합니다.">
+  <Topbar current="method" />
+
+  <section class="hero hero-compact">
+    <p class="eyebrow">식 · QUBO · 알고리즘 · 근거</p>
+    <h1>방법과 <span class="gradient-text">근거</span></h1>
+    <p class="lede">이 사이트가 평면을 만드는 식, 실 배치를 QUBO로 바꾸는 방법, 그 QUBO를 푸는 알고리즘 11가지, 자유형 평면의 에너지를 차례로 설명합니다. 표의 가중치와 예시 QUBO는 빌드할 때 실제 코드로 계산한 값입니다.</p>
+  </section>
+
+  <main class="mt">
+    <nav class="mt-toc" aria-label="목차">
+      <ol>
+        <li><a href="#flow">전체 흐름</a></li>
+        <li><a href="#grammar">판상형 생성 식</a></li>
+        <li><a href="#qubo">QUBO 정식화</a></li>
+        <li><a href="#calib">가중치 보정</a></li>
+        <li><a href="#solvers">풀이기 11종</a></li>
+        <li><a href="#compare">공정한 비교</a></li>
+        <li><a href="#freeform">자유형 평면의 에너지</a></li>
+        <li><a href="#refs">참고문헌</a></li>
+      </ol>
+    </nav>
+
+    <section id="flow" class="mt-sec">
+      <h2>1. 전체 흐름</h2>
+      <ol class="mt-flow">
+        <li><b>조건</b><span>평수·방 개수·구성·선호</span></li>
+        <li><b>QUBO</b><span>어느 실이 어느 칸에</span></li>
+        <li><b>풀이기</b><span>11종 중 고른 것</span></li>
+        <li><b>평면으로 풀기</b><span>판상형 문법</span></li>
+        <li><b>연속값 다듬기</b><span>깊이·폭 30번</span></li>
+        <li><b>고르기</b><span>목적함수 J</span></li>
+      </ol>
+      <p>평면 전체를 한 번에 QUBO로 만들지 않습니다. 실 폭·깊이 같은 연속값과 공간구문 통합도 같은 경로 기반 지표는 이차식으로 쓸 수 없기 때문입니다. 그래서 <b>이산적인 결정(실의 순서와 위치)만 QUBO로 풀고</b>, 연속값은 그 해를 평면으로 풀어 낸 뒤 다듬으며, 마지막 선택은 평가 모델의 점수로 합니다. QUBO는 평가 모델의 대리(surrogate)이고, 대리가 원래 목적과 얼마나 맞는지는 따로 재야 합니다 <a class="mt-c" href={R.jin.u} target="_blank" rel="noopener">Jin 2011</a>.</p>
+    </section>
+
+    <section id="grammar" class="mt-sec">
+      <h2>2. 판상형 생성 식</h2>
+      <p>판상형 아파트 문법을 따릅니다. 앞(남측) 띠에 거실과 침실, 뒤 띠에 주방·현관·욕실·드레스룸을 두고, 안방 뒤에 부속실을 붙입니다. 평면은 매개변수 <var>D</var>(깊이 7.0~9.8m × (면적/84)<sup>0.3</sup>), <var>f</var>(앞 띠 비율 0.46~0.68), <var>w</var>(작은방 폭 2.5~3.6m), <var>g</var>(안방 깊이 비율 0.6~1)와 실 순서로 정해집니다. 폭 <var>W</var> = 전용면적 ÷ <var>D</var>입니다.</p>
+      <div class="mt-eq">w<sub>i</sub> = m<sub>i</sub> + (W − Σm) · max(0, d<sub>i</sub> − m<sub>i</sub>) / Σ<sub>j</sub> max(0, d<sub>j</sub> − m<sub>j</sub>)</div>
+      <p>띠의 폭은 <b>최소 폭 m<sub>i</sub>를 먼저 주고</b>(욕실 1.5, 현관 1.2, 침실 2.4, 안방 3.0, 거실 3.6m), 남는 폭을 원하는 폭 d<sub>i</sub>(= 면적 ÷ 깊이)의 초과분에 비례해 나눕니다. 그래서 어떤 실도 최소 폭보다 좁아지지 않습니다.</p>
+      <div class="mt-eq">J = 0.45·모델 점수 + 0.25·면적 부합 + 0.30·선호 점수 − 40·[무효] − 15·(좁은 실 + 문 동선 문제)</div>
+      <p>목적함수 J는 평가 모델(실제 아파트 35세대 분포와의 근접도), 목표 면적과의 차이(면적 부합 = max(0, 100 − 250 × 평균 상대오차)), 고른 선호의 점수를 합칩니다. 필수 실이 빠지거나 끊긴 평면은 40점, 최소 폭에 못 미치는 실이나 현관에서 문으로 갈 수 없는 실은 하나에 15점을 뺍니다.</p>
+    </section>
+
+    <section id="qubo" class="mt-sec">
+      <h2>3. QUBO 정식화</h2>
+      <h3>3.1 변수</h3>
+      <p>변수 <var>x</var><sub>r,s</sub> = 1이면 실 <var>r</var>이 칸 <var>s</var>에 갑니다. 앞 띠의 실(거실·안방·앞 작은방)은 앞 띠 칸에만, 뒤 띠의 실(주방·현관·공용욕실·다목적실·뒤 작은방)은 뒤 띠 칸에만 변수를 둡니다. 띠마다 실과 칸 수가 같으므로 이것은 두 개의 이차 배정 문제(QAP)를 붙인 형태입니다. 부부욕실과 드레스룸은 안방 뒤에 붙으므로 변수에서 뺍니다. 앞 띠 작은방 수가 다른 두 템플릿을 따로 풀고, 에너지는 같은 템플릿끼리만 비교합니다.</p>
+      <h3>3.2 에너지</h3>
+      <div class="mt-eq">E(x) = Σ<sub>t</sub> w<sub>t</sub> · φ<sub>t</sub>(x) + P · Σ<sub>g ∈ 묶음</sub> (Σ<sub>i∈g</sub> x<sub>i</sub> − 1)²</div>
+      <p>앞의 합은 배치의 좋고 나쁨(목적 항), 뒤의 합은 "실마다 칸 하나, 칸마다 실 하나"라는 원-핫 제약을 벌점으로 바꾼 것입니다 <a class="mt-c" href={R.lucas.u} target="_blank" rel="noopener">Lucas 2014</a> <a class="mt-c" href={R.glover19.u} target="_blank" rel="noopener">Glover 외 2019</a>. 이진 변수에서는 x² = x이므로 벌점을 펼치면 P(−Σx<sub>i</sub> + 2Σ<sub>a&lt;b</sub> x<sub>a</sub>x<sub>b</sub> + 1)이 되고, 대각에 −P, 같은 묶음의 변수 쌍에 +2P가 더해집니다. 에너지가 가중치 w<sub>t</sub>에 대해 선형이라는 점이 4절의 보정을 가능하게 합니다.</p>
+      <h3>3.3 목적 항</h3>
+      <p>앞뒤로 맞닿음은 칸의 겹침 비율로 셉니다. 앞 칸 <var>i</var>(폭 1/m)와 뒤 칸 <var>j</var>(폭 1/k)가 위아래로 겹치는 길이를 짧은 칸 폭으로 나눈 값 ov(i, j) ∈ [0, 1]이 이차 계수입니다. 옆 칸은 같은 띠에서 칸 번호가 1 차이일 때 1입니다. 일차 항은 위치 선호입니다(예: 거실이 가운데에서 떨어진 정도 |(s + 0.5)/S − 0.5|).</p>
+      <div class="mt-scroll">
+        <table class="gen-table mt-terms">
+          <thead><tr><th>항</th><th>형태</th><th>손 가중치</th><th>보정 가중치</th><th>선호 배수</th><th>처음 근거</th></tr></thead>
+          <tbody>
+            {termRows.map((t) => (
+              <tr>
+                <td>{t.label}</td>
+                <td>{t.shape}</td>
+                <td class="mono">{t.hand}</td>
+                <td class={`mono ${Math.sign(t.cal) !== Math.sign(t.hand) && t.hand !== 0 ? 'mt-flip' : ''}`}>{t.cal}</td>
+                <td>{t.pref ? `${t.pref[0]} ×${t.pref[1]}` : '—'}</td>
+                <td>{t.why}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="note">음수는 보상(그 배치를 원함), 양수는 감점입니다. 굵은 주황 숫자는 보정 뒤 부호가 바뀐 항입니다. 손 가중치 0인 네 항은 보정에서만 쓰는 후보입니다. 선호 배수는 사용자가 그 선호(예: 사생활)를 고르면 해당 항에 곱합니다.</p>
+
+      <h3>3.4 벌점 P를 정하는 방법</h3>
+      <div class="mt-eq">P = ⌈ 1 + max<sub>i</sub> ( |q<sub>ii</sub>| + Σ<sub>j</sub> |q<sub>ij</sub>| ) ⌉ &nbsp;(목적 항 계수만으로 계산)</div>
+      <p>벌점은 "한 변수를 뒤집어 목적 항에서 얻을 수 있는 최대 이득"보다 커야 제약을 어긴 해가 최적이 되지 않습니다 <a class="mt-c" href={R.lucas.u} target="_blank" rel="noopener">Lucas 2014</a>. 반대로 너무 크면 에너지 지형이 벌점에 눌려 풀이기가 좋은 해 사이를 잘 옮겨 다니지 못합니다. 순열 문제 QUBO에서는 이 조건을 겨우 넘는 작은 유효 벌점이 가장 좋았다는 실험 결과를 따라 최소값을 씁니다 <a class="mt-c" href={R.ayodele.u} target="_blank" rel="noopener">Ayodele 2022</a>. 이 덕분에 원-핫을 지키는 배정만 열거해도 QUBO 전역 최적을 얻을 수 있습니다(정확해 풀이기의 근거).</p>
+
+      <h3>3.5 예시: 84㎡ · 침실 3 · 욕실 2 · 드레스룸</h3>
+      <div class="gen-sumgrid mt-grid4">
+        <div><span class="gen-k">변수</span><b class="mono">{q.n}개</b></div>
+        <div><span class="gen-k">원-핫 묶음</span><b class="mono">{nGroups}개</b></div>
+        <div><span class="gen-k">벌점 P</span><b class="mono">{q.penalty}</b></div>
+        <div><span class="gen-k">최적 에너지</span><b class="mono">{ex.energy.toFixed(2)}</b></div>
+      </div>
+      <div class="mt-heat">
+        <figure><Fragment set:html={heatObj} /></figure>
+        <figure><Fragment set:html={heatPen} /></figure>
+      </div>
+      <p class="note">왼쪽은 목적 항(파랑 = 보상, 주황 = 감점), 오른쪽은 벌점 항입니다. 벌점은 같은 실의 다른 칸끼리, 같은 칸의 다른 실끼리 +2P를 주는 격자 무늬입니다. 색에 마우스를 올리면 변수 쌍과 값을 봅니다. 앞 띠 칸 {q.bands.front.slots}개, 뒤 띠 칸 {q.bands.back.slots}개.</p>
+      <p>정확해로 푼 최적 배치: <b>앞 띠</b> {order.front.map((k) => nameOf[k] ?? k).join(' → ')} · <b>뒤 띠</b> {order.back.map((k) => nameOf[k] ?? k).join(' → ')}.</p>
+      <h3>3.6 해를 평면으로 풀기</h3>
+      <p>풀이기가 낸 해는 띠별 실 순서로 바뀝니다. 원-핫을 어긴 해는 켜진 변수부터 빈 칸에 배정하고 남은 실을 남은 칸에 채우는 탐욕 복구를 합니다. 안방이 가운데 칸에 오면 부속실을 뒤에 붙일 수 없으므로 가까운 끝으로 옮깁니다. 그다음 판상형 문법으로 평면을 만들고, 깊이·폭 같은 연속값을 30번 다듬어 J가 가장 높은 안을 고릅니다.</p>
+    </section>
+
+    <section id="calib" class="mt-sec">
+      <h2>4. 가중치 보정: QUBO를 평가 모델에 맞추기</h2>
+      <p>처음 가중치는 평가 규칙과 문헌을 보고 손으로 정했습니다. 그런데 QUBO 최적 배치가 곧 평가 모델이 높게 보는 평면은 아니었습니다. 에너지가 가중치에 선형이므로(E = Σ w<sub>t</sub>φ<sub>t</sub>), 평가 모델 점수에 맞게 w를 다시 정했습니다.</p>
+      <ol>
+        <li><b>데이터</b>: 조건 {CALIBRATED.meta.specs}개(59~114㎡, 방 2~4개, 선호, 다목적실·발코니 유무) × 템플릿 2개에서 배치 {CALIBRATED.meta.samples.toLocaleString()}개를 열거·표본추출해 평면으로 풀고 점수를 쟀습니다.</li>
+        <li><b>비교한 방법</b>: 릿지 회귀(점수를 φ로 회귀)와, "에너지 최소 배치의 후회(그 조건 최고 점수와의 차)"를 직접 줄이는 무작위 국소 탐색.</li>
+        <li><b>검증</b>: 조건을 통째로 빼고 맞춘 뒤 빼 둔 조건에서 재는 5겹 교차검증.</li>
+      </ol>
+      <table class="gen-table">
+        <thead><tr><th>가중치</th><th>에너지–점수 상관 ρ</th><th>에너지 최소 배치의 점수 백분위</th><th>후회(0에 가까울수록 좋음)</th></tr></thead>
+        <tbody>
+          <tr><td>손</td><td class="mono">{cv.hand.rho.toFixed(3)}</td><td class="mono">{(cv.hand.topPct * 100).toFixed(1)}%</td><td class="mono">{cv.hand.regret.toFixed(1)}</td></tr>
+          <tr><td>릿지(λ = 100)</td><td class="mono">{cv.all['ridge λ=100'].rho.toFixed(3)}</td><td class="mono">{(cv.all['ridge λ=100'].topPct * 100).toFixed(1)}%</td><td class="mono">{cv.all['ridge λ=100'].regret.toFixed(1)}</td></tr>
+          <tr><td><b>직접(채택)</b></td><td class="mono">{cv.calibrated.rho.toFixed(3)}</td><td class="mono">{(cv.calibrated.topPct * 100).toFixed(1)}%</td><td class="mono"><b>{cv.calibrated.regret.toFixed(1)}</b></td></tr>
+        </tbody>
+      </table>
+      <p>릿지 회귀는 전체 순서(ρ)는 가장 잘 맞췄지만, 정작 에너지 최소 배치의 평면은 손 가중치보다 나빠졌습니다(후회 −19.3). 우리가 쓰는 것은 에너지 최소 배치 하나이므로, 그 배치의 품질을 직접 줄이는 방법을 골랐습니다. 보정 뒤 정확히 푸는 풀이기들의 평면 모델 점수가 약 3점 올라, 기존 직접 탐색(86.2)과 같은 수준이 됐습니다.</p>
+    </section>
+
+    <section id="solvers" class="mt-sec">
+      <h2>5. 풀이기 11종</h2>
+      <p>모든 풀이기는 같은 QUBO, 같은 시간 예산, 같은 시드로 돕니다. 한 변수 뒤집기의 에너지 변화는 공통으로 다음 식으로 계산하고, 뒤집은 뒤에는 모든 변수의 Δ를 O(n)으로 갱신합니다.</p>
+      <div class="mt-eq">Δ<sub>i</sub> = (1 − 2x<sub>i</sub>) · ( q<sub>ii</sub> + Σ<sub>j≠i</sub> q<sub>ij</sub> x<sub>j</sub> )</div>
+      <p class="note">결과는 30시드 × 4조건, 풀이기당 100ms를 평가 횟수로 고정한 실험의 보정 가중치 값입니다("최적 도달" = 정확해와 같은 에너지에 닿은 비율, 숫자 = 평면 모델 점수 / 순위 점수 중앙값). 전체 표와 검정은 근거 문서 10번.</p>
+      <div class="mt-cards">
+        {solvers.map((s) => (
+          <article class="mt-card" id={`s-${s.key}`}>
+            <header><h3>{s.name}</h3><span class="chip">{s.family}</span></header>
+            <p>{s.idea}</p>
+            <h4>이 구현의 절차</h4>
+            <ol>{s.steps.map((x) => <li>{x}</li>)}</ol>
+            <p class="mt-kv"><span>파라미터</span><span>{s.params}</span></p>
+            <p class="mt-kv"><span>이 문제에서</span><span>{s.result}</span></p>
+            <p class="mt-kv"><span>근거</span><span class="mt-refs-inline">{cite(s.refs).map((r) => <a class="mt-c" href={r.u} target="_blank" rel="noopener">{r.t}</a>)}</span></p>
+          </article>
+        ))}
+      </div>
+      <h3>왜 tabu 계열이 매번 최적에 닿나</h3>
+      <p>이 QUBO는 변수 {q.n}개 정도로 작고, 원-핫 구조라 한 변수 뒤집기만으로는 제약을 어기는 상태를 거쳐야 다른 배정으로 넘어갑니다. tabu는 방금 뒤집은 변수를 막아 같은 자리로 돌아오지 않게 하므로, 벌점 언덕을 넘는 짧은 경로를 체계적으로 찾습니다. 확률적 방법(SA·PT·SQA·SB)은 같은 시간 안에서 언덕을 넘을 확률이 낮아 도달률이 50% 안팎입니다. 이차 배정 문제에서 tabu와 SA의 우열은 인스턴스 크기에 따라 달라진다는 보고와도 맞습니다 <a class="mt-c" href={R.hussin.u} target="_blank" rel="noopener">Hussin & Stützle 2014</a>.</p>
+      <h3>같은 최적, 다른 평면</h3>
+      <p>에너지가 같은 최적 배치가 여럿일 수 있습니다(좌우 대칭 등). 분기한정과 열거는 탐색 순서상 서로 다른 배치를 먼저 내므로, 에너지는 같아도 평면 점수가 다를 수 있습니다. 그래서 풀이기마다 좋은 해를 최대 4개까지 평면으로 풀고 평가 모델로 다시 고릅니다.</p>
+    </section>
+
+    <section id="compare" class="mt-sec">
+      <h2>6. 공정한 비교 방법</h2>
+      <ul>
+        <li><b>같은 예산</b>: 풀이기마다 같은 시간 한도와 같은 시드를 줍니다 <a class="mt-c" href={R.dunning.u} target="_blank" rel="noopener">Dunning 외 2018</a>. 실험에서는 시간을 평가 횟수로 바꿔 고정해, 같은 시드면 결과가 똑같이 재현됩니다.</li>
+        <li><b>두 단계로 보고</b>: QUBO 에너지(최적 도달 여부)와 평면 점수를 함께 보이고 둘의 상관을 냅니다. QUBO는 대리이므로 에너지 최적이 곧 최고 평면은 아닙니다.</li>
+        <li><b>속도는 TTS₉₉</b>: 99% 확률로 최적에 닿는 데 필요한 시간(한 번 실행의 성공 확률 p와 시간 t로 t · ln(0.01)/ln(1 − p))으로 비교합니다 <a class="mt-c" href={R.ronnow.u} target="_blank" rel="noopener">Rønnow 외 2014</a>.</li>
+        <li><b>통계</b>: 조건·시드 짝지은 Friedman 검정과 Holm 보정 Wilcoxon <a class="mt-c" href={R.derrac.u} target="_blank" rel="noopener">Derrac 외 2011</a>. 화면의 한 번 실행에는 "n = 1, 통계적 비교 불가"라고 적고 우승을 표시하지 않습니다.</li>
+        <li><b>정확해 솔버</b>: Gurobi·CP-SAT에는 벌점형 대신 원-핫을 등식 제약으로 준 정식화도 함께 씁니다 <a class="mt-c" href={R.bucher.u} target="_blank" rel="noopener">Bucher 외 2024</a>. 내보낸 QUBO를 Python에서 D-Wave SA·Tabu와 CP-SAT로 풀어 브라우저 정확해와 같은 최적 에너지를 확인했습니다.</li>
+        <li><b>양자 결과 아님</b>: SA·SQA는 D-Wave QPU 실행 전의 임시 대체입니다. QPU 결과는 아직 없습니다.</li>
+      </ul>
+    </section>
+
+    <section id="freeform" class="mt-sec">
+      <h2>7. 자유형 평면의 에너지</h2>
+      <p>자유형 평면은 QUBO가 아니라 격자 배정 + 담금질로 만듭니다. 실이 ㄱ자·ㄷ자 같은 모양이 되려면 실이 "연결된 칸 묶음"이어야 하는데, 연결성은 이차식으로 쓰기 어렵기 때문입니다. 세대를 {CELL}m 칸으로 나누고, 처음에는 직사각형으로 키우다 막히면 ㄱ자로 넓히는 제약 성장으로 나눕니다 <a class="mt-c" href={R.lopes.u} target="_blank" rel="noopener">Lopes 외 2010</a>. 그다음 아래 에너지를 담금질로 줄입니다 <a class="mt-c" href={R.kirk.u} target="_blank" rel="noopener">Kirkpatrick 외 1983</a>.</p>
+      <div class="mt-eq">E = {WEIGHTS.area}·Σ((n<sub>r</sub> − t<sub>r</sub>)/t<sub>r</sub>)² + w<sub>P</sub>·Σ(둘레<sub>r</sub>/(4√n<sub>r</sub>) − 1) + {WEIGHTS.corner}·Σmax(0, 꼭짓점<sub>r</sub> − K) + {WEIGHTS.thin}·Σ(좁은 칸<sub>r</sub>/n<sub>r</sub>) + {WEIGHTS.adj}·인접 미달 + {WEIGHTS.window}·창 부족 + {WEIGHTS.access}·접근 불가 + {WEIGHTS.through}·침실 통과 + {WEIGHTS.entry}·현관 + {WEIGHTS.outline}·외곽 꼭짓점</div>
+      <table class="gen-table">
+        <thead><tr><th>항</th><th>뜻</th><th>왜</th></tr></thead>
+        <tbody>
+          <tr><td>면적</td><td>목표 칸 수 t<sub>r</sub>(기준 세대 면적 비율)에서 벗어난 비율의 제곱</td><td>큰 실·작은 실을 같은 무게로 보려고 비율로 잽니다</td></tr>
+          <tr><td>둘레</td><td>같은 면적 정사각형 대비 둘레 초과분</td><td>쓸모없이 구불구불한 실을 막습니다</td></tr>
+          <tr><td>꼭짓점</td><td>상한 K를 넘은 꼭짓점 수(2×2 칸 창으로 셈)</td><td>모양 자유도를 직접 조절합니다</td></tr>
+          <tr><td>좁은 부분</td><td>가로·세로 연속 길이 중 짧은 쪽이 최소 폭({Object.entries(MIN_WIDTH).map(([k, v]) => `${k} ${v}`).join(', ')}m)보다 좁은 칸</td><td>ㄱ자 팔이 가구를 못 놓을 만큼 가늘어지지 않게</td></tr>
+          <tr><td>인접</td><td>원본에서 문이 필요했던 실 쌍(공용 실과 닿는 쌍, 드레스룸·욕실–침실)이 0.9m 미만으로 맞닿음</td><td>기준 세대의 동선 구조를 지킵니다</td></tr>
+          <tr><td>창</td><td>거실·침실의 바깥(발코니 포함) 벽이 2.0m보다 짧은 만큼</td><td>채광·환기 창을 낼 자리</td></tr>
+          <tr><td>접근 · 침실 통과</td><td>현관에서 문 폭 이상 맞닿은 실을 따라 갈 수 없는 실 / 공용 실에 닿지 않아 침실을 지나야 하는 실</td><td>도달 불가는 크게, 침실 통과는 작게 벌합니다</td></tr>
+          <tr><td>현관 · 외곽</td><td>새 외곽에서 현관이 바깥에 0.9m 이상 닿지 않음 / 외곽도 다듬을 때 외곽 꼭짓점이 상한을 넘음</td><td>복도 쪽 현관문, 지나치게 들쭉날쭉한 외곽 방지</td></tr>
+        </tbody>
+      </table>
+      <table class="gen-table">
+        <thead><tr><th>모양 자유도</th><th>실 꼭짓점 상한 K</th><th>둘레 무게 w<sub>P</sub></th><th>외곽 꼭짓점 상한</th></tr></thead>
+        <tbody>{freedomRows.map(([k, f]) => <tr><td>{f.label}</td><td class="mono">{f.K}</td><td class="mono">{f.compact}</td><td class="mono">{f.Kout}</td></tr>)}</tbody>
+      </table>
+      <p><b>이동</b>: 80%는 두 실이 맞닿은 벽 한 줄을 통째로 한 칸 미는 "벽 밀기", 20%는 칸 하나를 이웃 실로 넘기기입니다. 칸 하나만 옮기면 거의 매번 꼭짓점이 2개 늘어 에너지가 올라가므로(실측: 이동 282개 중 좋아지는 것 10개), 직사각형을 직사각형으로 유지한 채 크기를 바꾸는 벽 밀기를 주 이동으로 씁니다. 실이 둘로 쪼개지는 이동은 하지 않습니다. 외곽도 다듬을 때는 이동의 25%를 바깥 벽 칸 붙이기·떼기로 쓰며, 바깥에 갇힌 구멍이 생기거나 발코니에 붙은 벽이 움직이는 이동은 하지 않습니다. 온도는 1.5 → 0.005로 기하적으로 내립니다.</p>
+    </section>
+
+    <section id="refs" class="mt-sec">
+      <h2>8. 참고문헌</h2>
+      <ol class="mt-refs">
+        {Object.values(R).map((r) => <li><a href={r.u} target="_blank" rel="noopener">{r.t}</a></li>)}
+      </ol>
+      <p class="note">전체 서지와 Crossref 대조는 저장소의 evidence/07-참고-문헌.md(20~52번). 소프트웨어: D-Wave dwave-samplers(SimulatedAnnealingSampler·TabuSampler·PathIntegralAnnealingSampler), OR-Tools CP-SAT, Gurobi.</p>
+      <p class="note">한계: 주거 평면을 QUBO로 정식화한 동료 심사 논문은 찾지 못했습니다(가장 가까운 것은 공장 배치). 그래서 항과 가중치는 설계 가정이며, 평가 모델에 맞춰 보정한 뒤에도 기존 직접 탐색이 순위 점수에서 조금 앞섭니다. 풀이기는 원 논문 기본값으로 돌렸고 같은 절차로 튜닝하지 않았습니다.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>평면 생성 랩 · 방법과 근거</span>
+    <span>표와 예시는 빌드 때 실제 코드로 계산</span>
+  </footer>
+</Base>
