@@ -1,7 +1,7 @@
 ---
 
 interface Props {
-  current: 'generate' | 'freeform' | 'how' | 'method';
+  current: 'generate' | 'freeform' | 'how' | 'method' | 'code';
 }
 const { current } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -17,5 +17,6 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <a href={`${base}freeform/`} aria-current={current === 'freeform' ? 'page' : undefined}>자유형 평면</a>
     <a href={`${base}how/`} aria-current={current === 'how' ? 'page' : undefined}>생성 원리</a>
     <a href={`${base}method/`} aria-current={current === 'method' ? 'page' : undefined}>방법과 근거</a>
+    <a href={`${base}code/`} aria-current={current === 'code' ? 'page' : undefined}>코드로 보기</a>
   </nav>
 </header>

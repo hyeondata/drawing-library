@@ -3545,3 +3545,89 @@ table.plain td.num {
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ---- 코드로 보기 ---- */
+.cd-what {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.cd-code summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+}
+.cd-file {
+  margin: 8px 0 0;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-family: ui-monospace, monospace;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: 8px 8px 0 0;
+}
+.cd-pre {
+  margin: 0 0 10px;
+  padding: 10px 0;
+  max-height: 520px;
+  overflow: auto;
+  background: var(--surface-2);
+  border-radius: 0 0 8px 8px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.cd-pre code {
+  display: block;
+  white-space: pre;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  color: var(--text-primary);
+}
+.cd-ln {
+  display: inline-block;
+  width: 44px;
+  padding-right: 10px;
+  text-align: right;
+  color: var(--text-muted);
+  opacity: 0.6;
+  user-select: none;
+}
+.cd-cm {
+  color: #0b7a5a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .cd-cm {
+    color: #5ccfa6;
+  }
+}
+:root[data-theme='dark'] .cd-cm {
+  color: #5ccfa6;
+}
+.cd-run {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+.cd-run-ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font-size: 13px;
+}
+.cd-run-ctl input {
+  width: 70px;
+}
+.cd-trace {
+  font-size: 12.5px;
+  min-width: 600px;
+}
+.cd-trace th,
+.cd-trace td {
+  text-align: left !important;
+}
+.cd-terms {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}

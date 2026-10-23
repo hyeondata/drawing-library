@@ -1,0 +1,172 @@
+---
+// 코드로 보기: 알고리즘마다 실제 소스 코드(빌드 때 파일에서 함수를 그대로 잘라 옴)와 설명을 붙이고,
+// 브라우저에서 같은 예시 입력으로 실제로 실행해 계산 과정을 보여 준다. 코드를 고치면 이 페이지도 같이 바뀐다.
+import Base from '../layouts/Base.astro';
+import Topbar from '../components/Topbar.astro';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const root = process.cwd();
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+/** 파일에서 함수 하나(바로 위 주석 포함)를 잘라 온다. 문자열·템플릿·주석 안의 괄호는 건너뛴다. */
+function extract(file, name) {
+  const src = fs.readFileSync(path.join(root, file), 'utf8');
+  const m = new RegExp(`(^|\\n)((?:export )?(?:async )?function ${name}\\s*\\()`).exec(src);
+  if (!m) return { code: `// ${name}를 찾지 못함`, line: 0, file };
+  let start = m.index + m[1].length;
+  // 바로 위의 주석 블록(/** */ 또는 // 줄들)
+  const before = src.slice(0, start);
+  const cm = /(\/\*\*(?:(?!\*\/)[\s\S])*\*\/\s*|(?:[ \t]*\/\/[^\n]*\n)+)$/.exec(before);
+  if (cm) start -= cm[0].length;
+  // 매개변수 괄호를 지나 본문 시작 {
+  let i = m.index + m[0].length - 1;
+  let depth = 0;
+  for (; i < src.length; i++) {
+    if (src[i] === '(') depth++;
+    else if (src[i] === ')' && --depth === 0) break;
+  }
+  while (src[i] !== '{') i++;
+  // 본문 괄호 짝 맞추기
+  depth = 0;
+  const stack = []; // 템플릿 안의 ${ } 깊이
+  for (; i < src.length; i++) {
+    const c = src[i];
+    const n2 = src[i + 1];
+    if (c === '/' && n2 === '/') {
+      i = src.indexOf('\n', i);
+      continue;
+    }
+    if (c === '/' && n2 === '*') {
+      i = src.indexOf('*/', i) + 1;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      for (i++; i < src.length && src[i] !== c; i++) if (src[i] === '\\') i++;
+      continue;
+    }
+    if (c === '`') {
+      for (i++; i < src.length && src[i] !== '`'; i++) {
+        if (src[i] === '\\') i++;
+        else if (src[i] === '$' && src[i + 1] === '{') {
+          // 템플릿 안 표현식: 짝 맞는 }까지
+          let d = 0;
+          for (i += 1; i < src.length; i++) {
+            if (src[i] === '{') d++;
+            else if (src[i] === '}' && --d === 0) break;
+          }
+        }
+      }
+      continue;
+    }
+    if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) break;
+  }
+  const code = src.slice(start, i + 1);
+  const line = src.slice(0, start).split('\n').length;
+  return { code, line, file };
+}
+/** 줄 번호 + 주석 색. */
+function render({ code, line, file }) {
+  const lines = code.split('\n');
+  const body = lines
+    .map((ln, k) => {
+      const ci = ln.indexOf('//');
+      const inStr = ci >= 0 && /['"`]/.test(ln.slice(0, ci)) && (ln.slice(0, ci).split(/['"`]/).length - 1) % 2 === 1;
+      const html = ci >= 0 && !inStr ? `${esc(ln.slice(0, ci))}<span class="cd-cm">${esc(ln.slice(ci))}</span>` : /^\s*(\/\*|\*)/.test(ln) ? `<span class="cd-cm">${esc(ln)}</span>` : esc(ln);
+      return `<span class="cd-ln">${line + k}</span>${html}`;
+    })
+    .join('\n');
+  return `<div class="cd-file">${esc(file)} · ${line}~${line + lines.length - 1}행</div><pre class="cd-pre"><code>${body}</code></pre>`;
+}
+const show = (file, ...names) => names.map((n) => render(extract(file, n))).join('');
+
+const S = 'src/generate/solvers.js';
+const Q = 'src/generate/qubo.js';
+const F = 'src/freeform/engine.js';
+const sections = [
+  {
+    id: 'qubo', title: '0. QUBO 만들기와 에너지', run: null,
+    what: [
+      '<b>buildQubo</b>: (실, 칸) 변수를 만들고, 항(TERMS)마다 단위 기여 φ를 모은 뒤 가중치를 곱해 대각(diag)·결합(M) 행렬에 더합니다. 마지막에 원-핫 벌점 P(Σx − 1)²을 펼쳐 대각 −P, 같은 묶음 쌍 +2P로 넣습니다.',
+      '벌점 P = ⌈1 + 한 변수가 받는 목적 계수 절댓값 합의 최댓값⌉ — 이보다 작으면 제약을 어긴 해가 최적이 될 수 있습니다(Lucas 2014; Ayodele 2022).',
+      '<b>energy</b>: E(x) = offset + Σ diag·x + Σ_{i<j} M_ij x_i x_j. <b>decode</b>: 해를 띠별 실 순서로 바꾸고, 원-핫을 어긴 해는 탐욕 복구합니다.',
+    ],
+    code: show(Q, 'buildQubo', 'energy', 'decode'),
+  },
+  {
+    id: 'common', title: '1. 모든 풀이기의 공통 계산: Δ와 뒤집기', run: null,
+    what: [
+      '<b>deltas</b>: 변수 i를 뒤집을 때의 에너지 변화 Δ_i = (1 − 2x_i)(q_ii + Σ_j q_ij x_j)를 모든 변수에 대해 한 번 계산합니다(O(n²)).',
+      '<b>flip</b>: i를 뒤집은 뒤 다른 변수의 Δ_j를 q_ij만큼만 고칩니다(O(n)). 그래서 한 걸음마다 에너지를 처음부터 다시 계산하지 않습니다.',
+      '<b>tabu</b>: D²TS·PR·Memetic·Tabu가 함께 쓰는 핵심. 허용된 변수 가운데 Δ가 가장 작은 것을 뒤집고 tenure 동안 막습니다. 최고해보다 좋아지면 막혀 있어도 허용(aspiration), 개선 없이 alpha번이면 멈춥니다.',
+    ],
+    code: show(S, 'deltas', 'flip', 'tabu'),
+  },
+  { id: 'd2ts', title: '2. D²TS', run: 'd2ts', what: ['tabu로 깊이 내려간 뒤, 엘리트 해에서 <b>빈도(freq)와 난수로 순위를 매겨</b> 순위 j를 확률 ∝ j^−1.2로 γ = n/4개 뽑아 뒤집습니다(다양화). 다시 tabu → 반복(Glover, Lü & Hao 2010).'], code: show(S, 'd2ts') },
+  { id: 'pr', title: '3. Path Relinking', run: 'pr', what: ['참조 집합 10개를 tabu로 만들고, 두 해 사이 다른 비트를 Δ가 작은 것부터 맞춰 가다 1/3~2/3 지점에서 tabu로 다듬어 참조 집합을 갱신합니다(Wang 외 2012).'], code: show(S, 'pathRelinking') },
+  { id: 'memetic', title: '4. Memetic', run: 'memetic', what: ['개체 20개, 균등 교차(같은 비트는 유지, 다른 비트는 반반), 자식을 tabu로 다듬어 나쁜 개체와 바꿉니다(Lü, Glover & Hao 2010).'], code: show(S, 'memetic') },
+  { id: 'tabu', title: '5. Tabu (D-Wave 방식)', run: 'tabu', what: ['tenure = min(20, ⌊n/4⌋), 읽기마다 무작위 해 또는 최고해에서 출발해 20ms씩 tabu(Palubeckis 2004 MST2).'], code: show(S, 'dwaveTabu') },
+  { id: 'sa', title: '6. SA (QPU 임시 대체)', run: 'sa', what: ['<b>betaRange</b>: β₀ = ln2/최대 변화량, β₁ = ln100/최소 계수(D-Wave 기본 규칙).', '<b>sa</b>: 1,000 sweep 동안 β를 기하적으로 올리며, Δ ≤ 0이면 뒤집고 아니면 확률 e^(−βΔ)로 뒤집습니다(Kirkpatrick 외 1983). 양자 결과가 아닙니다.'], code: show(S, 'betaRange', 'sa') },
+  { id: 'pt', title: '7. Parallel Tempering', run: 'pt', what: ['β 사다리 8개 사본을 각자 메트로폴리스로 돌리고, 이웃 사본을 확률 min(1, e^((β_k−β_{k+1})(E_k−E_{k+1})))로 교환합니다(Hukushima & Nemoto 1996).'], code: show(S, 'parallelTempering') },
+  { id: 'sqa', title: '8. SQA (경로적분 양자 몬테카를로)', run: 'sqa', what: ['QUBO → 이징(J = M/4, h = q_ii/2 + ΣM/4), Trotter 사본 16개를 B = −½ ln tanh(Γ/PT)로 묶고 Γ를 2.5 → 0.01로 줄입니다(Santoro 외 2002). 고전 컴퓨터의 대리입니다.'], code: show(S, 'sqa') },
+  { id: 'sb', title: '9. Simulated Bifurcation (dSB)', run: 'sb', what: ['스핀을 위치 x·운동량 y로 바꿔 y += (−(1−a)x + c₀ΣK sgn(x))Δt, x += yΔt, |x| > 1이면 벽. a를 0 → 1로 올린 뒤 sgn(x)를 해로 읽습니다(Goto 외 2021). 일차 항은 +1 보조 스핀.'], code: show(S, 'simulatedBifurcation') },
+  { id: 'cpsat', title: '10. CP-SAT 방식(분기한정)', run: 'cpsat', what: ['칸을 차례로 채우며 실마다 한 번만(AllDifferent), 하한 = 지금 에너지 + 남은 칸의 최소 기여 + 남은 칸 쌍의 음수 결합. 하한 ≥ 최고해면 가지를 자릅니다.'], code: show(S, 'cpBranchAndBound') },
+  { id: 'exact', title: '11. 정확해(열거)', run: 'exact', what: ['원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 계산합니다. 벌점이 유효하므로 QUBO 전역 최적 = 다른 풀이기의 정답지.'], code: show(S, 'exact') },
+  { id: 'runner', title: '12. 같은 조건으로 돌리는 틀: runSolver', run: null, what: ['모든 풀이기에 같은 시간(또는 평가 횟수) 예산과 시드를 주고, 최저 에너지가 바뀔 때마다 [경과 ms, 평가 횟수, 에너지, 해]를 trace에 남깁니다. 이 페이지의 "실행" 표가 이 trace입니다(Dunning 외 2018의 같은 예산 비교).'], code: show(S, 'runSolver') },
+  { id: 'size', title: '13. 방 크기 계산: 폭 나누기와 다듬기', run: null, what: ['<b>allocate</b>: 최소 폭을 먼저 주고 남는 폭을 (원하는 폭 − 최소 폭)에 비례해 나눕니다. 띠 폭이 최소 폭 합보다 좁으면 최소 폭에 비례해 모두 줄입니다(이때 좁은 실 감점).', '<b>realize</b>: QUBO가 정한 순서로 평면을 만들고, 깊이·앞 띠 비율·작은방 폭·안방 깊이를 30번 조금씩 바꿔 목적함수 J가 가장 높은 것을 고릅니다.'], code: show('src/generate/layout.js', 'allocate') + show('src/generate/compare.js', 'realize') },
+  { id: 'ff-init', title: '14. 자유형: 제약 성장(처음 배치)', run: null, what: ['씨앗을 원래 위치에서 jitter만큼 옮겨 놓고(공용 실은 덜), 모자란 실부터 직사각형으로 한 줄씩 → 막히면 줄 일부로 ㄱ자 성장 → 남은 칸은 가장 많이 맞닿은 이웃에(Lopes 외 2010).'], code: show(F, 'initial') },
+  { id: 'ff-energy', title: '15. 자유형: 에너지와 공간구문', run: null, what: ['<b>energy</b>: 면적·둘레·꼭짓점·좁은 부분·인접·창·접근·침실 통과(·현관·외곽·공간구문) 항을 무게와 곱해 더합니다.', '<b>syntaxOf</b>: 평가 모델과 같은 정의로 통합도(1/RRA)·깊이를 계산하고 거실/침실 비·τ·공·사 깊이 차를 냅니다.'], code: show(F, 'energy', 'syntaxOf', 'syntaxPenalty') },
+  { id: 'ff-anneal', title: '16. 자유형: 담금질(벽 밀기)', run: 'freeform', what: ['80%는 맞닿은 벽 한 줄을 통째로 한 칸 미는 이동, 20%는 칸 하나. 실이 쪼개지면 되돌리고, 바뀐 실만 다시 세어 ΔE를 구한 뒤 ΔE ≤ 0이면 받아들이고 아니면 확률 e^(−ΔE/T). 온도 1.5 → 0.005(Kirkpatrick 외 1983).'], code: show(F, 'anneal') },
+];
+---
+
+<Base title="코드로 보기 · 평면 생성 랩" description="알고리즘마다 실제 소스 코드와 주석, 설명을 보여 주고 브라우저에서 같은 예시로 실행해 계산 과정을 확인합니다.">
+  <Topbar current="code" />
+
+  <section class="hero hero-compact">
+    <p class="eyebrow">실제 코드 · 주석 · 실행</p>
+    <h1>코드로 <span class="gradient-text">보기</span></h1>
+    <p class="lede">알고리즘마다 <b>사이트가 실제로 쓰는 코드</b>를 그대로 보여 줍니다(빌드할 때 소스 파일에서 함수를 잘라 오므로, 코드가 바뀌면 이 페이지도 같이 바뀝니다). 각 코드 아래 "실행"을 누르면 같은 예시 입력(84㎡ · 침실 3 · 욕실 2 · 드레스룸, 보정 가중치 QUBO)으로 브라우저에서 실제로 돌려, 에너지가 좋아질 때마다의 값을 표로 보여 줍니다. 식의 유도와 근거는 <a href={`${base}method/`}>방법과 근거</a>, 전체 흐름은 <a href={`${base}how/`}>생성 원리</a>에 있습니다.</p>
+  </section>
+
+  <main class="mt">
+    <nav class="mt-toc" aria-label="목차">
+      <ol>{sections.map((s) => <li><a href={`#${s.id}`}>{s.title.replace(/^\d+\.\s*/, '')}</a></li>)}</ol>
+    </nav>
+    <section class="mt-sec" id="cd-input">
+      <h2>예시 입력</h2>
+      <div id="cd-qinfo" class="note">QUBO를 만드는 중…</div>
+    </section>
+    {sections.map((s) => (
+      <section class="mt-sec" id={s.id}>
+        <h2>{s.title}</h2>
+        <ul class="cd-what">{s.what.map((w) => <li set:html={w} />)}</ul>
+        <details class="cd-code" open={s.id === 'common' || s.id === 'd2ts'}>
+          <summary>실제 코드 보기</summary>
+          <Fragment set:html={s.code} />
+        </details>
+        {s.run && (
+          <div class="cd-run" data-run={s.run}>
+            <div class="cd-run-ctl">
+              <button type="button" class="button-primary small" data-go={s.run}>▶ 이 예시로 실행</button>
+              <label>평가 횟수 예산 <select data-budget><option value="2000">2,000</option><option value="20000" selected>20,000</option><option value="100000">100,000</option></select></label>
+              <label>시드 <input type="number" value="1" min="1" max="999" data-seed /></label>
+            </div>
+            <div class="cd-out" data-out></div>
+          </div>
+        )}
+      </section>
+    ))}
+  </main>
+
+  <footer class="footer">
+    <span>평면 생성 랩 · 코드로 보기</span>
+    <span>코드는 빌드 때 소스에서 그대로 가져옴</span>
+  </footer>
+  <script id="cd-data" type="application/json" set:html={JSON.stringify({ base })} />
+  <script>
+    import '../scripts/code.js';
+  </script>
+</Base>
