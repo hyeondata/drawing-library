@@ -1,5 +1,6 @@
 // 자유형 평면 페이지: 기준 세대 고르기 → 조건 → 생성(워커) → 결과·계산 과정·식·비교·내려받기
-import { FREEDOM, WEIGHTS, roomPolygons, setup } from '../freeform/engine.js';
+import { CELL, FREEDOM, WEIGHTS, buildProblem, roomPolygons, transformUnit } from '../freeform/engine.js';
+import { TEMPLATES, maskConnected, maskFromUnit, maskSvg, templateMask, trim } from '../freeform/outline.js';
 import { planSvg, roomNames, unitSvg } from '../freeform/render.js';
 import { AIHUB_CATEGORIES } from '../generate/aihub.js';
 
@@ -8,7 +9,23 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const { base } = JSON.parse($('#ff-data').textContent);
 const OUTDOOR = new Set(['발코니', '실외기실']);
 
-const st = { units: [], filter: 'all', unit: null, freedom: 'L', cands: [], current: 0, view: 'full', P: null, snap: null, playing: null, worker: null };
+const st = {
+  units: [],
+  filter: 'all',
+  unit: null,
+  freedom: 'L',
+  cands: [],
+  current: 0,
+  view: 'full',
+  P: null,
+  playing: null,
+  worker: null,
+  omode: 'orig',
+  tf: { rot: 0, flipX: false, flipY: false, aspect: 1 },
+  tpl: 'L',
+  draw: { gx: 40, gy: 30, cells: new Uint8Array(40 * 30) },
+};
+const DG = 2; // 그리기 한 칸 = 계산 칸 2×2 = 0.6m
 
 const pressed = (group, attr, v) => group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset[attr] === v)));
 const interiorOf = (u) => u.rooms.filter((r) => !OUTDOOR.has(r.type)).reduce((s, r) => s + r.area, 0);
@@ -40,7 +57,11 @@ function choose(id) {
   renderGallery();
   const u = st.unit;
   $('#ff-area').value = Math.round(interiorOf(u));
-  $('#ff-orig').innerHTML = `${unitSvg(u, { title: `기준 세대 ${u.id} (원본 라벨)` })}<figcaption class="note">주황 테두리 = 사각형이 아닌 실. 원본 라벨의 다각형 그대로입니다.</figcaption>`;
+  st.tf = { rot: 0, flipX: false, flipY: false, aspect: 1 };
+  $('#ff-asp').value = '1';
+  $('#ff-asp-v').textContent = '1.00';
+  loadDrawFromUnit();
+  renderOutline();
   const rows = u.rooms
     .filter((r) => !OUTDOOR.has(r.type) && r.area >= 1.5)
     .sort((a, b) => b.area - a.area)
@@ -55,6 +76,119 @@ function choose(id) {
   $('#ff-setup').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+// ---------- 세대 외곽 ----------
+const OMODE = { orig: '원본', tf: '원본 변형', tpl: '모양 고르기', draw: '직접 그리기' };
+
+function outlineSpec() {
+  const area = Number($('#ff-area').value) || interiorOf(st.unit);
+  const extra = { balcony: $('#ff-balcony').checked, outdoorUnit: $('#ff-outunit').checked };
+  if (st.omode === 'orig') return { mode: 'orig' };
+  if (st.omode === 'tf') return { mode: 'orig', tf: { ...st.tf } };
+  if (st.omode === 'tpl') return { mode: 'mask', mask: templateMask(st.tpl, area, { aspect: Number($('#ff-taspect').value), cut: Number($('#ff-tcut').value) }), ...extra };
+  const m = drawMask();
+  if (!m.n || !maskConnected(m) || m.n * CELL * CELL < 30) {
+    $('#ff-progress').hidden = false;
+    $('#ff-progress-text').textContent = '그린 외곽이 한 덩어리가 아니거나 30㎡보다 작습니다.';
+    return null;
+  }
+  return { mode: 'mask', mask: m, ...extra };
+}
+
+function drawMask() {
+  const { gx, gy, cells } = st.draw;
+  const nx = gx * DG;
+  const ny = gy * DG;
+  const fine = new Uint8Array(nx * ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) fine[j * nx + i] = cells[Math.floor(j / DG) * gx + Math.floor(i / DG)];
+  return trim({ nx, ny, cells: fine });
+}
+
+function loadDrawFromUnit() {
+  const area = Number($('#ff-area').value) || interiorOf(st.unit);
+  const m = maskFromUnit(st.unit, area);
+  const { gx, gy } = st.draw;
+  const cells = new Uint8Array(gx * gy);
+  const cx = Math.ceil(m.nx / DG);
+  const cy = Math.ceil(m.ny / DG);
+  const ox = Math.max(0, Math.floor((gx - cx) / 2));
+  const oy = Math.max(0, Math.floor((gy - cy) / 2));
+  for (let j = 0; j < cy && j + oy < gy; j++)
+    for (let i = 0; i < cx && i + ox < gx; i++) {
+      let on = 0;
+      for (let dj = 0; dj < DG; dj++) for (let di = 0; di < DG; di++) on += m.cells[(j * DG + dj) * m.nx + i * DG + di] || 0;
+      if (on >= 2) cells[(j + oy) * gx + i + ox] = 1;
+    }
+  st.draw.cells = cells;
+}
+
+function editorSvg() {
+  const { gx, gy, cells } = st.draw;
+  const S = 18;
+  const parts = [`<rect width="${gx * S}" height="${gy * S}" fill="#fff"/>`];
+  for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++) parts.push(`<rect x="${i * S + 0.5}" y="${j * S + 0.5}" width="${S - 1}" height="${S - 1}" fill="${cells[j * gx + i] ? '#f0c987' : '#f3f3f0'}"/>`);
+  parts.push(`<text x="${(gx * S) / 2}" y="${gy * S - 6}" text-anchor="middle" font-size="12" fill="#e8590c">▼ 앞(발코니 쪽)</text>`);
+  return `<svg viewBox="0 0 ${gx * S} ${gy * S}" class="ff-editor" id="ff-editor" role="img" aria-label="외곽 그리기 격자(한 칸 0.6m)">${parts.join('')}</svg>`;
+}
+
+function renderOutline() {
+  const u = st.unit;
+  if (!u) return;
+  pressed($('#ff-omode'), 'v', st.omode);
+  $('#ff-o-tf').hidden = st.omode !== 'tf';
+  $('#ff-o-tpl').hidden = st.omode !== 'tpl';
+  $('#ff-o-draw').hidden = st.omode !== 'draw';
+  $('#ff-o-out').hidden = st.omode === 'orig' || st.omode === 'tf';
+  $('#ff-area-wrap').hidden = st.omode === 'draw';
+  const fig = $('#ff-orig');
+  if (st.omode === 'orig') fig.innerHTML = `${unitSvg(u, { title: `기준 세대 ${u.id} (원본 라벨)` })}<figcaption class="note">주황 테두리 = 사각형이 아닌 실. 원본 라벨의 다각형 그대로입니다.</figcaption>`;
+  else if (st.omode === 'tf') fig.innerHTML = `${unitSvg(transformUnit(u, st.tf), { title: `원본 변형(회전 ${st.tf.rot * 90}°${st.tf.flipX ? ', 좌우' : ''}${st.tf.flipY ? ', 상하' : ''}, 비율 ${st.tf.aspect.toFixed(2)})` })}<figcaption class="note">원본 실 배치·현관·발코니를 함께 변형합니다.</figcaption>`;
+  else if (st.omode === 'tpl') {
+    const area = Number($('#ff-area').value) || interiorOf(u);
+    const m = templateMask(st.tpl, area, { aspect: Number($('#ff-taspect').value), cut: Number($('#ff-tcut').value) });
+    fig.innerHTML = `${maskSvg(m, { title: `${TEMPLATES[st.tpl].label} 외곽`, balcony: $('#ff-balcony').checked })}<figcaption class="note">실 구성·면적 비율·인접은 기준 세대 ${esc(u.id)}에서 가져옵니다.</figcaption>`;
+  } else {
+    fig.innerHTML = `${editorSvg()}<figcaption class="note">한 칸 0.6m × 0.6m. 실 구성은 기준 세대 ${esc(u.id)}에서 가져옵니다.</figcaption>`;
+    const m = drawMask();
+    const ok = m.n && maskConnected(m);
+    $('#ff-darea').innerHTML = `그린 면적 <b>${(m.n * CELL * CELL).toFixed(1)}㎡</b>${m.n && !ok ? ' <span class="error-text">· 한 덩어리가 아님</span>' : ''}`;
+    bindEditor();
+  }
+}
+
+function bindEditor() {
+  const svg = $('#ff-editor');
+  if (!svg) return;
+  let paint = null;
+  const cellAt = (e) => {
+    const r = svg.getBoundingClientRect();
+    const i = Math.floor(((e.clientX - r.left) / r.width) * st.draw.gx);
+    const j = Math.floor(((e.clientY - r.top) / r.height) * st.draw.gy);
+    return i >= 0 && j >= 0 && i < st.draw.gx && j < st.draw.gy ? j * st.draw.gx + i : -1;
+  };
+  const apply = (e) => {
+    const k = cellAt(e);
+    if (k < 0) return;
+    if (paint === null) paint = st.draw.cells[k] ? 0 : 1;
+    if (st.draw.cells[k] !== paint) {
+      st.draw.cells[k] = paint;
+      const rect = svg.querySelectorAll('rect')[k + 1];
+      if (rect) rect.setAttribute('fill', paint ? '#f0c987' : '#f3f3f0');
+    }
+  };
+  svg.addEventListener('pointerdown', (e) => {
+    svg.setPointerCapture(e.pointerId);
+    paint = null;
+    apply(e);
+  });
+  svg.addEventListener('pointermove', (e) => e.buttons && apply(e));
+  svg.addEventListener('pointerup', () => {
+    paint = null;
+    const m = drawMask();
+    const ok = m.n && maskConnected(m);
+    $('#ff-darea').innerHTML = `그린 면적 <b>${(m.n * CELL * CELL).toFixed(1)}㎡</b>${m.n && !ok ? ' <span class="error-text">· 한 덩어리가 아님</span>' : ''}`;
+  });
+}
+
 // ---------- 생성 ----------
 function run() {
   const u = st.unit;
@@ -64,10 +198,13 @@ function run() {
   const seed0 = Number($('#ff-seed').value) || 1;
   const steps = Number($('#ff-steps').value);
   const jitter = Number($('#ff-jitter').value);
-  st.P = setup(u, { area });
+  const outline = outlineSpec();
+  if (!outline) return;
+  const outlineFree = $('#ff-ofree').checked;
+  st.P = buildProblem(u, { area, outline, outlineFree });
   st.cands = [];
   st.current = 0;
-  st.params = { area, count, seed0, steps, jitter, freedom: st.freedom };
+  st.params = { area: outline.mode === 'mask' ? outline.mask.n * CELL * CELL : area, count, seed0, steps, jitter, freedom: st.freedom, omode: st.omode, outlineFree };
   st.worker?.terminate();
   st.worker = new Worker(new URL('./freeform-worker.js', import.meta.url), { type: 'module' });
   $('#ff-progress').hidden = false;
@@ -91,7 +228,7 @@ function run() {
       $('#ff-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
-  st.worker.postMessage({ unit: u, area, freedom: st.freedom, jitter, seeds: Array.from({ length: count }, (_, i) => seed0 + i), steps });
+  st.worker.postMessage({ unit: u, area, outline, outlineFree, freedom: st.freedom, jitter, seeds: Array.from({ length: count }, (_, i) => seed0 + i), steps });
 }
 
 // ---------- 3. 결과 ----------
@@ -105,7 +242,7 @@ function renderResult() {
   $('#ff-tabs').innerHTML = st.cands.map((x, i) => `<button type="button" data-i="${i}" aria-pressed="${i === st.current}">${i + 1}안 <span class="mono">E ${x.summary.total.toFixed(1)}</span></button>`).join('');
   $('#ff-tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => ((st.current = Number(b.dataset.i)), renderResult())));
   const title = `자유형 ${Math.round(st.params.area)}㎡ · ${st.current + 1}안`;
-  $('#ff-plan').innerHTML = `${planSvg(c.assign, P, { openings: c.openings, names, mode: st.view, title, areaOf: (k) => m2Of(c, k) })}<figcaption class="note">기준 세대 ${esc(st.unit.id)} · ${FREEDOM[st.params.freedom].label} · 변화 ${st.params.jitter} · 시드 ${c.seed} · ${(c.ms / 1000).toFixed(1)}초</figcaption>`;
+  $('#ff-plan').innerHTML = `${planSvg(c.assign, P, { openings: c.openings, names, mode: st.view, title, areaOf: (k) => m2Of(c, k) })}<figcaption class="note">기준 세대 ${esc(st.unit.id)} · 외곽 ${esc(OMODE[st.params.omode])}${st.params.outlineFree ? '(+외곽 다듬기)' : ''} · ${FREEDOM[st.params.freedom].label} · 변화 ${st.params.jitter} · 시드 ${c.seed} · ${(c.ms / 1000).toFixed(1)}초</figcaption>`;
 
   const s = c.summary;
   const rooms = s.rooms.filter((r) => !(r.fixed && r.m2 < 1.5));
@@ -190,11 +327,13 @@ const TERM = {
   adj: ['인접', '원본에서 이어졌던 실 쌍이 0.9m 미만으로 맞닿음'],
   window: ['창', '거실·침실의 바깥 벽이 2.0m보다 짧은 만큼'],
   access: ['접근', '현관에서 문으로 이어지지 않는 실 수'],
+  entry: ['현관', '새 외곽에서 현관이 바깥 벽에 문 폭(0.9m) 이상 닿지 않음'],
+  outline: ['외곽', '외곽도 다듬을 때 세대 외곽 꼭짓점이 상한을 넘은 수'],
   through: ['침실 통과', '공용 실에 닿지 않아 침실을 지나야 들어가는 실 수(드레스룸·화장실 제외)'],
 };
 
 function termBars(terms, W) {
-  const items = Object.keys(TERM).map((k) => ({ k, raw: terms[k], v: W[k] * terms[k] }));
+  const items = Object.keys(TERM).filter((k) => (k !== 'entry' || st.P.custom) && (k !== 'outline' || st.P.outlineFree)).map((k) => ({ k, raw: terms[k], v: W[k] * terms[k] }));
   const max = Math.max(1e-9, ...items.map((i) => i.v));
   return `<ul class="ff-bars">${items
     .map((i) => `<li><span>${TERM[i.k][0]}</span><span class="ff-bar"><i style="width:${((i.v / max) * 100).toFixed(1)}%"></i></span><span class="mono">${i.v.toFixed(2)}</span></li>`)
@@ -207,9 +346,9 @@ function renderFormula() {
   const F = FREEDOM[st.params.freedom];
   const t = c.summary.terms;
   $('#ff-formula').innerHTML = `
-    <p class="ff-eq mono">E = ${W.area}·면적 + ${W.compact}·둘레 + ${W.corner}·꼭짓점(K=${F.K}) + ${W.thin}·좁은 부분 + ${W.adj}·인접 + ${W.window}·창 + ${W.access}·접근 + ${W.through}·침실 통과</p>
+    <p class="ff-eq mono">E = ${W.area}·면적 + ${W.compact}·둘레 + ${W.corner}·꼭짓점(K=${F.K}) + ${W.thin}·좁은 부분 + ${W.adj}·인접 + ${W.window}·창 + ${W.access}·접근 + ${W.through}·침실 통과${st.P.custom ? ` + ${W.entry}·현관` : ''}${st.P.outlineFree ? ` + ${W.outline}·외곽(K=${F.Kout})` : ''}</p>
     <table class="gen-table ff-ftable"><thead><tr><th>항</th><th>뜻</th><th>무게</th><th>값</th><th>기여</th></tr></thead><tbody>
-    ${Object.keys(TERM).map((k) => `<tr><td>${TERM[k][0]}</td><td>${TERM[k][1]}</td><td class="mono">${W[k]}</td><td class="mono">${t[k].toFixed(2)}</td><td class="mono">${(W[k] * t[k]).toFixed(2)}</td></tr>`).join('')}
+    ${Object.keys(TERM).filter((k) => (k !== 'entry' || st.P.custom) && (k !== 'outline' || st.P.outlineFree)).map((k) => `<tr><td>${TERM[k][0]}</td><td>${TERM[k][1]}</td><td class="mono">${W[k]}</td><td class="mono">${t[k].toFixed(2)}</td><td class="mono">${(W[k] * t[k]).toFixed(2)}</td></tr>`).join('')}
     <tr><td colspan="4"><b>합계 E</b></td><td class="mono"><b>${c.summary.total.toFixed(2)}</b></td></tr></tbody></table>
     <p class="note">'모양 자유도'가 꼭짓점 상한 K와 둘레 무게를 바꿉니다: 직사각형 위주(K=4, 둘레 ${FREEDOM.rect.compact}), ㄱ자까지(K=6, ${FREEDOM.L.compact}), ㄷ자·자유형(K=8, ${FREEDOM.free.compact}). 면적 항은 목표 대비 비율이라 큰 실과 작은 실을 같은 무게로 봅니다.</p>`;
 }
@@ -268,6 +407,36 @@ $('#ff-view').addEventListener('click', (e) => {
   pressed($('#ff-view'), 'v', st.view);
   renderResult();
 });
+$('#ff-omode').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  st.omode = b.dataset.v;
+  renderOutline();
+});
+$('#ff-tpl').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  st.tpl = b.dataset.v;
+  pressed($('#ff-tpl'), 'v', st.tpl);
+  renderOutline();
+});
+$('#ff-rot').addEventListener('click', () => ((st.tf.rot = (st.tf.rot + 1) % 4), renderOutline()));
+$('#ff-fx').addEventListener('click', () => ((st.tf.flipX = !st.tf.flipX), renderOutline()));
+$('#ff-fy').addEventListener('click', () => ((st.tf.flipY = !st.tf.flipY), renderOutline()));
+$('#ff-asp').addEventListener('input', (e) => {
+  st.tf.aspect = Number(e.target.value);
+  $('#ff-asp-v').textContent = st.tf.aspect.toFixed(2);
+  renderOutline();
+});
+for (const [id, out] of [['#ff-taspect', '#ff-taspect-v'], ['#ff-tcut', '#ff-tcut-v']])
+  $(id).addEventListener('input', (e) => {
+    $(out).textContent = Number(e.target.value).toFixed(2);
+    renderOutline();
+  });
+$('#ff-balcony').addEventListener('change', renderOutline);
+$('#ff-area').addEventListener('change', () => st.omode === 'tpl' && renderOutline());
+$('#ff-dload').addEventListener('click', () => (loadDrawFromUnit(), renderOutline()));
+$('#ff-dclear').addEventListener('click', () => ((st.draw.cells = new Uint8Array(st.draw.gx * st.draw.gy)), renderOutline()));
 $('#ff-jitter').addEventListener('input', (e) => ($('#ff-jitter-v').textContent = Number(e.target.value).toFixed(2)));
 $('#ff-run').addEventListener('click', run);
 $('#ff-slider').addEventListener('input', () => renderTime());

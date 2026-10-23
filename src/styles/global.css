@@ -3100,3 +3100,33 @@ table.plain td.num {
 .ff-ftable td:nth-child(2) {
   text-align: left;
 }
+.ff-wrap {
+  flex-wrap: wrap;
+}
+.ff-sub {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.ff-sub .note {
+  margin: 0;
+}
+.ff-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+.ff-check .note {
+  margin: 0;
+  font-size: 12px;
+}
+.ff-editor {
+  width: 100%;
+  touch-action: none;
+  cursor: crosshair;
+  display: block;
+}

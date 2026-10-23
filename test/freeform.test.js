@@ -43,3 +43,55 @@ test('원본 배치는 대부분 접근 규칙을 통과하고, 문은 현관에
   }
   assert.ok(ok / units.length >= 0.85, `통과 ${ok}/${units.length}`);
 });
+
+import { buildProblem, transformUnit } from '../src/freeform/engine.js';
+import { maskConnected, maskFromUnit, templateMask } from '../src/freeform/outline.js';
+
+test('외곽 템플릿은 고른 면적에 맞고(±3%) 한 덩어리다', () => {
+  for (const k of ['rect', 'L', 'U', 'T', 'step'])
+    for (const area of [60, 84, 119]) {
+      const m = templateMask(k, area, { aspect: 1.5, cut: 0.35 });
+      assert.ok(Math.abs(m.n * 0.09 - area) / area < 0.03, `${k} ${area}`);
+      assert.ok(maskConnected(m));
+    }
+});
+
+test('원본 변형(회전·뒤집기·비율)은 실 면적을 바꾸지 않는다', () => {
+  const u = units[0];
+  const t = transformUnit(u, { rot: 1, flipX: true, aspect: 1.3 });
+  const sum = (x) => x.rooms.reduce((s, r) => s + r.polys.reduce((q, p) => q + polyArea(p), 0), 0);
+  assert.ok(Math.abs(sum(t) - sum(u)) / sum(u) < 1e-9);
+});
+
+test('새 외곽: 실내 칸을 모두 실에 나누고, 현관은 바깥에 닿으며, 외곽 다듬기는 구멍을 만들지 않는다', () => {
+  const u = units.find((x) => x.id === '037105612-1') || units[0];
+  for (const outline of [
+    { mode: 'mask', mask: templateMask('L', 90, { aspect: 1.5, cut: 0.35 }), balcony: true },
+    { mode: 'mask', mask: maskFromUnit(u, 90), balcony: true, outdoorUnit: true },
+  ]) {
+    const P = buildProblem(u, { area: 90, outline, outlineFree: true });
+    let inside = 0;
+    for (const v of P.grid) if (v >= 0 && !OUT.has(P.rooms[v].type)) inside++;
+    assert.equal(inside, outline.mask.n);
+    const res = anneal(P, { seed: 1, jitter: 0.4, freedom: 'L', steps: 8000 });
+    for (const k of P.movable) if (res.energy.stats[k].n) assert.equal(roomPolygons(res.assign, P, k).length, 1);
+    // 바깥(-1) 칸은 모두 격자 가장자리와 이어져야 한다(갇힌 구멍 없음)
+    const { nx, ny } = P;
+    const a = res.assign;
+    const seen = new Uint8Array(a.length);
+    const q = [];
+    for (let k = 0; k < a.length; k++) if (a[k] === -1 && (k % nx === 0 || k % nx === nx - 1 || k < nx || k >= nx * (ny - 1))) ((seen[k] = 1), q.push(k));
+    while (q.length) {
+      const k = q.pop();
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const i = (k % nx) + di;
+        const j = Math.floor(k / nx) + dj;
+        if (i < 0 || j < 0 || i >= nx || j >= ny) continue;
+        const m = j * nx + i;
+        if (!seen[m] && a[m] === -1) ((seen[m] = 1), q.push(m));
+      }
+    }
+    for (let k = 0; k < a.length; k++) if (a[k] === -1) assert.ok(seen[k], '갇힌 바깥 칸');
+    assert.equal(res.energy.terms.entry, 0, '현관이 바깥에 닿음');
+  }
+});

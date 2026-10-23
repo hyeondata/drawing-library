@@ -43,7 +43,51 @@ const drawings = new Set(units.map((u) => u.drawing)).size;
         <figure class="gen-plan" id="ff-orig"></figure>
         <div class="ff-controls">
           <div class="ff-orig-info" id="ff-orig-info"></div>
-          <label class="ff-field">전용면적(㎡) <input type="number" id="ff-area" min="40" max="200" step="1" /></label>
+          <div class="ff-field">
+            <span>세대 외곽</span>
+            <div class="seg ff-wrap" role="group" id="ff-omode">
+              <button type="button" data-v="orig" aria-pressed="true">원본 그대로</button>
+              <button type="button" data-v="tf" aria-pressed="false">원본 변형</button>
+              <button type="button" data-v="tpl" aria-pressed="false">모양 고르기</button>
+              <button type="button" data-v="draw" aria-pressed="false">직접 그리기</button>
+            </div>
+          </div>
+          <div class="ff-sub" id="ff-o-tf" hidden>
+            <div class="ff-row">
+              <button type="button" class="button-ghost small" id="ff-rot">↻ 90° 회전</button>
+              <button type="button" class="button-ghost small" id="ff-fx">⇆ 좌우 뒤집기</button>
+              <button type="button" class="button-ghost small" id="ff-fy">⇅ 상하 뒤집기</button>
+            </div>
+            <label class="ff-field">가로세로 비율 <b class="mono" id="ff-asp-v">1.00</b>
+              <input type="range" id="ff-asp" min="0.6" max="1.6" step="0.05" value="1" />
+              <span class="note">면적은 그대로 두고 가로를 늘리면 세로가 줄어듭니다. 원본 실 배치·현관·발코니도 함께 변형됩니다.</span>
+            </label>
+          </div>
+          <div class="ff-sub" id="ff-o-tpl" hidden>
+            <div class="seg ff-wrap" role="group" id="ff-tpl">
+              <button type="button" data-v="rect" aria-pressed="false">직사각형</button>
+              <button type="button" data-v="L" aria-pressed="true">ㄱ자</button>
+              <button type="button" data-v="U" aria-pressed="false">ㄷ자(홈)</button>
+              <button type="button" data-v="T" aria-pressed="false">凸자</button>
+              <button type="button" data-v="step" aria-pressed="false">엇갈림</button>
+            </div>
+            <label class="ff-field">가로세로 비율 <b class="mono" id="ff-taspect-v">1.50</b><input type="range" id="ff-taspect" min="1" max="2.4" step="0.05" value="1.5" /></label>
+            <label class="ff-field">꺾임 크기 <b class="mono" id="ff-tcut-v">0.35</b><input type="range" id="ff-tcut" min="0.15" max="0.5" step="0.01" value="0.35" /></label>
+          </div>
+          <div class="ff-sub" id="ff-o-draw" hidden>
+            <p class="note">왼쪽 격자(한 칸 0.6m)를 누르거나 끌어서 칠하고, 칠한 칸에서 시작하면 지웁니다. 아래쪽이 앞(발코니 쪽)입니다.</p>
+            <div class="ff-row">
+              <button type="button" class="button-ghost small" id="ff-dload">원본 외곽 불러오기</button>
+              <button type="button" class="button-ghost small" id="ff-dclear">모두 지우기</button>
+              <span class="mono" id="ff-darea"></span>
+            </div>
+          </div>
+          <div class="ff-sub" id="ff-o-out" hidden>
+            <label class="ff-check"><input type="checkbox" id="ff-balcony" checked /> 앞쪽 발코니(1.5m)</label>
+            <label class="ff-check"><input type="checkbox" id="ff-outunit" /> 실외기실(발코니 끝)</label>
+          </div>
+          <label class="ff-check"><input type="checkbox" id="ff-ofree" /> 외곽도 함께 다듬기 <span class="note">— 담금질이 바깥 벽 칸도 붙이고 뗍니다(외곽 꼭짓점 벌점)</span></label>
+          <label class="ff-field" id="ff-area-wrap">전용면적(㎡) <input type="number" id="ff-area" min="40" max="200" step="1" /></label>
           <div class="ff-field">
             <span>모양 자유도</span>
             <div class="seg" role="group" id="ff-freedom">
@@ -139,9 +183,10 @@ const drawings = new Set(units.map((u) => u.drawing)).size;
           <li><b>격자</b>: 기준 세대를 0.3m 칸으로 나눕니다. 현관·발코니·실외기실과 1.5㎡ 미만의 작은 공간(덕트 등)은 원래 칸에 고정하고, 나머지 칸을 다른 실들에 다시 나눠 줍니다. 실은 연결된 칸 묶음이라 ㄱ자·ㄷ자 같은 직교 다각형이 될 수 있습니다.</li>
           <li><b>초기 배치</b>: 실마다 씨앗을 원래 위치에서 '변화 정도'만큼 옮겨 놓고, 모자란 실부터 직사각형으로 한 줄씩 키운 뒤, 더 못 키우면 줄 일부만 넓혀 ㄱ자로 키웁니다(제약 성장, <a href="https://publications.graphics.tudelft.nl/papers/584" target="_blank" rel="noopener">Lopes 외 2010</a>).</li>
           <li><b>다듬기</b>: 담금질(<a href="https://doi.org/10.1126/science.220.4598.671" target="_blank" rel="noopener">Kirkpatrick 외 1983</a>)로 에너지를 줄입니다. 이동은 80%가 '벽 밀기'(두 실이 맞닿은 벽 한 줄을 한 칸 옮김), 20%가 칸 하나 넘기기이며, 실이 둘로 쪼개지는 이동은 하지 않습니다. 확률적 탐색으로 주거 평면을 만드는 방식은 <a href="https://doi.org/10.1145/1882261.1866203" target="_blank" rel="noopener">Merrell 외 2010</a>과 같은 계열입니다.</li>
+          <li><b>외곽</b>: '원본 그대로·원본 변형'은 원본 실 배치를 회전·뒤집기·늘이기로 바꿔 씁니다. '모양 고르기·직접 그리기'는 새 외곽에 기준 세대의 실 구성·면적 비율·인접만 가져와, 원본 실 중심을 새 외곽 상자로 옮긴 가중 보로노이로 처음 나누고 현관도 움직입니다(바깥 벽에 문 폭 이상 닿아야 함). 발코니는 앞쪽(아래) 가장 낮은 외벽을 따라 1.5m로 둡니다. '외곽도 함께 다듬기'는 담금질 이동의 25%를 바깥 벽 칸 붙이기·떼기로 쓰고, 외곽 꼭짓점이 상한(직사각형 위주 6, ㄱ자까지 8, 자유형 12)을 넘으면 벌점을 줍니다. 발코니에 붙은 벽과 갇힌 구멍이 생기는 이동은 하지 않습니다.</li>
           <li><b>문·창</b>: 공용 실(현관·거실·주방·복도)끼리는 트고, 나머지 실은 공용 실(드레스룸·부부욕실은 안방) 쪽으로 문을 냅니다. 거실·침실이 발코니에 닿으면 발코니 문, 아니면 가장 긴 바깥 벽에 창을 냅니다.</li>
         </ol>
-        <p class="note">한계: 기준 세대 외곽과 현관 위치를 그대로 쓰므로 세대 모양 자체는 바뀌지 않습니다. 축척은 침실 크기로 추정했습니다. 벽 두께 없이 칸 경계를 벽으로 그립니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>
+        <p class="note">한계: 새 외곽에서 발코니는 아래쪽 한 면에만 둡니다. 축척은 침실 크기로 추정했습니다. 벽 두께 없이 칸 경계를 벽으로 그립니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>
       </details>
     </section>
   </main>
