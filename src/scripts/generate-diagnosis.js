@@ -1,6 +1,6 @@
 // 생성 결과의 '평면 진단': 한국 아파트 평가 지표, 동선 깊이·거리, 채광·환기, 후보 비교와 다양성.
 // 근거와 계산은 src/generate/metrics.js 머리말, 조사 보고서는 reports/평면 생성 화면 추가 시각화.md
-import { ASSUME, diagnose, diversity } from '../generate/metrics.js';
+import { ASSUME, DIRS, diagnose, dirName, diversity, solarAccess } from '../generate/metrics.js';
 import { STATUS, compareGraph } from '../generate/request-graph.js';
 
 const $ = (s) => document.querySelector(s);
@@ -12,7 +12,20 @@ const ink = (k) => (k >= 3 ? '#fff' : '#1b1b1f');
 const OK = '#0f7b0f';
 const BAD = '#c4314b';
 
-const st = { mode: 'circ', target: 'master' };
+const st = { mode: 'circ', target: 'master', front: 180, lat: 37.57 };
+
+/** 방위표: front = 앞쪽(+y)이 바라보는 방위각. 북쪽 화살표의 화면 각도 = 90° − front. */
+function compass(cx, cy, front, r = 22) {
+  const a = ((90 - front) * Math.PI) / 180;
+  const ux = Math.cos(a);
+  const uy = Math.sin(a);
+  const tip = [cx + ux * r, cy + uy * r];
+  const left = [cx - uy * r * 0.32 - ux * r * 0.25, cy + ux * r * 0.32 - uy * r * 0.25];
+  const right = [cx + uy * r * 0.32 - ux * r * 0.25, cy - ux * r * 0.32 - uy * r * 0.25];
+  const lx = cx + ux * (r + 11);
+  const ly = cy + uy * (r + 11) + 4;
+  return `<g aria-label="방위표"><circle cx="${cx}" cy="${cy}" r="${r + 3}" fill="#fff" stroke="#8a8794" stroke-width="1.2"/><path d="M${tip[0]} ${tip[1]}L${left[0]} ${left[1]}L${cx} ${cy}Z" fill="#c4314b"/><path d="M${tip[0]} ${tip[1]}L${right[0]} ${right[1]}L${cx} ${cy}Z" fill="#7a2030"/><text x="${lx}" y="${ly}" text-anchor="middle" font-size="12" font-weight="800" fill="#c4314b">N</text></g>`;
+}
 
 /** 요청한 연결(선)을 생성 평면(실) 위에 겹쳐 그린다. */
 function graphSvg(layout, g) {
@@ -62,6 +75,7 @@ function graphSvg(layout, g) {
     const small = r.w * S < 70 || r.h * S < 46;
     p.push(`<text x="${x}" y="${y - 12}" text-anchor="middle" font-size="${small ? 10 : 12.5}" font-weight="600" fill="#22212b" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(r.name)}</text>`);
   }
+  p.push(compass(maxX * S + pad * 2 - 46, 46, st.front));
   return `<svg viewBox="0 0 ${maxX * S + pad * 2} ${(maxY - minY) * S + pad * 2}" role="img" aria-label="요청한 연결과 생성 결과 겹쳐 보기">${p.join('')}</svg>`;
 }
 
@@ -95,7 +109,8 @@ function planSvg(layout, d, mode, target) {
       if (l) {
         const ok = l.lightOk && l.ventOk;
         fill = ok ? '#e3f4e3' : '#fde4e8';
-        label = `${ok ? '✓' : '✗'} 채광 ${(l.light * 100).toFixed(0)}%\n환기 ${(l.vent * 100).toFixed(0)}%`;
+        const so = d.sol?.find((x) => x.key === r.key);
+        label = `${ok ? '✓' : '✗'} 채광 ${(l.light * 100).toFixed(0)}%\n환기 ${(l.vent * 100).toFixed(0)}%${so ? `\n${so.facingName}향 · 일조 ${so.total.toFixed(1)}h` : ''}`;
       }
     }
     const strong = mode === 'light' && bay.has(r.name);
@@ -120,9 +135,9 @@ function planSvg(layout, d, mode, target) {
     }
     if (d.circ.entry) p.push(`<circle cx="${X(d.circ.entry.x)}" cy="${Y(d.circ.entry.y)}" r="7" fill="#fff" stroke="#e8590c" stroke-width="3"/><text x="${X(d.circ.entry.x) + 10}" y="${Y(d.circ.entry.y) - 8}" font-size="11" fill="#e8590c" font-weight="700">현관문</text>`);
   } else {
-    // 앞(발코니 쪽) = 남향 가정, 베이 번호, 맞통풍 화살표
+    // 앞(발코니 쪽) 방위, 베이 번호, 맞통풍 화살표
     const yF = Y(layout.D) + (rooms.some((r) => r.type === '발코니') ? 1.5 * S : 0);
-    p.push(`<text x="${vw / 2}" y="${Math.min(vh - 8, yF + 26)}" text-anchor="middle" font-size="12" fill="#e8590c" font-weight="700">▼ 앞쪽 = 남향 가정 · ${d.kr.bays}베이</text>`);
+    p.push(`<text x="${vw / 2}" y="${Math.min(vh - 8, yF + 26)}" text-anchor="middle" font-size="12" fill="#e8590c" font-weight="700">▼ 앞쪽 = ${dirName(st.front)}향(${Math.round(st.front)}°) · ${d.kr.bays}베이</text>`);
     const front = rooms.filter((r) => d.kr.bayRooms.includes(r.name)).sort((a, b) => a.x - b.x);
     front.forEach((r, i) => p.push(`<circle cx="${X(r.x + r.w) - 15}" cy="${Y(r.y) + 15}" r="10" fill="#e8590c"/><text x="${X(r.x + r.w) - 15}" y="${Y(r.y) + 19}" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">${i + 1}</text>`));
     if (d.kr.cross) {
@@ -131,7 +146,37 @@ function planSvg(layout, d, mode, target) {
       p.push(`<line x1="${x}" y1="${Y(0) + 6}" x2="${x}" y2="${Y(layout.D) - 6}" stroke="#0b7285" stroke-width="3" marker-end="url(#dg-ar)" marker-start="url(#dg-ar)"/><text x="${x}" y="${Y(0) - 10}" text-anchor="middle" font-size="11" fill="#0b7285" font-weight="700">맞통풍</text>`);
     }
   }
+  p.push(compass(vw - 46, 46, st.front));
   return `<svg viewBox="0 0 ${vw} ${vh}" role="img" aria-label="${mode === 'circ' ? '동선 깊이와 경로' : '베이·채광·환기'}">${p.join('')}</svg>`;
+}
+
+/** 실별 동지 일조 막대(08~16시). */
+function sunTimeline(sol) {
+  if (!sol.length) return '<p class="note">창이 있는 거실·침실·주방이 없습니다.</p>';
+  const L = 92;
+  const W = 320;
+  const RH = 22;
+  const T = 18;
+  const H = T + sol.length * RH + 20;
+  const X = (t) => L + ((t - 8) / 8) * W;
+  const parts = [`<rect x="${X(9)}" y="${T - 4}" width="${X(15) - X(9)}" height="${sol.length * RH + 4}" fill="var(--surface-3)" opacity="0.6"/>`];
+  for (const h of [8, 10, 12, 14, 16]) parts.push(`<line x1="${X(h)}" x2="${X(h)}" y1="${T - 4}" y2="${T + sol.length * RH}" stroke="var(--line)"/><text x="${X(h)}" y="${H - 4}" text-anchor="middle" class="sc-ax">${h}시</text>`);
+  sol.forEach((r, i) => {
+    const y = T + i * RH;
+    parts.push(`<text x="0" y="${y + 14}" class="sc-ax" style="fill:var(--text-primary)">${esc(r.name)} · ${esc(r.facingName)}</text>`);
+    const n = r.slots.length;
+    let s0 = -1;
+    for (let k = 0; k <= n; k++) {
+      const on = k < n && r.slots[k];
+      if (on && s0 < 0) s0 = k;
+      if (!on && s0 >= 0) {
+        parts.push(`<rect x="${X(8 + (s0 / n) * 8)}" y="${y + 4}" width="${X(8 + (k / n) * 8) - X(8 + (s0 / n) * 8)}" height="${RH - 8}" rx="3" fill="#e8a317"><title>${esc(r.name)}: ${(8 + (s0 / n) * 8).toFixed(2)}~${(8 + (k / n) * 8).toFixed(2)}시</title></rect>`);
+        s0 = -1;
+      }
+    }
+    parts.push(`<text x="${L + W + 6}" y="${y + 14}" class="sc-ax" style="fill:${r.ok ? 'var(--good-text)' : 'var(--critical-text)'};font-weight:700">${r.total.toFixed(1)}h ${r.ok ? '✓' : '✗'}</text>`);
+  });
+  return `<svg viewBox="0 0 ${L + W + 52} ${H}" class="sc-svg" role="img" aria-label="실별 동지 일조 시간">${parts.join('')}</svg>`;
 }
 
 const fmt = (v, u = 'm') => (v === undefined || v === null ? '—' : `${v.toFixed(1)}${u}`);
@@ -142,6 +187,7 @@ export function renderDiagnosis({ top, current, spec }) {
   if (!box || !top?.length) return;
   const c = top[current];
   const d = diagnose(c.layout);
+  d.sol = solarAccess(c.layout, { front: st.front, lat: st.lat });
   const kr = d.kr;
   const targets = [
     ['master', '안방'],
@@ -159,6 +205,12 @@ export function renderDiagnosis({ top, current, spec }) {
     ['요청한 연결', `${g.counts.met}/${wantN} 충족`, `문 없이 맞닿음 ${g.counts.wall} · 빠짐 ${g.counts.missing} · 어김 ${g.counts.violated}/${avoidN}`, '요청 그래프와 결과 그래프 비교(그래프 편집 거리 간이판)'],
     ['전용면적', `${kr.exclusive.toFixed(1)}㎡`, kr.nationalSize ? '국민주택규모(85㎡ 이하)' : '국민주택규모 초과', '주택법 제2조제6호'],
     ['베이', `${kr.bays}베이`, kr.bayRooms.join(' · '), '앞쪽에 닿은 거실·침실 수(법 정의 없음, 시장 관행)'],
+    (() => {
+      const lv = d.sol.find((x) => x.key === 'living');
+      const okN = d.sol.filter((x) => x.type !== '주방' && x.ok).length;
+      const hab = d.sol.filter((x) => x.type !== '주방').length;
+      return ['거실 향 · 동지 일조', lv ? `${lv.facingName}향 · ${lv.total.toFixed(1)}h` : '—', lv ? `09~15시 연속 ${lv.cont.toFixed(1)}h · 판례 기준 충족 실 ${okN}/${hab}` : '거실 창 없음', '장애물 없을 때 최대치(대법원 98다23850)'];
+    })(),
     ['맞통풍', kr.cross ? '있음' : '없음', kr.cross ? '앞·뒤 바깥 창이 공용 공간으로 이어짐' : '앞·뒤 창이 공용 공간으로 이어지지 않음', '시장 관행'],
     ['발코니(서비스)', `${kr.service.toFixed(1)}㎡`, spec.balcony ? '전용면적에 들지 않음' : '확장형(발코니 없음)', '주택법 시행규칙 제2조'],
     ['현관 → 주방', fmt(d.walk.kitchen), '장보기 동선(문 중심을 지나는 거리)', '동선 거리'],
@@ -208,7 +260,13 @@ export function renderDiagnosis({ top, current, spec }) {
     <div class="gen-process-head">
       <h3>평면 진단</h3>
     </div>
-    <p class="note">한국 아파트를 고를 때 보는 기준(국민주택규모·베이·맞통풍·동선)과 법규의 채광·환기 비율을 이 안에서 바로 잽니다. 도면 기하만으로 계산하며, 앞쪽(발코니 쪽)을 남향으로 가정합니다.</p>
+    <p class="note">한국 아파트를 고를 때 보는 기준(국민주택규모·베이·맞통풍·동선·향)과 법규의 채광·환기 비율을 이 안에서 바로 잽니다. 실제 단지의 방위를 넣으면 실마다 향과 동지 일조 시간이 바뀝니다(기본: 앞쪽 남향, 서울 위도).</p>
+    <div class="gen-diag-orient">
+      <span>앞쪽(발코니 쪽)이 바라보는 방위</span>
+      <div class="seg ff-wrap" role="group" id="diag-dir">${DIRS.map(([az, n]) => `<button type="button" data-az="${az}" aria-pressed="${Math.round(st.front) === az}">${n}</button>`).join('')}</div>
+      <label>각도 <input type="number" id="diag-az" min="0" max="359" step="1" value="${Math.round(st.front)}" />°</label>
+      <label>위도 <input type="number" id="diag-lat" min="33" max="39" step="0.01" value="${st.lat}" />°N</label>
+    </div>
     <div class="gen-diag-cards">${cards
       .map(([k, v, sub, src]) => `<div><span class="gen-k">${esc(k)}</span><b class="mono">${esc(v)}</b><span class="note">${esc(sub)}</span><span class="gen-src">${esc(src)}</span></div>`)
       .join('')}</div>
@@ -239,7 +297,10 @@ export function renderDiagnosis({ top, current, spec }) {
       </div>` : `<div>
         <h4>채광·환기(거실·침실)</h4>
         <table class="gen-table"><thead><tr><th>실</th><th>㎡</th><th>채광 ≥10%</th><th>환기 ≥5%</th><th>빛</th></tr></thead><tbody>${lightRows}</tbody></table>
-        <p class="note">주방은 법의 거실에 드는지 해석이 갈려 참고로만 보입니다. 이웃 동이 없다고 보고 계산했으므로 동지 일조 시간(4시간·연속 2시간, 판례 기준)은 판단하지 않습니다.</p>
+        <p class="note">주방은 법의 거실에 드는지 해석이 갈려 참고로만 보입니다.</p>
+        <h4>향과 동지 일조(장애물 없음)</h4>
+        ${sunTimeline(d.sol)}
+        <p class="note">앞쪽 방위 ${Math.round(st.front)}°, 위도 ${st.lat}°, 동지(적위 −23.44°) 진태양시 08~16시를 5분 단위로 봅니다. 해가 지평선 위이고 창이 바라보는 방향과 해 방위의 차이가 85° 미만이면 해가 든다고 셉니다. 회색 띠는 연속 일조를 보는 09~15시입니다. 판례 기준은 총 4시간 또는 연속 2시간입니다(대법원 98다23850 등). 이웃 동·발코니 깊이·처마의 그림자는 넣지 않은 최대치라 실제 일조는 이보다 짧습니다.</p>
       </div>`}
     </div>
     ${
@@ -259,6 +320,16 @@ export function renderDiagnosis({ top, current, spec }) {
       renderDiagnosis({ top, current, spec });
     }),
   );
+  const setFront = (v) => {
+    st.front = ((Number(v) % 360) + 360) % 360;
+    renderDiagnosis({ top, current, spec });
+  };
+  box.querySelectorAll('#diag-dir [data-az]').forEach((b) => b.addEventListener('click', () => setFront(b.dataset.az)));
+  $('#diag-az')?.addEventListener('change', (e) => setFront(e.target.value));
+  $('#diag-lat')?.addEventListener('change', (e) => {
+    st.lat = Math.min(39, Math.max(33, Number(e.target.value) || 37.57));
+    renderDiagnosis({ top, current, spec });
+  });
   $('#diag-target')?.addEventListener('change', (e) => {
     st.target = e.target.value;
     renderDiagnosis({ top, current, spec });

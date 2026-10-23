@@ -3468,3 +3468,21 @@ table.plain td.num {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+.gen-diag-orient {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 14px;
+}
+.gen-diag-orient input {
+  width: 74px;
+}
+.gen-diag-orient label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

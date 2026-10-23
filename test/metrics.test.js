@@ -58,3 +58,29 @@ test('면적 편차 등급과 후보 다양성', () => {
   const d = diversity([layout, layout]);
   assert.equal(d[0][1], 0);
 });
+
+import { solarAccess, sunAt, windowAzimuth } from '../src/generate/metrics.js';
+
+test('동지 태양: 서울 정오 고도 약 29°·정남, 오전은 동쪽(방위 < 180°)', () => {
+  const noon = sunAt(12, 37.57);
+  assert.ok(Math.abs(noon.alt - (90 - 37.57 - 23.44)) < 0.01);
+  assert.ok(Math.abs(noon.az - 180) < 1e-6);
+  assert.ok(sunAt(9).az < 180 && sunAt(15).az > 180);
+});
+
+test('창 방위: 앞(+y)=front, 뒤=front+180, 오른쪽(+x)=front−90', () => {
+  const room = { x: 0, y: 0, w: 4, h: 3 };
+  assert.equal(windowAzimuth({ v: false, x1: 1, y1: 3, x2: 3, y2: 3 }, room, 180), 180);
+  assert.equal(windowAzimuth({ v: false, x1: 1, y1: 0, x2: 3, y2: 0 }, room, 180), 0);
+  assert.equal(windowAzimuth({ v: true, x1: 4, y1: 1, x2: 4, y2: 2 }, room, 180), 90);
+});
+
+test('남향 창은 동지 08~16시 내내, 북향 창은 해가 들지 않음(장애물 없음)', () => {
+  const s = solarAccess(layout, { front: 180 });
+  const by = Object.fromEntries(s.map((r) => [r.key, r]));
+  assert.ok(Math.abs(by.living.total - 8) < 1e-9 && by.living.ok);
+  assert.equal(by.kitchen.total, 0);
+  const n = Object.fromEntries(solarAccess(layout, { front: 0 }).map((r) => [r.key, r]));
+  assert.equal(n.living.total, 0);
+  assert.ok(n.kitchen.total > 7.9);
+});
