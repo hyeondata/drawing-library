@@ -49,7 +49,7 @@ class Pool {
 // ---------- 공통 tabu 탐색(한 변수 뒤집기) ----------
 // tenure = c + rand(1..10), aspiration(최고 해보다 좋으면 tabu여도 허용), 개선 없이 alpha번이면 멈춤.
 // 원-핫(집합 분할) 구조 QUBO에는 HMA 논문의 set-partitioning 설정(c = n/50, alpha = 15n)을 쓴다(Lü, Glover & Hao 2010).
-function tabu(q, x0, r, deadline, { c = q.n / 50, alpha = 15 * q.n, onEval } = {}) {
+function tabu(q, x0, r, deadline, { c = q.n / 50, alpha = 15 * q.n, onEval, ev } = {}) {
   const { n } = q;
   const x = Uint8Array.from(x0);
   const d = deltas(q, x);
@@ -70,6 +70,10 @@ function tabu(q, x0, r, deadline, { c = q.n / 50, alpha = 15 * q.n, onEval } = {
       else if (Math.abs(d[i] - pickD) <= 1e-12 && r() < 1 / ++ties) pick = i;
     }
     if (pick < 0) break;
+    // (보기용 기록) 이번 걸음: 막혀 있었지만 최고해를 넘어서 허용됐는가(aspiration), 허용된 후보 수
+    const aspiration = ev && tabuUntil[pick] > iter;
+    const allowedCount = ev ? Array.from({ length: n }, (_, i) => tabuUntil[i] <= iter || e + d[i] < best.e - 1e-9).filter(Boolean).length : 0;
+    const dPick = d[pick];
     e += d[pick];
     flip(q, x, d, pick);
     onEval?.();
@@ -78,6 +82,7 @@ function tabu(q, x0, r, deadline, { c = q.n / 50, alpha = 15 * q.n, onEval } = {
       best = { x: Uint8Array.from(x), e };
       stall = 0;
     } else stall++;
+    ev?.({ type: 'tabu', iter, pick, delta: dPick, e, best: best.e, tabuUntil: tabuUntil[pick], aspiration, allowed: allowedCount, stall, alpha, x: Uint8Array.from(x) });
   }
   return best;
 }
@@ -102,7 +107,7 @@ function betaRange(q) {
   return [Math.log(2) / maxD, Math.log(100) / minD];
 }
 
-function sa(q, { r, deadline, pool, count, sweeps = 1000 }) {
+function sa(q, { r, deadline, pool, count, sweeps = 1000, ev }) {
   const [b0, b1] = betaRange(q);
   const { n } = q;
   do {
@@ -118,23 +123,25 @@ function sa(q, { r, deadline, pool, count, sweeps = 1000 }) {
           flip(q, x, d, i);
         }
       }
+      ev?.({ type: 'sa-sweep', sweep: s, beta, e, x: Uint8Array.from(x) });
       if (now() > deadline) break;
     }
     pool.add(x, e);
   } while (now() < deadline);
 }
 
-function d2ts(q, { r, deadline, pool, count }) {
+function d2ts(q, { r, deadline, pool, count, ev }) {
   // Glover, Lü & Hao 2010: tabu와 섭동을 번갈아. 엘리트 8개, 섭동 변수 γ = n/4, 순위 선택 확률 ∝ rank^−λ (λ = 1.2), β = 0.3.
   const { n } = q;
   const elite = new Pool(8);
   const freq = new Float64Array(n);
   let x = randomX(n, r);
   while (now() < deadline) {
-    const res = tabu(q, x, r, deadline, { c: n / 50, alpha: 15 * n, onEval: count });
+    const res = tabu(q, x, r, deadline, { c: n / 50, alpha: 15 * n, onEval: count, ev });
     elite.add(res.x, res.e);
     pool.add(res.x, res.e);
     for (let i = 0; i < n; i++) freq[i] += res.x[i];
+    ev?.({ type: 'elite', e: res.e, elite: elite.items.map((it) => it.e), x: Uint8Array.from(res.x) });
     // 섭동: 엘리트 하나를 골라 자주 켜진(빈도 높은) 변수 위주로 γ개 뒤집기
     const base = elite.items[Math.floor(r() * elite.items.length)].x;
     x = Uint8Array.from(base);
@@ -158,17 +165,19 @@ function d2ts(q, { r, deadline, pool, count }) {
       }
     }
     for (const i of chosen) x[i] ^= 1;
+    ev?.({ type: 'perturb', gamma, chosen: [...chosen], baseE: energy(q, base), e: energy(q, x), x: Uint8Array.from(x) });
   }
 }
 
-function pathRelinking(q, { r, deadline, pool, count }) {
+function pathRelinking(q, { r, deadline, pool, count, ev }) {
   // Wang, Lü, Glover & Hao 2012: 참조 집합 10개(tabu로 개선), 두 해 사이 경로의 1/3~2/3 지점을 tabu로 개선해 참조 집합을 갱신.
   const { n } = q;
   const ref = new Pool(10);
   for (let k = 0; k < 10 && now() < deadline; k++) {
-    const res = tabu(q, randomX(n, r), r, deadline, { c: n / 50, alpha: 5 * n, onEval: count });
+    const res = tabu(q, randomX(n, r), r, deadline, { c: n / 50, alpha: 5 * n, onEval: count, ev });
     ref.add(res.x, res.e);
     pool.add(res.x, res.e);
+    ev?.({ type: 'ref', k, e: res.e, refs: ref.items.map((it) => it.e), x: Uint8Array.from(res.x) });
   }
   while (now() < deadline && ref.items.length >= 2) {
     const a = ref.items[Math.floor(r() * ref.items.length)].x;
@@ -180,40 +189,49 @@ function pathRelinking(q, { r, deadline, pool, count }) {
     const d = deltas(q, x);
     const stop = Math.floor(diff.length / 3) + Math.floor(r() * Math.max(1, Math.floor(diff.length / 3)));
     const left = new Set(diff);
+    ev?.({ type: 'path-start', diff: diff.length, stop, ea: energy(q, a), eb: energy(q, b), x: Uint8Array.from(x) });
     for (let step = 0; step < stop; step++) {
       // 남은 차이 가운데 에너지를 가장 덜 올리는 변수부터 b 쪽으로
       let pick = -1;
       for (const i of left) if (pick < 0 || d[i] < d[pick]) pick = i;
       left.delete(pick);
+      const dPick = d[pick];
       flip(q, x, d, pick);
       count();
+      ev?.({ type: 'path', step: step + 1, stop, pick, delta: dPick, e: energy(q, x), left: left.size, x: Uint8Array.from(x) });
     }
-    const res = tabu(q, x, r, deadline, { c: n / 50, alpha: 5 * n, onEval: count });
+    const res = tabu(q, x, r, deadline, { c: n / 50, alpha: 5 * n, onEval: count, ev });
     ref.add(res.x, res.e);
     pool.add(res.x, res.e);
   }
 }
 
-function memetic(q, { r, deadline, pool, count }) {
+function memetic(q, { r, deadline, pool, count, ev }) {
   // Lü, Glover & Hao 2010 HMA: 개체 20, 균등 교차(공통 비트 유지), 자식을 tabu로 개선, 나쁜 개체와 교체.
   const { n } = q;
   const pop = new Pool(20);
   for (let k = 0; k < 20 && now() < deadline; k++) {
-    const res = tabu(q, randomX(n, r), r, deadline, { c: n / 50, alpha: 3 * n, onEval: count });
+    const res = tabu(q, randomX(n, r), r, deadline, { c: n / 50, alpha: 3 * n, onEval: count, ev });
     pop.add(res.x, res.e);
     pool.add(res.x, res.e);
+    ev?.({ type: 'pop', k, e: res.e, pop: pop.items.map((it) => it.e), x: Uint8Array.from(res.x) });
   }
   while (now() < deadline && pop.items.length >= 2) {
     const a = pop.items[Math.floor(r() * pop.items.length)].x;
     const b = pop.items[Math.floor(r() * pop.items.length)].x;
     const child = Uint8Array.from({ length: n }, (_, i) => (a[i] === b[i] ? a[i] : r() < 0.5 ? 1 : 0));
-    const res = tabu(q, child, r, deadline, { c: n / 50, alpha: 3 * n, onEval: count });
+    if (ev) {
+      let same = 0;
+      for (let i = 0; i < n; i++) if (a[i] === b[i]) same++;
+      ev({ type: 'cross', same, n, ea: energy(q, a), eb: energy(q, b), e: energy(q, child), x: Uint8Array.from(child) });
+    }
+    const res = tabu(q, child, r, deadline, { c: n / 50, alpha: 3 * n, onEval: count, ev });
     pop.add(res.x, res.e);
     pool.add(res.x, res.e);
   }
 }
 
-function parallelTempering(q, { r, deadline, pool, count, replicas = 8 }) {
+function parallelTempering(q, { r, deadline, pool, count, replicas = 8, ev }) {
   // Hukushima & Nemoto 1996 교환 몬테카를로: β 사다리(기하), 매 sweep 뒤 이웃 교환 확률 min(1, exp((β_i−β_j)(E_i−E_j))).
   const { n } = q;
   const [b0, b1] = betaRange(q);
@@ -234,21 +252,27 @@ function parallelTempering(q, { r, deadline, pool, count, replicas = 8 }) {
         }
       }
     }
+    const swaps = [];
     for (let k = sweep % 2; k + 1 < replicas; k += 2) {
       const p = Math.exp((betas[k] - betas[k + 1]) * (es[k] - es[k + 1]));
+      const before = [es[k], es[k + 1]];
+      let ok = false;
       if (p >= 1 || r() < p) {
+        ok = true;
         [xs[k], xs[k + 1]] = [xs[k + 1], xs[k]];
         [ds[k], ds[k + 1]] = [ds[k + 1], ds[k]];
         [es[k], es[k + 1]] = [es[k + 1], es[k]];
       }
+      if (ev) swaps.push({ k, p: Math.min(1, p), ok, before });
     }
+    ev?.({ type: 'pt', sweep, betas, es: [...es], swaps, e: es[replicas - 1], x: Uint8Array.from(xs[replicas - 1]) });
     sweep++;
     if (sweep % 20 === 0) pool.add(xs[replicas - 1], es[replicas - 1]);
   }
   for (let k = 0; k < replicas; k++) pool.add(xs[k], es[k]);
 }
 
-function simulatedBifurcation(q, { r, deadline, pool, count, steps = 1000, dt = 0.5 }) {
+function simulatedBifurcation(q, { r, deadline, pool, count, steps = 1000, dt = 0.5, ev }) {
   // Goto et al. 2021 (Sci. Adv.) discrete SB(dSB). QUBO → Ising(s = 2x − 1), 일차 항은 +1로 고정한 보조 스핀으로 넣는다.
   // y_i += (−(a0 − a(t)) x_i + c0 Σ_j K_ij sgn(x_j)) dt,  x_i += a0 y_i dt,  |x_i| > 1이면 x_i = sgn(x_i), y_i = 0.
   // a0 = 1, a(t)는 0 → 1 선형, c0 = 0.5 / (rms(K) √N). 결과는 sgn(x).
@@ -286,6 +310,10 @@ function simulatedBifurcation(q, { r, deadline, pool, count, steps = 1000, dt = 
         if (Math.abs(x[i]) > 1) (x[i] = Math.sign(x[i])), (y[i] = 0);
       }
       count();
+      if (ev && (t % 10 === 0 || t === steps - 1)) {
+        const sx = Uint8Array.from({ length: n }, (_, i) => (x[i] > 0 ? 1 : 0));
+        ev({ type: 'sb', t, steps, a, c0, pos: Array.from(x.slice(0, n)), e: energy(q, sx), x: sx });
+      }
       if (now() > deadline) break;
     }
     const sol = Uint8Array.from({ length: n }, (_, i) => (x[i] > 0 ? 1 : 0));
@@ -293,7 +321,7 @@ function simulatedBifurcation(q, { r, deadline, pool, count, steps = 1000, dt = 
   } while (now() < deadline);
 }
 
-function sqa(q, { r, deadline, pool, count, slices = 16, PT = 0.5, sweeps = 300, gamma0 = 2.5, gamma1 = 0.01 }) {
+function sqa(q, { r, deadline, pool, count, slices = 16, PT = 0.5, sweeps = 300, gamma0 = 2.5, gamma1 = 0.01, ev }) {
   // 경로적분 SQA(Santoro, Martoňák & Tosatti 2002): 횡자기장 이징 모형을 P개 Trotter 사본으로 옮기고
   // 사본 사이를 J⊥ = −(PT/2)·ln tanh(Γ/(PT))로 묶는다. Γ를 2.5에서 0 가까이 줄인다. 고전 컴퓨터의 양자 몬테카를로이며
   // QPU 결과가 아니다(SA보다 양자 어닐링에 가까운 대리). 결합은 최대 절댓값 1로 정규화한다.
@@ -342,6 +370,12 @@ function sqa(q, { r, deadline, pool, count, slices = 16, PT = 0.5, sweeps = 300,
           }
         }
       }
+      if (ev) {
+        const xsS = S.map((sv) => Uint8Array.from(sv, (v) => (v > 0 ? 1 : 0)));
+        const esS = xsS.map((xx) => energy(q, xx));
+        const bi = esS.indexOf(Math.min(...esS));
+        ev({ type: 'sqa', t, sweeps, G, B, es: esS, e: esS[bi], x: xsS[bi] });
+      }
       if (now() > deadline) break;
     }
     for (const sv of S) {
@@ -351,7 +385,7 @@ function sqa(q, { r, deadline, pool, count, slices = 16, PT = 0.5, sweeps = 300,
   } while (now() < deadline);
 }
 
-function dwaveTabu(q, { r, deadline, pool, count }) {
+function dwaveTabu(q, { r, deadline, pool, count, ev }) {
   // D-Wave dwave-samplers TabuSampler 방식(MST2 다중 시작 tabu, Palubeckis 2004)을 다시 구현한 것:
   // tenure = min(20, ⌊n/4⌋), 읽기마다 무작위 시작 또는 지금까지 최고해에서 출발, 읽기 하나에 시간 상한(기본 20ms)을 두고 되풀이.
   // D²TS와는 다른 알고리즘이다(섭동·엘리트 풀 없음).
@@ -361,15 +395,16 @@ function dwaveTabu(q, { r, deadline, pool, count }) {
   let read = 0;
   while (now() < deadline) {
     const start = !best || read % 2 === 0 ? randomX(n, r) : Uint8Array.from(best.x);
+    ev?.({ type: 'read', read, from: !best || read % 2 === 0 ? 'random' : 'best', tenure, e: energy(q, start), x: Uint8Array.from(start) });
     const readDeadline = Math.min(deadline, now() + 20);
-    const res = tabu(q, start, r, readDeadline, { c: Math.max(0, tenure - 5.5), alpha: 10000, onEval: count });
+    const res = tabu(q, start, r, readDeadline, { c: Math.max(0, tenure - 5.5), alpha: 10000, onEval: count, ev });
     if (!best || res.e < best.e) best = res;
     pool.add(res.x, res.e);
     read++;
   }
 }
 
-function cpBranchAndBound(q, { deadline, pool, count }) {
+function cpBranchAndBound(q, { deadline, pool, count, ev }) {
   // 제약 프로그래밍식 분기한정(CP-SAT의 브라우저 안 대체). 칸을 차례로 채우며 실마다 한 번만(AllDifferent),
   // 부분 에너지 + 낙관적 하한(남은 칸마다 가능한 최소 기여 + 남은 칸 쌍의 음수 결합 최솟값)이 최고해 이상이면 가지를 자른다.
   // 진짜 CP-SAT(OR-Tools)는 내보낸 QUBO로 Python에서 돌린다(public/qubo/solve_qubo.py --solver cpsat).
@@ -401,6 +436,11 @@ function cpBranchAndBound(q, { deadline, pool, count }) {
     count();
     if (depth === S) {
       const e = cur + q.offset;
+      if (ev) {
+        const xl = new Uint8Array(n);
+        for (const i of chosen) xl[i] = 1;
+        ev({ type: 'leaf', e, best: Math.min(bestE, e), improved: e < bestE - 1e-12, x: xl });
+      }
       if (e < bestE - 1e-12) bestE = e;
       const x = new Uint8Array(n);
       for (const i of chosen) x[i] = 1;
@@ -421,7 +461,13 @@ function cpBranchAndBound(q, { deadline, pool, count }) {
       lb += mn;
       for (let b = a + 1; b < S; b++) lb += pairMin[a][b];
     }
-    if (lb + q.offset >= bestE - 1e-12 && pool.items.length >= pool.size) return;
+    const pruned = lb + q.offset >= bestE - 1e-12 && pool.items.length >= pool.size;
+    if (ev) {
+      const xp = new Uint8Array(n);
+      for (const i of chosen) xp[i] = 1;
+      ev({ type: 'node', depth, slots: S, slot: depth < S ? slots[depth] : null, lb: lb + q.offset, best: bestE, pruned, e: lb + q.offset, x: xp });
+    }
+    if (pruned) return;
     // 값 순서: 기여가 작은 실부터
     const opts = [];
     for (let ri = 0; ri < cand[depth].length; ri++) {
@@ -456,7 +502,7 @@ function* permutations(list) {
   }
 }
 
-function exact(q, { deadline, pool, count }) {
+function exact(q, { deadline, pool, count, ev }) {
   // 원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 열거해 에너지 최소를 찾는다. 벌점이 유효하므로 이것이 QUBO 전역 최적이다.
   // Gurobi·CP-SAT의 브라우저 안 대체(내보낸 모델로 Python에서 같은 최적값을 확인할 수 있다).
   const { front, back } = q.bands;
@@ -483,6 +529,12 @@ function exact(q, { deadline, pool, count }) {
         for (const fa of onesF) e += M[fa * n + onesB[a]];
       }
       count();
+      if (ev) {
+        const xe = new Uint8Array(n);
+        for (const i of onesF) xe[i] = 1;
+        for (const i of onesB) xe[i] = 1;
+        ev({ type: 'enum', e, best: Math.min(e, pool.items[0]?.e ?? Infinity), x: xe });
+      }
       if (pool.items.length < pool.size || e < pool.items.at(-1).e) {
         const x = new Uint8Array(n);
         for (const i of onesF) x[i] = 1;
@@ -513,7 +565,7 @@ export const SOLVERS = [
 /**
  * 풀이기 하나를 돌린다. 반환: { key, energy, feasible, ms, evals, samples: [{ x, e, feasible }], note }
  */
-export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null } = {}) {
+export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null, onEvent = null } = {}) {
   const solver = SOLVERS.find((s) => s.key === key);
   const r = makeRng(seed * 7919 + key.length * 104729);
   const pool = new Pool(6);
@@ -534,7 +586,8 @@ export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null } 
   };
   let info;
   try {
-    info = solver.run(q, { r, deadline: t0 + budgetMs, pool, count: () => evals++ }) || {};
+    // onEvent: 보기용 기록(코드로 보기 탭). 주지 않으면 계산은 기록 없이 똑같이 돈다.
+    info = solver.run(q, { r, deadline: t0 + budgetMs, pool, count: () => evals++, ev: onEvent ? (e) => onEvent({ ...e, evals }) : null }) || {};
   } finally {
     now = realNow;
   }

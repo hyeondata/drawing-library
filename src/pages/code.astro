@@ -104,10 +104,10 @@ const sections = [
     ],
     code: show(S, 'deltas', 'flip', 'tabu'),
   },
-  { id: 'd2ts', title: '2. D²TS', run: 'd2ts', what: ['tabu로 깊이 내려간 뒤, 엘리트 해에서 <b>빈도(freq)와 난수로 순위를 매겨</b> 순위 j를 확률 ∝ j^−1.2로 γ = n/4개 뽑아 뒤집습니다(다양화). 다시 tabu → 반복(Glover, Lü & Hao 2010).'], code: show(S, 'd2ts') },
-  { id: 'pr', title: '3. Path Relinking', run: 'pr', what: ['참조 집합 10개를 tabu로 만들고, 두 해 사이 다른 비트를 Δ가 작은 것부터 맞춰 가다 1/3~2/3 지점에서 tabu로 다듬어 참조 집합을 갱신합니다(Wang 외 2012).'], code: show(S, 'pathRelinking') },
-  { id: 'memetic', title: '4. Memetic', run: 'memetic', what: ['개체 20개, 균등 교차(같은 비트는 유지, 다른 비트는 반반), 자식을 tabu로 다듬어 나쁜 개체와 바꿉니다(Lü, Glover & Hao 2010).'], code: show(S, 'memetic') },
-  { id: 'tabu', title: '5. Tabu (D-Wave 방식)', run: 'tabu', what: ['tenure = min(20, ⌊n/4⌋), 읽기마다 무작위 해 또는 최고해에서 출발해 20ms씩 tabu(Palubeckis 2004 MST2).'], code: show(S, 'dwaveTabu') },
+  { step: true, id: 'd2ts', title: '2. D²TS', run: 'd2ts', what: ['tabu로 깊이 내려간 뒤, 엘리트 해에서 <b>빈도(freq)와 난수로 순위를 매겨</b> 순위 j를 확률 ∝ j^−1.2로 γ = n/4개 뽑아 뒤집습니다(다양화). 다시 tabu → 반복(Glover, Lü & Hao 2010).'], code: show(S, 'd2ts') },
+  { step: true, id: 'pr', title: '3. Path Relinking', run: 'pr', what: ['참조 집합 10개를 tabu로 만들고, 두 해 사이 다른 비트를 Δ가 작은 것부터 맞춰 가다 1/3~2/3 지점에서 tabu로 다듬어 참조 집합을 갱신합니다(Wang 외 2012).'], code: show(S, 'pathRelinking') },
+  { step: true, id: 'memetic', title: '4. Memetic', run: 'memetic', what: ['개체 20개, 균등 교차(같은 비트는 유지, 다른 비트는 반반), 자식을 tabu로 다듬어 나쁜 개체와 바꿉니다(Lü, Glover & Hao 2010).'], code: show(S, 'memetic') },
+  { step: true, id: 'tabu', title: '5. Tabu (D-Wave 방식)', run: 'tabu', what: ['tenure = min(20, ⌊n/4⌋), 읽기마다 무작위 해 또는 최고해에서 출발해 20ms씩 tabu(Palubeckis 2004 MST2).'], code: show(S, 'dwaveTabu') },
   {
     id: 'sa', title: '6. SA (QPU 임시 대체): 한 걸음씩 따라가기', run: 'sa', stepper: true,
     what: [
@@ -118,16 +118,21 @@ const sections = [
     ],
     code: show('src/generate/sa-explained.js', 'createSA') + show(S, 'betaRange', 'sa'),
   },
-  { id: 'pt', title: '7. Parallel Tempering', run: 'pt', what: ['β 사다리 8개 사본을 각자 메트로폴리스로 돌리고, 이웃 사본을 확률 min(1, e^((β_k−β_{k+1})(E_k−E_{k+1})))로 교환합니다(Hukushima & Nemoto 1996).'], code: show(S, 'parallelTempering') },
-  { id: 'sqa', title: '8. SQA (경로적분 양자 몬테카를로)', run: 'sqa', what: ['QUBO → 이징(J = M/4, h = q_ii/2 + ΣM/4), Trotter 사본 16개를 B = −½ ln tanh(Γ/PT)로 묶고 Γ를 2.5 → 0.01로 줄입니다(Santoro 외 2002). 고전 컴퓨터의 대리입니다.'], code: show(S, 'sqa') },
-  { id: 'sb', title: '9. Simulated Bifurcation (dSB)', run: 'sb', what: ['스핀을 위치 x·운동량 y로 바꿔 y += (−(1−a)x + c₀ΣK sgn(x))Δt, x += yΔt, |x| > 1이면 벽. a를 0 → 1로 올린 뒤 sgn(x)를 해로 읽습니다(Goto 외 2021). 일차 항은 +1 보조 스핀.'], code: show(S, 'simulatedBifurcation') },
-  { id: 'cpsat', title: '10. CP-SAT 방식(분기한정)', run: 'cpsat', what: ['칸을 차례로 채우며 실마다 한 번만(AllDifferent), 하한 = 지금 에너지 + 남은 칸의 최소 기여 + 남은 칸 쌍의 음수 결합. 하한 ≥ 최고해면 가지를 자릅니다.'], code: show(S, 'cpBranchAndBound') },
-  { id: 'exact', title: '11. 정확해(열거)', run: 'exact', what: ['원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 계산합니다. 벌점이 유효하므로 QUBO 전역 최적 = 다른 풀이기의 정답지.'], code: show(S, 'exact') },
+  { step: true, id: 'pt', title: '7. Parallel Tempering', run: 'pt', what: ['β 사다리 8개 사본을 각자 메트로폴리스로 돌리고, 이웃 사본을 확률 min(1, e^((β_k−β_{k+1})(E_k−E_{k+1})))로 교환합니다(Hukushima & Nemoto 1996).'], code: show(S, 'parallelTempering') },
+  { step: true, id: 'sqa', title: '8. SQA (경로적분 양자 몬테카를로)', run: 'sqa', what: ['QUBO → 이징(J = M/4, h = q_ii/2 + ΣM/4), Trotter 사본 16개를 B = −½ ln tanh(Γ/PT)로 묶고 Γ를 2.5 → 0.01로 줄입니다(Santoro 외 2002). 고전 컴퓨터의 대리입니다.'], code: show(S, 'sqa') },
+  { step: true, id: 'sb', title: '9. Simulated Bifurcation (dSB)', run: 'sb', what: ['스핀을 위치 x·운동량 y로 바꿔 y += (−(1−a)x + c₀ΣK sgn(x))Δt, x += yΔt, |x| > 1이면 벽. a를 0 → 1로 올린 뒤 sgn(x)를 해로 읽습니다(Goto 외 2021). 일차 항은 +1 보조 스핀.'], code: show(S, 'simulatedBifurcation') },
+  { step: true, id: 'cpsat', title: '10. CP-SAT 방식(분기한정)', run: 'cpsat', what: ['칸을 차례로 채우며 실마다 한 번만(AllDifferent), 하한 = 지금 에너지 + 남은 칸의 최소 기여 + 남은 칸 쌍의 음수 결합. 하한 ≥ 최고해면 가지를 자릅니다.'], code: show(S, 'cpBranchAndBound') },
+  { step: true, id: 'exact', title: '11. 정확해(열거)', run: 'exact', what: ['원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 계산합니다. 벌점이 유효하므로 QUBO 전역 최적 = 다른 풀이기의 정답지.'], code: show(S, 'exact') },
+  {
+    step: true, stepKey: 'model', id: 'model', title: '11-1. 기존: 모델 직접 탐색(QUBO 없이)', run: null,
+    what: ['QUBO를 거치지 않고, 평면 변수(깊이 D·앞 띠 비율 f·작은방 폭 w·안방 깊이 g·실 순서 등)를 무작위로 뽑아 평면을 만들고 목적함수 J로 채점합니다(무작위 탐색). 그다음 좋은 안 몇 개에서 변수를 조금씩 바꿔 더 좋아지면 옮겨 갑니다(국소 탐색). 이 방식은 모든 변수를 매번 함께 정해 평면 하나를 통째로 평가합니다.'],
+    code: show('src/generate/optimize.js', 'optimize'),
+  },
   { id: 'runner', title: '12. 같은 조건으로 돌리는 틀: runSolver', run: null, what: ['모든 풀이기에 같은 시간(또는 평가 횟수) 예산과 시드를 주고, 최저 에너지가 바뀔 때마다 [경과 ms, 평가 횟수, 에너지, 해]를 trace에 남깁니다. 이 페이지의 "실행" 표가 이 trace입니다(Dunning 외 2018의 같은 예산 비교).'], code: show(S, 'runSolver') },
   { id: 'size', title: '13. 방 크기 계산: 폭 나누기와 다듬기', run: null, what: ['<b>allocate</b>: 최소 폭을 먼저 주고 남는 폭을 (원하는 폭 − 최소 폭)에 비례해 나눕니다. 띠 폭이 최소 폭 합보다 좁으면 최소 폭에 비례해 모두 줄입니다(이때 좁은 실 감점).', '<b>realize</b>: QUBO가 정한 순서로 평면을 만들고, 깊이·앞 띠 비율·작은방 폭·안방 깊이를 30번 조금씩 바꿔 목적함수 J가 가장 높은 것을 고릅니다.'], code: show('src/generate/layout.js', 'allocate') + show('src/generate/compare.js', 'realize') },
   { id: 'ff-init', title: '14. 자유형: 제약 성장(처음 배치)', run: null, what: ['씨앗을 원래 위치에서 jitter만큼 옮겨 놓고(공용 실은 덜), 모자란 실부터 직사각형으로 한 줄씩 → 막히면 줄 일부로 ㄱ자 성장 → 남은 칸은 가장 많이 맞닿은 이웃에(Lopes 외 2010).'], code: show(F, 'initial') },
   { id: 'ff-energy', title: '15. 자유형: 에너지와 공간구문', run: null, what: ['<b>energy</b>: 면적·둘레·꼭짓점·좁은 부분·인접·창·접근·침실 통과(·현관·외곽·공간구문) 항을 무게와 곱해 더합니다.', '<b>syntaxOf</b>: 평가 모델과 같은 정의로 통합도(1/RRA)·깊이를 계산하고 거실/침실 비·τ·공·사 깊이 차를 냅니다.'], code: show(F, 'energy', 'syntaxOf', 'syntaxPenalty') },
-  { id: 'ff-anneal', title: '16. 자유형: 담금질(벽 밀기)', run: 'freeform', what: ['80%는 맞닿은 벽 한 줄을 통째로 한 칸 미는 이동, 20%는 칸 하나. 실이 쪼개지면 되돌리고, 바뀐 실만 다시 세어 ΔE를 구한 뒤 ΔE ≤ 0이면 받아들이고 아니면 확률 e^(−ΔE/T). 온도 1.5 → 0.005(Kirkpatrick 외 1983).'], code: show(F, 'anneal') },
+  { step: true, stepKey: 'freeform', id: 'ff-anneal', title: '16. 자유형: 담금질(벽 밀기)', run: 'freeform', what: ['80%는 맞닿은 벽 한 줄을 통째로 한 칸 미는 이동, 20%는 칸 하나. 실이 쪼개지면 되돌리고, 바뀐 실만 다시 세어 ΔE를 구한 뒤 ΔE ≤ 0이면 받아들이고 아니면 확률 e^(−ΔE/T). 온도 1.5 → 0.005(Kirkpatrick 외 1983).'], code: show(F, 'anneal') },
 ];
 ---
 
@@ -137,7 +142,7 @@ const sections = [
   <section class="hero hero-compact">
     <p class="eyebrow">실제 코드 · 주석 · 실행</p>
     <h1>코드로 <span class="gradient-text">보기</span></h1>
-    <p class="lede">알고리즘마다 <b>사이트가 실제로 쓰는 코드</b>를 그대로 보여 줍니다(빌드할 때 소스 파일에서 함수를 잘라 오므로, 코드가 바뀌면 이 페이지도 같이 바뀝니다). 각 코드 아래 "실행"을 누르면 같은 예시 입력(84㎡ · 침실 3 · 욕실 2 · 드레스룸, 보정 가중치 QUBO)으로 브라우저에서 실제로 돌려, 에너지가 좋아질 때마다의 값을 표로 보여 줍니다. 식의 유도와 근거는 <a href={`${base}method/`}>방법과 근거</a>, 전체 흐름은 <a href={`${base}how/`}>생성 원리</a>에 있습니다.</p>
+    <p class="lede">알고리즘마다 <b>사이트가 실제로 쓰는 코드</b>를 그대로 보여 줍니다(빌드할 때 소스 파일에서 함수를 잘라 오므로, 코드가 바뀌면 이 페이지도 같이 바뀝니다). 알고리즘마다 <b>"한 걸음씩 따라가기"</b>가 있습니다: 실제 풀이기 코드에 넣어 둔 기록점이 걸음마다 남긴 값(어느 변수를 왜 뒤집었는지, Δ, 확률, 하한 등)을 쉬운 문장과 실 × 칸 표로 보여 줍니다. 기록점은 계산을 바꾸지 않습니다(기록 있음/없음 결과가 같음을 테스트로 확인). 또 각 코드 아래 "실행"을 누르면 같은 예시 입력(84㎡ · 침실 3 · 욕실 2 · 드레스룸, 보정 가중치 QUBO)으로 브라우저에서 실제로 돌려, 에너지가 좋아질 때마다의 값을 표로 보여 줍니다. 식의 유도와 근거는 <a href={`${base}method/`}>방법과 근거</a>, 전체 흐름은 <a href={`${base}how/`}>생성 원리</a>에 있습니다.</p>
   </section>
 
   <main class="mt">
@@ -175,6 +180,25 @@ const sections = [
           <summary>실제 코드 보기</summary>
           <Fragment set:html={s.code} />
         </details>
+        {s.step && (
+          <div class="st-box sa-step" data-st={s.stepKey || s.run}>
+            <h3>한 걸음씩 따라가기(실제 코드의 기록)</h3>
+            <div class="sa-ctl">
+              <button type="button" class="button-primary small" data-step="rec">▶ 실행하고 기록</button>
+              <button type="button" class="button-ghost small" data-step="first">⏮</button>
+              <button type="button" class="button-ghost small" data-step="-1">◀ 이전</button>
+              <button type="button" class="button-ghost small" data-step="1">다음 ▶</button>
+              <button type="button" class="button-ghost small" data-step="10">+10</button>
+              <button type="button" class="button-ghost small" data-step="100">+100</button>
+              <button type="button" class="button-ghost small" data-step="last">⏭</button>
+              {['d2ts', 'pr', 'memetic', 'tabu', 'cpsat'].includes(s.run) && <button type="button" class="button-ghost small" data-step="special">다음 주요 단계 ⤳</button>}
+              <label>시드 <input type="number" value="1" min="1" max="999" data-seed /></label>
+              {(s.stepKey || s.run) === 'freeform' ? <label>이동 수 <select data-steps><option value="1500">1,500</option><option value="3000" selected>3,000</option></select></label> : (s.stepKey !== 'model' && <label>평가 예산 <select data-budget><option value="5000">5,000</option><option value="30000" selected>30,000</option></select></label>)}
+            </div>
+            <input type="range" min="0" max="0" value="0" data-slider class="gen-time-slider" aria-label="기록 위치" />
+            <div data-view><p class="note">"실행하고 기록"을 누르면 실제 코드를 같은 예시로 돌리면서 걸음마다 기록을 남기고, 여기서 한 걸음씩 볼 수 있습니다. 표의 칸 = 변수(실 × 칸), 초록 테두리 = 방금 뒤집은 변수, 점선 = 섭동으로 고른 변수.</p></div>
+          </div>
+        )}
         {s.run && (
           <div class="cd-run" data-run={s.run}>
             <div class="cd-run-ctl">

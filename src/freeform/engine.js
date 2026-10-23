@@ -822,7 +822,7 @@ function staysConnected(a, P, c, from, size) {
  * 담금질. 반환: { assign, history:[{it, E, terms}], snaps:[{it, assign}], energy }
  * steps: 이동 시도 수, T0→T1: 온도(지수 감소)
  */
-export function anneal(P, { seed = 1, jitter = 0.5, freedom = 'L', steps = 30000, T0 = 1.5, T1 = 0.005, snapEvery = null, onProgress = null } = {}) {
+export function anneal(P, { seed = 1, jitter = 0.5, freedom = 'L', steps = 30000, T0 = 1.5, T1 = 0.005, snapEvery = null, onProgress = null, onEvent = null } = {}) {
   const r = rng(seed * 7919 + 13);
   const a = initial(P, seed, jitter);
   const { nx, ny, rooms } = P;
@@ -859,13 +859,19 @@ export function anneal(P, { seed = 1, jitter = 0.5, freedom = 'L', steps = 30000
     }
     return false;
   };
-  const tryAccept = (next, T, undo) => {
+  let itNow = 0;
+  const tryAccept = (next, T, undo, info = null) => {
     const dE = next.total - cur.total;
-    if (dE <= 0 || r() < Math.exp(-dE / T)) {
+    const p = dE <= 0 ? 1 : Math.exp(-dE / T);
+    let ok = false;
+    if (dE <= 0 || r() < p) {
       cur = next;
       accepted++;
+      ok = true;
       if (cur.total < best.E) best = { E: cur.total, a: Int16Array.from(a) };
     } else undo();
+    // (보기용 기록) 외곽 이동의 결과
+    if (onEvent && info) onEvent({ type: 'ff-move', it: itNow, ...info, dE, T, p, accepted: ok, E: cur.total, terms: { ...cur.terms }, assign: Int16Array.from(a) });
   };
   const restat = (changed) => {
     const stats = { ...cur.stats };
@@ -877,6 +883,7 @@ export function anneal(P, { seed = 1, jitter = 0.5, freedom = 'L', steps = 30000
     return stats;
   };
   for (let it = 1; it <= steps; it++) {
+    itNow = it;
     const T = T0 * (T1 / T0) ** (it / steps);
     // 외곽 이동(외곽도 다듬기일 때 25%): 바깥 벽 칸을 실에서 빼거나(-1) 바깥 칸을 이웃 실에 붙인다.
     if (P.outlineFree && r() < 0.25) {
@@ -895,7 +902,7 @@ export function anneal(P, { seed = 1, jitter = 0.5, freedom = 'L', steps = 30000
             break;
           }
           const next = energy(a, P, freedom, restat([from]));
-          tryAccept(next, T, () => (a[c] = from));
+          tryAccept(next, T, () => (a[c] = from), { kind: 'outline-remove', from, to: -1, n: 1, cells: [c] });
         } else {
           const opts = ns.filter((m) => a[m] >= 0 && !rooms[a[m]].fixed).map((m) => a[m]);
           if (!opts.length) continue;
@@ -906,7 +913,7 @@ export function anneal(P, { seed = 1, jitter = 0.5, freedom = 'L', steps = 30000
             break;
           }
           const next = energy(a, P, freedom, restat([to]));
-          tryAccept(next, T, () => (a[c] = -1));
+          tryAccept(next, T, () => (a[c] = -1), { kind: 'outline-add', from: -1, to, n: 1, cells: [c] });
         }
         break;
       }
@@ -959,12 +966,19 @@ export function anneal(P, { seed = 1, jitter = 0.5, freedom = 'L', steps = 30000
           }
           const next = energy(a, P, freedom, stats);
           const dE = next.total - cur.total;
-          if (dE <= 0 || r() < Math.exp(-dE / T)) {
+          const p = dE <= 0 ? 1 : Math.exp(-dE / T);
+          let ok = false;
+          if (dE <= 0 || r() < p) {
             cur = next;
             accepted++;
+            ok = true;
             if (cur.total < best.E) best = { E: cur.total, a: Int16Array.from(a) };
           } else for (const k of cells) a[k] = from;
-        } else for (const k of cells) a[k] = from;
+          if (onEvent) onEvent({ type: 'ff-move', it, kind: cells.length > 1 ? 'wall' : 'cell', from, to, n: cells.length, cells: [...cells], dE, T, p, accepted: ok, E: cur.total, terms: { ...cur.terms }, assign: Int16Array.from(a) });
+        } else {
+          for (const k of cells) a[k] = from;
+          if (onEvent) onEvent({ type: 'ff-move', it, kind: cells.length > 1 ? 'wall' : 'cell', from, to, n: cells.length, cells: [...cells], broken: true, accepted: false, T, E: cur.total, terms: { ...cur.terms }, assign: Int16Array.from(a) });
+        }
       }
     }
     if (it % every === 0 || it === steps) {

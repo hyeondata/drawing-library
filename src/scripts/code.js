@@ -169,3 +169,15 @@ if (saBox) {
   document.getElementById('sa-seed').addEventListener('change', reset);
   reset();
 }
+
+// ---------------- 공용 한 걸음씩(나머지 알고리즘) ----------------
+import { setupSteppers } from './code-stepper.js';
+let baselineCache = null;
+setupSteppers({
+  q,
+  nameOf,
+  opt,
+  base,
+  spec,
+  baseline: async () => (baselineCache ||= await (await fetch(`${base}data/baseline.json`)).json()),
+});

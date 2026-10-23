@@ -66,7 +66,7 @@ export function unitSvg(unit, { scale = 1, title = '', highlight = true, small =
 /**
  * 생성 결과 SVG. assign: 칸 배정, P: setup 결과, opts: { openings, names, mode:'full'|'space', title, highlight:Set(실 k), small }
  */
-export function planSvg(assign, P, { openings = [], names = {}, mode = 'full', title = '', small = false, labels = true, areaOf = null, front = null, sunOf = null } = {}) {
+export function planSvg(assign, P, { openings = [], names = {}, mode = 'full', title = '', small = false, labels = true, areaOf = null, front = null, sunOf = null, mark = null } = {}) {
   const S = small ? 14 : 40;
   const pad = small ? 6 : 50;
   const W = P.nx * P.sx;
@@ -163,6 +163,8 @@ export function planSvg(assign, P, { openings = [], names = {}, mode = 'full', t
     }
   if (title) parts.push(`<text x="${vw / 2}" y="${vh - 12}" text-anchor="middle" font-size="16" font-weight="700" fill="#222">${esc(title)}</text>`);
   if (front !== null && !small) parts.push(compass(vw - 40, 40, front, 18));
+  // 표시할 칸(코드로 보기: 방금 옮긴 칸)
+  if (mark?.cells?.length) for (const c of mark.cells) parts.push(`<rect x="${X((c % nx) * sx)}" y="${Y(Math.floor(c / nx) * sy)}" width="${sx * S}" height="${sy * S}" fill="${mark.color}" fill-opacity="0.45" stroke="${mark.color}" stroke-width="1.5"/>`);
   return `<svg viewBox="0 0 ${vw.toFixed(0)} ${vh.toFixed(0)}" role="img" aria-label="${esc(title || '생성 평면')}">${parts.join('')}</svg>`;
 }
 
