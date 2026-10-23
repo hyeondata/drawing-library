@@ -4,6 +4,7 @@ import { MIN_SIDE } from '../generate/layout.js';
 import { renderFormulas } from './generate-formulas.js';
 import { renderDiagnosis } from './generate-diagnosis.js';
 import { deviation } from '../generate/metrics.js';
+import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
@@ -192,6 +193,52 @@ async function runCompare(algorithms, seed) {
   w.postMessage({ type: 'compare', id, spec, baseline, seed, algorithms, budgetMs, weights: $('#gen-weights').value });
 }
 
+// QUBO 에너지와 평가 점수 산점도: 풀이기가 낸 후보(템플릿별)를 평면으로 풀어 잰 점수와 그 해의 에너지.
+const FAMILY = { d2ts: 'tabu', pr: 'tabu', memetic: 'tabu', tabu: 'tabu', sa: 'stoch', sqa: 'stoch', pt: 'stoch', sb: 'stoch', cpsat: 'exact', exact: 'exact' };
+const FAMILY_STYLE = {
+  tabu: { color: 'var(--cat-1)', label: 'tabu 계열(D²TS·PR·Memetic·Tabu)' },
+  stoch: { color: 'var(--cat-2)', label: '확률적(SA·SQA·PT·SB)' },
+  exact: { color: 'var(--cat-3)', label: '정확해(CP-SAT 방식·열거)' },
+};
+function renderScatter(cmp) {
+  const box = $('#gen-scatter');
+  if (!box) return;
+  const pts = cmp.scatter || [];
+  if (!pts.length) {
+    box.innerHTML = '';
+    return;
+  }
+  const mode = state.scMode || 'J';
+  const yOf = (p) => (mode === 'J' ? p[2] : p[4]);
+  const nameOf = Object.fromEntries(cmp.results.map((r) => [r.key, r.name]));
+  const bestJ = Math.max(...pts.map((p) => p[2]));
+  const tpls = [...new Set(pts.map((p) => p[0]))].sort((a, b) => a - b);
+  const panels = tpls.map((k) => {
+    const pp = pts.filter((p) => p[0] === k);
+    const rho = pp.length >= 4 ? spearman(pp.map((p) => p[1]), pp.map(yOf)) : null;
+    const points = pp.map((p) => ({ x: p[1], y: yOf(p), group: FAMILY[p[3]] || 'tabu', shape: FAMILY[p[3]] === 'stoch' ? 'tri' : FAMILY[p[3]] === 'exact' ? 'sq' : 'circle', ring: p[2] === bestJ, label: `${nameOf[p[3]] || p[3]} · 에너지 ${p[1].toFixed(2)} · 순위 점수 J ${p[2].toFixed(1)} · 모델 점수 ${p[4] === undefined || p[4] === null ? '–' : p[4].toFixed(1)}` }));
+    return `<figure>${scatterPanel(points, FAMILY_STYLE, { title: `템플릿: 앞 침실 ${k + 1}개 (${pp.length}점)`, yLabel: mode === 'J' ? '순위 점수 J ↑' : '평가 모델 점수 ↑', rho, optimum: cmp.qubo.optimum?.[k] ?? null })}</figure>`;
+  });
+  const legend = scatterLegend(Object.entries(FAMILY_STYLE).map(([k, v]) => ({ color: v.color, shape: k === 'stoch' ? 'tri' : k === 'exact' ? 'sq' : 'circle', label: v.label })));
+  box.innerHTML = `
+    <div class="gen-process-head">
+      <h4>QUBO 에너지와 평가 점수</h4>
+      <div class="seg" role="group" id="sc-mode">
+        <button type="button" data-v="J" aria-pressed="${mode === 'J'}">순위 점수 J</button>
+        <button type="button" data-v="model" aria-pressed="${mode === 'model'}">평가 모델 점수</button>
+      </div>
+    </div>
+    <div class="sc-panels">${panels.join('')}</div>
+    ${legend}
+    <p class="note">점 하나 = 풀이기가 낸 좋은 해 하나를 평면으로 풀고(연속값 ${'30'}번 다듬음) 잰 점수입니다. 가로는 그 해의 QUBO 에너지(왼쪽일수록 낮음), 세로는 점수(위일수록 좋음)입니다. QUBO가 평가 모델을 잘 대리한다면 점이 왼쪽 위에서 오른쪽 아래로 놓이고 스피어만 ρ가 음수가 됩니다. 점선은 그 템플릿의 최적 에너지, 굵은 테두리는 이번 실행에서 순위 점수가 가장 높은 안입니다. 에너지는 같은 템플릿끼리만 비교할 수 있어 템플릿별로 나눠 그렸습니다. 풀이기가 낸 해는 대부분 저에너지라 범위가 좁아 상관이 약하게 나오기 쉽습니다(전체 배치에서 잰 상관은 '방법과 근거' 4절).</p>`;
+  box.querySelectorAll('#sc-mode button').forEach((b) =>
+    b.addEventListener('click', () => {
+      state.scMode = b.dataset.v;
+      renderScatter(cmp);
+    }),
+  );
+}
+
 function renderCompare() {
   const box = $('#gen-compare');
   const cmp = state.compare;
@@ -226,8 +273,10 @@ function renderCompare() {
         풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 깊이·폭을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
         <b>n = 1(한 번 실행), 통계적 비교 불가</b> — 어느 알고리즘이 낫다고 말할 수 없습니다(시드 30개 비교는 evidence/results/qubo-benchmark.md). 시드를 바꿔 다시 돌려 보세요. SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
       </p>
+      <div class="gen-scatter" id="gen-scatter"></div>
       <button type="button" class="button-ghost small" id="gen-record">실행 기록 JSON</button>
     </div>`;
+  renderScatter(cmp);
   $('#gen-record').addEventListener('click', () => {
     const record = {
       generatedAt: new Date().toISOString(),

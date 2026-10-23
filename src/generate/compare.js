@@ -165,7 +165,7 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
         cand.energy = smp.e;
         cand.template = t.k;
         cand.repaired = order.repaired;
-        points.push([t.k, smp.e, cand.objective]);
+        points.push([t.k, smp.e, cand.objective, key, cand.model]);
         if (!best || cand.objective > best.objective) best = cand;
       }
       phases.push({ label: '평면으로 풀기·다듬기', start: decodeStart, end: clock() - run0 });
@@ -189,6 +189,7 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
     results,
     rho: rhoN ? rhoSum / rhoN : null,
     points: points.length,
+    scatter: points, // [템플릿, 에너지, 순위 점수 J, 풀이기 key, 평가 모델 점수]
   };
 }
 

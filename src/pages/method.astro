@@ -7,6 +7,13 @@ import { CALIBRATED } from '../generate/qubo-weights.js';
 import { runSolver } from '../generate/solvers.js';
 import { programOf } from '../generate/layout.js';
 import { WEIGHTS, FREEDOM, MIN_WIDTH, CELL } from '../freeform/engine.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { templates, defaultParams } from '../generate/compare.js';
+import { scoreLayout } from '../generate/optimize.js';
+import { buildLayout } from '../generate/layout.js';
+import { encode, features, weightsOf } from '../generate/qubo.js';
+import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -187,6 +194,53 @@ const solvers = [
   },
 ];
 const freedomRows = Object.entries(FREEDOM);
+
+// ---- 에너지–점수 산점도: 예시 조건의 모든 배치(템플릿 2개)를 기본 치수 평면으로 풀어 순위 점수 J를 잰다 ----
+const baseline = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'baseline.json'), 'utf8'));
+function* perms(a) {
+  if (a.length <= 1) {
+    yield a.slice();
+    return;
+  }
+  for (let i = 0; i < a.length; i++) for (const p of perms([...a.slice(0, i), ...a.slice(i + 1)])) yield [a[i], ...p];
+}
+const WS = { hand: weightsOf('hand'), cal: weightsOf('calibrated') };
+const enumPts = [];
+for (const t of templates({ ...spec, livingKey: 'm' }, 'calibrated')) {
+  for (const f of perms(t.q.bands.front.rooms))
+    for (const b of perms(t.q.bands.back.rooms)) {
+      const phi = features(t.q, encode(t.q, f, b));
+      const e = (w) => TERMS.reduce((acc, tt, i) => acc + (w[tt.id] ?? 0) * phi[i], 0);
+      const sc = scoreLayout(spec, buildLayout(spec, { ...defaultParams(spec), frontOrder: f, backOrder: b }), baseline);
+      if (!sc) continue;
+      enumPts.push({ k: t.k, hand: e(WS.hand), cal: e(WS.cal), J: sc.model, pen: Boolean(sc.narrow || sc.doorIssues || !sc.unit?.validity?.valid), order: `${f.map((x) => nameOf[x] ?? x).join('·')} / ${b.map((x) => nameOf[x] ?? x).join('·')}` });
+    }
+}
+const TPL_STYLE = { 2: { color: 'var(--cat-1)', shape: 'circle' }, 1: { color: 'var(--cat-3)', shape: 'tri' }, 0: { color: 'var(--cat-2)', shape: 'sq' } };
+const scPanel = (wk, title) => {
+  const rhos = [];
+  const pts = [];
+  for (const k of [...new Set(enumPts.map((p) => p.k))]) {
+    const pp = enumPts.filter((p) => p.k === k);
+    rhos.push([k, spearman(pp.map((p) => p[wk]), pp.map((p) => p.J)), pp.length]);
+    const minE = Math.min(...pp.map((p) => p[wk]));
+    for (const p of pp) pts.push({ x: p[wk], y: p.J, group: String(k), shape: TPL_STYLE[k]?.shape, hollow: p.pen, ring: Math.abs(p[wk] - minE) < 1e-9, label: `앞 침실 ${k + 1}개 · ${p.order} · 에너지 ${p[wk].toFixed(2)} · 모델 점수 ${p.J.toFixed(1)}${p.pen ? ' · 기본 치수에서 좁은 실·문 동선 문제' : ''}` });
+  }
+  const tot = rhos.reduce((s, r) => s + r[2], 0);
+  const rho = rhos.reduce((s, r) => s + (r[1] ?? 0) * r[2], 0) / tot;
+  const minJ = [...new Set(enumPts.map((p) => p.k))].map((k) => {
+    const pp = enumPts.filter((p) => p.k === k);
+    const minE = Math.min(...pp.map((p) => p[wk]));
+    const sel = pp.filter((p) => Math.abs(p[wk] - minE) < 1e-9);
+    const bestJ = Math.max(...pp.map((p) => p.J));
+    const pct = (sel.reduce((s, q) => s + pp.filter((p) => p.J <= q.J).length / pp.length, 0) / sel.length) * 100;
+    return { k, J: Math.max(...sel.map((p) => p.J)), bestJ, pct };
+  });
+  return { svg: scatterPanel(pts, Object.fromEntries(Object.entries(TPL_STYLE).map(([k, v]) => [k, { color: v.color }])), { title, yLabel: '평가 모델 점수 ↑', xLabel: 'QUBO 에너지(목적 항) ↓', rho }), rho, minJ };
+};
+const scHand = scPanel('hand', '손 가중치');
+const scCal = scPanel('cal', '보정 가중치');
+const scLegend = scatterLegend([...new Set(enumPts.map((p) => p.k))].sort().reverse().map((k) => ({ color: TPL_STYLE[k].color, shape: TPL_STYLE[k].shape, label: `템플릿: 앞 침실 ${k + 1}개` }))).replace('</ul>', '<li>속이 빈 점 = 기본 치수에서 좁은 실·문 동선 문제(다듬기 전)</li></ul>');
 ---
 
 <Base title="방법과 근거 · 평면 생성 랩" description="판상형 생성 식, QUBO 정식화와 가중치 보정, 풀이기 11종의 알고리즘, 자유형 평면의 에너지를 근거 문헌과 함께 설명합니다.">
@@ -299,6 +353,13 @@ const freedomRows = Object.entries(FREEDOM);
           <tr><td><b>직접(채택)</b></td><td class="mono">{cv.calibrated.rho.toFixed(3)}</td><td class="mono">{(cv.calibrated.topPct * 100).toFixed(1)}%</td><td class="mono"><b>{cv.calibrated.regret.toFixed(1)}</b></td></tr>
         </tbody>
       </table>
+      <h3>에너지와 평가 점수 산점도(예시 조건의 모든 배치 {enumPts.length}개)</h3>
+      <div class="sc-panels">
+        <figure><Fragment set:html={scHand.svg} /></figure>
+        <figure><Fragment set:html={scCal.svg} /></figure>
+      </div>
+      <Fragment set:html={scLegend} />
+      <p class="note">3.5절의 84㎡ 조건에서 원-핫을 지키는 모든 배치를 기본 치수로 평면에 풀어 평가 모델 점수를 쟀습니다(빌드 때 계산). 순위 점수 J 대신 모델 점수를 쓴 이유: 다듬기 전 기본 치수에서는 좁은 실(−15)·무효(−40) 감점이 J를 몇 개 띠로 갈라 놓아, 배치 자체의 차이가 가려지기 때문입니다. 감점 대상인 배치는 속이 빈 점으로 그렸습니다. 가로는 벌점을 뺀 목적 항 에너지, 굵은 테두리는 템플릿마다 에너지가 가장 낮은 배치, 곧 QUBO를 정확히 푸는 풀이기가 고르는 배치입니다. ρ는 템플릿별 스피어만 상관을 점 수로 가중 평균한 값이며, 음수일수록 "에너지가 낮으면 평면이 좋다"는 뜻입니다. 이 한 조건에서 에너지 최소 배치의 모델 점수: 손 {scHand.minJ.map((m) => `앞 침실 ${m.k + 1}개 ${m.J.toFixed(1)}(하위 ${m.pct.toFixed(0)}%)`).join(', ')} → 보정 {scCal.minJ.map((m) => `앞 침실 ${m.k + 1}개 ${m.J.toFixed(1)}(하위 ${m.pct.toFixed(0)}%)`).join(', ')}. 한 조건의 그림이므로 일반화는 위 표(조건 20개 교차검증)로 판단합니다.</p>
       <p>릿지 회귀는 전체 순서(ρ)는 가장 잘 맞췄지만, 정작 에너지 최소 배치의 평면은 손 가중치보다 나빠졌습니다(후회 −19.3). 우리가 쓰는 것은 에너지 최소 배치 하나이므로, 그 배치의 품질을 직접 줄이는 방법을 골랐습니다. 보정 뒤 정확히 푸는 풀이기들의 평면 모델 점수가 약 3점 올라, 기존 직접 탐색(86.2)과 같은 수준이 됐습니다.</p>
     </section>
 
