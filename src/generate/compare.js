@@ -40,7 +40,7 @@ function tweak(p, spec, r) {
 }
 
 /** 순서(QUBO 해) 하나를 평면으로: 기본값으로 만들고 연속값을 refine번 다듬는다(모든 풀이기에 같은 횟수). */
-function realize(spec, order, baseline, r, refine) {
+export function realize(spec, order, baseline, r, refine) {
   const p0 = { ...defaultParams(spec), frontOrder: order.front, backOrder: order.back };
   let best = null;
   let p = p0;

@@ -170,6 +170,8 @@ export function buildLayout(spec, p) {
     front.map(minW),
     W,
   );
+  // (보기용 기록) p.trace 배열을 주면 폭 나누기 계산을 남긴다. 계산에는 영향 없음.
+  p.trace?.push({ band: 'front', A, D, W, Df, Db, names: front.map((r) => r.name), areas: front.map((r) => r.area), depths: front.map(depthOf), desired: front.map((room) => room.area / depthOf(room)), mins: front.map(minW), total: W, out: frontWidths });
   const rooms = [];
   const gaps = [];
   let x = 0;
@@ -293,6 +295,7 @@ export function buildLayout(spec, p) {
     columns.map((c) => Math.max(...c.items.map((it) => MIN_SIDE[it.type] || 0))),
     suiteInBay ? W - masterBay.w : W,
   );
+  p.trace?.push({ band: 'back', A, D, W, Df, Db, names: columns.map((c) => c.items.map((it) => it.name).join('+')), areas: columns.map((c) => c.items.reduce((s2, it) => s2 + it.area, 0)), depths: columns.map(() => Db), desired: columns.map((c) => c.items.reduce((s2, it) => s2 + it.area, 0) / Db), mins: columns.map((c) => Math.max(...c.items.map((it) => MIN_SIDE[it.type] || 0))), total: suiteInBay ? W - masterBay.w : W, out: colW, suite: suiteInBay ? masterBay.w : 0 });
   // 부속실이 안방 뒤를 차지했으면 나머지 열은 남은 폭에 놓는다.
   x = suiteInBay && masterBay.x === 0 ? masterBay.w : 0;
   columns.forEach((c, i) => {
