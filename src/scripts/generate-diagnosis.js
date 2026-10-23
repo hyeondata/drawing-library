@@ -4,6 +4,7 @@ import { ASSUME, DIRS, diagnose, dirName, diversity, solarAccess } from '../gene
 import { STATUS, compareGraph } from '../generate/request-graph.js';
 import { compass, sunTimeline } from '../generate/sun-view.js';
 import { analyze } from '../model/index.js';
+import { jpgSvg } from '../generate/syntax-view.js';
 import { toLabel } from '../generate/layout.js';
 import { SYNTAX, SYNTAX_LAMBDA } from '../generate/syntax-weights.js';
 
@@ -15,40 +16,9 @@ const SX_INFO = {
   privacyDepthGap: { label: '공·사 깊이 차(침실 − 거실·주방)', ref: 'Ham & Lee 2017(SCIE·SSCI)', range: '클수록 침실이 깊음(사적)', pref: 'privacy' },
 };
 
-/** 현관에서의 깊이로 층을 나눈 정당화 그래프(JPG). 노드 색 = 통합도(진할수록 통합). */
-function jpgSvg(layout, unit, spaces) {
-  const nodes = unit.nodes.filter((nd) => !['발코니', '실외기실'].includes(nd.type));
-  const ids = new Set(nodes.map((nd) => nd.space));
-  const levels = {};
-  for (const nd of nodes) (levels[nd.depth] ||= []).push(nd);
-  const maxD = Math.max(...Object.keys(levels).map(Number));
-  const W = 560;
-  const rowH = 74;
-  const H = (maxD + 1) * rowH + 40;
-  const pos = {};
-  for (const [d, list] of Object.entries(levels)) {
-    list.sort((a, b) => (layout.rooms[a.space]?.x ?? 0) - (layout.rooms[b.space]?.x ?? 0));
-    list.forEach((nd, i) => (pos[nd.space] = [((i + 1) * W) / (list.length + 1), H - 30 - Number(d) * rowH]));
-  }
-  const ints = nodes.map((nd) => nd.integration).filter(Number.isFinite);
-  const lo = Math.min(...ints);
-  const hi = Math.max(...ints);
-  const col = (v) => DEPTH[Math.min(DEPTH.length - 1, Math.max(0, Math.round(((v - lo) / (hi - lo || 1)) * (DEPTH.length - 1))))];
-  const parts = [];
-  for (let d = 0; d <= maxD; d++) parts.push(`<line x1="0" x2="${W}" y1="${H - 30 - d * rowH}" y2="${H - 30 - d * rowH}" stroke="#e4e2ea" stroke-dasharray="3 4"/><text x="4" y="${H - 34 - d * rowH}" font-size="10" fill="#8a8794">깊이 ${d}</text>`);
-  for (const [a, b] of unit.edges) {
-    if (!ids.has(a) || !ids.has(b)) continue;
-    parts.push(`<line x1="${pos[a][0]}" y1="${pos[a][1]}" x2="${pos[b][0]}" y2="${pos[b][1]}" stroke="#8a8794" stroke-width="1.5"/>`);
-  }
-  for (const nd of nodes) {
-    const [x, y] = pos[nd.space];
-    const k = Math.round(((nd.integration - lo) / (hi - lo || 1)) * (DEPTH.length - 1));
-    const name = layout.rooms[nd.space]?.name || nd.type;
-    parts.push(`<circle cx="${x}" cy="${y}" r="17" fill="${col(nd.integration)}" stroke="#2b2a33" stroke-width="1.2"><title>${esc(name)}: 깊이 ${nd.depth}, 통합도 ${nd.integration.toFixed(2)}</title></circle>`);
-    parts.push(`<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="${ink(k)}">${nd.integration.toFixed(2)}</text>`);
-    parts.push(`<text x="${x}" y="${y - 22}" text-anchor="middle" font-size="11" font-weight="600" fill="#22212b" paint-order="stroke" stroke="#fff" stroke-width="3">${esc(name)}</text>`);
-  }
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="정당화 그래프(현관 기준 깊이, 통합도)" style="background:#fff">${parts.join('')}</svg>`;
+function jpgFor(layout, unit) {
+  const nodes = unit.nodes.filter((nd) => !['발코니', '실외기실'].includes(nd.type)).map((nd) => ({ id: nd.space, name: layout.rooms[nd.space]?.name || nd.type, depth: nd.depth, integration: nd.integration, x: layout.rooms[nd.space]?.x ?? 0 }));
+  return jpgSvg(nodes, unit.edges);
 }
 
 const $ = (s) => document.querySelector(s);
@@ -289,7 +259,7 @@ export function renderDiagnosis({ top, current, spec }) {
           <button type="button" data-dmode="syntax" aria-pressed="${st.mode === 'syntax'}">공간구문</button>
         </div>
         ${st.mode === 'circ' ? `<label class="gen-diag-route">현관에서 <select id="diag-target">${targets.map(([k, n]) => `<option value="${k}"${k === st.target ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select> 까지 · <b class="mono">${fmt(d.circ.meters[st.target])}</b></label>` : ''}
-        <figure class="gen-plan">${st.mode === 'syntax' ? jpgSvg(c.layout, sxu, sxa.spaces) : st.mode === 'graph' ? graphSvg(c.layout, g) : planSvg(c.layout, d, st.mode, st.target)}</figure>
+        <figure class="gen-plan">${st.mode === 'syntax' ? jpgFor(c.layout, sxu) : st.mode === 'graph' ? graphSvg(c.layout, g) : planSvg(c.layout, d, st.mode, st.target)}</figure>
         ${st.mode === 'graph' ? `<ul class="gen-graph-legend">${Object.entries(STATUS).map(([k, v]) => `<li><svg width="34" height="10" aria-hidden="true"><line x1="2" y1="5" x2="32" y2="5" stroke="${v.color}" stroke-width="${k === 'kept' ? 2 : 4}" stroke-linecap="round"${v.dash ? ` stroke-dasharray="${v.dash}"` : ''}/></svg>${esc(v.label)} <b class="mono">${g.counts[k]}</b></li>`).join('')}</ul>` : ''}
         <p class="note">${
           st.mode === 'syntax'

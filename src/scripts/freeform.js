@@ -2,6 +2,8 @@
 import { CELL, FREEDOM, WEIGHTS, balconyRuns, buildProblem, roomPolygons, solarFreeform, transformUnit } from '../freeform/engine.js';
 import { DIRS } from '../generate/metrics.js';
 import { sunTimeline } from '../generate/sun-view.js';
+import { jpgSvg } from '../generate/syntax-view.js';
+import { SYNTAX_GOAL, SYNTAX_TARGETS } from '../freeform/engine.js';
 import { TEMPLATES, maskConnected, maskFromUnit, maskSvg, templateMask, trim } from '../freeform/outline.js';
 import { graphOverlaySvg, planSvg, roomNames, unitSvg } from '../freeform/render.js';
 import { STATUS } from '../generate/request-graph.js';
@@ -28,6 +30,7 @@ const st = {
   tpl: 'L',
   bsides: ['S'],
   front: 180,
+  sxPrefs: [],
   lat: 37.57,
   draw: { gx: 40, gy: 30, cells: new Uint8Array(40 * 30) },
 };
@@ -211,10 +214,12 @@ function run() {
   const outline = outlineSpec();
   if (!outline) return;
   const outlineFree = $('#ff-ofree').checked;
-  st.P = buildProblem(u, { area, outline, outlineFree });
+  const syntaxPrefs = [...st.sxPrefs];
+  const syntaxW = Number($('#ff-sxw').value);
+  st.P = buildProblem(u, { area, outline, outlineFree, syntaxPrefs });
   st.cands = [];
   st.current = 0;
-  st.params = { area: outline.mode === 'mask' ? outline.mask.n * CELL * CELL : area, count, seed0, steps, jitter, freedom: st.freedom, omode: st.omode, outlineFree };
+  st.params = { area: outline.mode === 'mask' ? outline.mask.n * CELL * CELL : area, count, seed0, steps, jitter, freedom: st.freedom, omode: st.omode, outlineFree, syntaxPrefs, syntaxW };
   st.worker?.terminate();
   st.worker = new Worker(new URL('./freeform-worker.js', import.meta.url), { type: 'module' });
   $('#ff-progress').hidden = false;
@@ -238,7 +243,7 @@ function run() {
       $('#ff-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
-  st.worker.postMessage({ unit: u, area, outline, outlineFree, freedom: st.freedom, jitter, seeds: Array.from({ length: count }, (_, i) => seed0 + i), steps });
+  st.worker.postMessage({ unit: u, area, outline, outlineFree, syntaxPrefs, syntaxW, freedom: st.freedom, jitter, seeds: Array.from({ length: count }, (_, i) => seed0 + i), steps });
 }
 
 // ---------- 3. 결과 ----------
@@ -296,6 +301,7 @@ function renderResult() {
     st.lastCand = c;
   }
   renderGraph(c, names);
+  renderSyntax(c, names);
   renderTime();
   renderFormula();
   $('#ff-cmp-orig').innerHTML = unitSvg(st.unit, { scale: st.P.scale, title: '원본(라벨)' });
@@ -321,6 +327,34 @@ $('#ff-lat').addEventListener('change', (e) => {
   st.lat = Math.min(39, Math.max(33, Number(e.target.value) || 37.57));
   if (st.cands.length) renderResult();
 });
+
+// ---------- 공간구문 ----------
+const SX_ROWS = [
+  ['livingBedroomRatio', '거실/침실 통합도 비', 'Byun & Choi 2016(SCIE) 거실 중심 군집 1.56~2.29', 'livingCentral', 'lbr'],
+  ['genotypeTau', '거실 중심 유전형 순위 부합도 τ', 'Hillier 외 1987(SSCI), 1에 가까울수록 거실>주방>현관>침실>화장실', 'livingCentral', null],
+  ['privacyDepthGap', '공·사 깊이 차(침실 − 거실·주방)', 'Ham & Lee 2017(SCIE·SSCI); Park 외 2024(SCIE)', 'privacy', 'gap'],
+  ['kitchenBedroomRatio', '주방/침실 통합도 비', 'Byun & Choi 2016(SCIE) 1.04~1.58', 'kitchenLink', 'kbr'],
+];
+function renderSyntax(c, names) {
+  const sx = c.summary.syntax;
+  const P = st.P;
+  const xOf = (k) => {
+    let sxm = 0;
+    let n = 0;
+    for (let i = 0; i < c.assign.length; i++) if (c.assign[i] === k) ((sxm += i % P.nx), n++);
+    return n ? sxm / n : 0;
+  };
+  const nodes = sx.nodes.filter((nd) => !['발코니', '실외기실'].includes(nd.type)).map((nd) => ({ id: nd.k, name: names[nd.k] || nd.type, depth: nd.depth, integration: nd.integration, x: xOf(nd.k) }));
+  $('#ff-jpg').innerHTML = jpgSvg(nodes, sx.edges);
+  const prefs = st.params.syntaxPrefs || [];
+  const rows = SX_ROWS.map(([k, label, ref, pref, goal]) => {
+    const v = sx[k];
+    const on = prefs.includes(pref);
+    return `<tr><td>${esc(label)}<br><span class="note">${esc(ref)}</span></td><td class="mono">${Number.isFinite(v) ? v.toFixed(2) : '—'}</td><td>${on ? `<b class="good-text">✓ 에너지에 반영</b>${goal ? `<br><span class="note">목표 ${SYNTAX_GOAL[goal]}</span>` : ''}` : '<span class="note">선호를 고르면 반영</span>'}</td></tr>`;
+  }).join('');
+  $('#ff-sx-text').innerHTML = `<table class="gen-table gen-graph-table"><thead><tr><th>변수</th><th>값</th><th>생성에 반영</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="note">현관을 맨 아래(깊이 0)에 두고 0.6m 이상 맞닿은 실을 한 단계씩 쌓은 정당화 그래프입니다. 숫자·색은 통합도(1/RRA). 평가 모델과 같은 규약(덕트 제외, 현관에 외부 노드)입니다. ${prefs.length ? `이번 생성은 ${prefs.map((p) => SYNTAX_TARGETS[p].label).join('·')} 선호를 세기 ${st.params.syntaxW}로 반영했습니다.` : '이번 생성은 공간구문 선호 없이 만들었습니다.'} 실측(6세대 × 시드 2): 거실 중심형은 거실/침실 비를 평균 1.65 → 1.96으로 올렸고, 사생활은 깊이 차를 0.54 → 0.66(강하게 0.74)로 조금 올렸습니다. 대면형 주방은 이미 목표를 넘는 경우가 많아 변화가 거의 없습니다.</p>`;
+}
 
 // ---------- 요청한 연결 ----------
 function renderGraph(c, names) {
@@ -387,11 +421,12 @@ const TERM = {
   access: ['접근', '현관에서 문으로 이어지지 않는 실 수'],
   entry: ['현관', '새 외곽에서 현관이 바깥 벽에 문 폭(0.9m) 이상 닿지 않음'],
   outline: ['외곽', '외곽도 다듬을 때 세대 외곽 꼭짓점이 상한을 넘은 수'],
+  syntax: ['공간구문', '고른 공간구문 선호의 문헌 목표(거실/침실 비 1.9, 깊이 차 1.5, 주방/침실 비 1.3, τ → 1)에 못 미친 비율'],
   through: ['침실 통과', '공용 실에 닿지 않아 침실을 지나야 들어가는 실 수(드레스룸·화장실 제외)'],
 };
 
 function termBars(terms, W) {
-  const items = Object.keys(TERM).filter((k) => (k !== 'entry' || st.P.custom) && (k !== 'outline' || st.P.outlineFree)).map((k) => ({ k, raw: terms[k], v: W[k] * terms[k] }));
+  const items = Object.keys(TERM).filter((k) => (k !== 'entry' || st.P.custom) && (k !== 'outline' || st.P.outlineFree) && (k !== 'syntax' || st.P.syntaxPrefs?.length)).map((k) => ({ k, raw: terms[k], v: W[k] * terms[k] }));
   const max = Math.max(1e-9, ...items.map((i) => i.v));
   return `<ul class="ff-bars">${items
     .map((i) => `<li><span>${TERM[i.k][0]}</span><span class="ff-bar"><i style="width:${((i.v / max) * 100).toFixed(1)}%"></i></span><span class="mono">${i.v.toFixed(2)}</span></li>`)
@@ -404,9 +439,9 @@ function renderFormula() {
   const F = FREEDOM[st.params.freedom];
   const t = c.summary.terms;
   $('#ff-formula').innerHTML = `
-    <p class="ff-eq mono">E = ${W.area}·면적 + ${W.compact}·둘레 + ${W.corner}·꼭짓점(K=${F.K}) + ${W.thin}·좁은 부분 + ${W.adj}·인접 + ${W.window}·창 + ${W.access}·접근 + ${W.through}·침실 통과${st.P.custom ? ` + ${W.entry}·현관` : ''}${st.P.outlineFree ? ` + ${W.outline}·외곽(K=${F.Kout})` : ''}</p>
+    <p class="ff-eq mono">E = ${W.area}·면적 + ${W.compact}·둘레 + ${W.corner}·꼭짓점(K=${F.K}) + ${W.thin}·좁은 부분 + ${W.adj}·인접 + ${W.window}·창 + ${W.access}·접근 + ${W.through}·침실 통과${st.P.custom ? ` + ${W.entry}·현관` : ''}${st.P.outlineFree ? ` + ${W.outline}·외곽(K=${F.Kout})` : ''}${st.P.syntaxPrefs?.length ? ` + ${W.syntax}·공간구문` : ''}</p>
     <table class="gen-table ff-ftable"><thead><tr><th>항</th><th>뜻</th><th>무게</th><th>값</th><th>기여</th></tr></thead><tbody>
-    ${Object.keys(TERM).filter((k) => (k !== 'entry' || st.P.custom) && (k !== 'outline' || st.P.outlineFree)).map((k) => `<tr><td>${TERM[k][0]}</td><td>${TERM[k][1]}</td><td class="mono">${W[k]}</td><td class="mono">${t[k].toFixed(2)}</td><td class="mono">${(W[k] * t[k]).toFixed(2)}</td></tr>`).join('')}
+    ${Object.keys(TERM).filter((k) => (k !== 'entry' || st.P.custom) && (k !== 'outline' || st.P.outlineFree) && (k !== 'syntax' || st.P.syntaxPrefs?.length)).map((k) => `<tr><td>${TERM[k][0]}</td><td>${TERM[k][1]}</td><td class="mono">${W[k]}</td><td class="mono">${t[k].toFixed(2)}</td><td class="mono">${(W[k] * t[k]).toFixed(2)}</td></tr>`).join('')}
     <tr><td colspan="4"><b>합계 E</b></td><td class="mono"><b>${c.summary.total.toFixed(2)}</b></td></tr></tbody></table>
     <p class="note">'모양 자유도'가 꼭짓점 상한 K와 둘레 무게를 바꿉니다: 직사각형 위주(K=4, 둘레 ${FREEDOM.rect.compact}), ㄱ자까지(K=6, ${FREEDOM.L.compact}), ㄷ자·자유형(K=8, ${FREEDOM.free.compact}). 면적 항은 목표 대비 비율이라 큰 실과 작은 실을 같은 무게로 봅니다.</p>`;
 }
@@ -502,6 +537,13 @@ $('#ff-bsides').addEventListener('click', (e) => {
 $('#ff-area').addEventListener('change', () => st.omode === 'tpl' && renderOutline());
 $('#ff-dload').addEventListener('click', () => (loadDrawFromUnit(), renderOutline()));
 $('#ff-dclear').addEventListener('click', () => ((st.draw.cells = new Uint8Array(st.draw.gx * st.draw.gy)), renderOutline()));
+$('#ff-sx').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const v = b.dataset.v;
+  st.sxPrefs = st.sxPrefs.includes(v) ? st.sxPrefs.filter((x) => x !== v) : [...st.sxPrefs, v];
+  $('#ff-sx').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(st.sxPrefs.includes(x.dataset.v))));
+});
 $('#ff-jitter').addEventListener('input', (e) => ($('#ff-jitter-v').textContent = Number(e.target.value).toFixed(2)));
 $('#ff-run').addEventListener('click', run);
 $('#ff-slider').addEventListener('input', () => renderTime());

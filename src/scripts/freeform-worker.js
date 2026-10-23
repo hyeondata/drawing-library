@@ -1,9 +1,10 @@
 // 자유형 평면 생성 워커: 후보마다 담금질을 돌린다.
-import { anneal, buildProblem, openings, summarize } from '../freeform/engine.js';
+import { WEIGHTS, anneal, buildProblem, openings, summarize } from '../freeform/engine.js';
 
 self.onmessage = (e) => {
-  const { unit, area, outline, outlineFree, freedom, jitter, seeds, steps } = e.data;
-  const P = buildProblem(unit, { area, outline, outlineFree });
+  const { unit, area, outline, outlineFree, syntaxPrefs = [], syntaxW = 4, freedom, jitter, seeds, steps } = e.data;
+  WEIGHTS.syntax = syntaxW;
+  const P = buildProblem(unit, { area, outline, outlineFree, syntaxPrefs });
   seeds.forEach((seed, i) => {
     const t0 = performance.now();
     const res = anneal(P, { seed, jitter, freedom, steps, onProgress: (p) => self.postMessage({ type: 'progress', i, n: seeds.length, p }) });

@@ -113,3 +113,19 @@ test('자유형 방위: 앞쪽을 돌리면 같은 창의 향이 함께 돈다(�
   // 남향 창이 있는 실은 동지 8시간
   for (const r of south) if (r.faces.includes(180)) assert.ok(Math.abs(r.total - 8) < 1e-9);
 });
+
+import { syntaxPenalty } from '../src/freeform/engine.js';
+import { analyze } from '../src/model/index.js';
+
+test('자유형 공간구문: 원본 배치에서 정의대로 계산되고(통합도 유한, 현관 깊이 0), 선호가 없으면 벌점 0', () => {
+  const u = units.find((x) => x.id === '037105612-1') || units[0];
+  const P = buildProblem(u, { syntaxPrefs: ['livingCentral', 'privacy'] });
+  const E = energy(Int16Array.from(P.grid), P);
+  const sx = E.syntax;
+  assert.ok(sx.nodes.find((n) => n.type === '현관').depth === 0);
+  assert.ok(Number.isFinite(sx.livingBedroomRatio) && sx.livingBedroomRatio > 0);
+  assert.ok(E.terms.syntax >= 0);
+  assert.equal(syntaxPenalty(sx, []), 0);
+  // 목표를 넘으면 벌점이 줄어든다(경첩)
+  assert.ok(syntaxPenalty({ ...sx, livingBedroomRatio: 3, genotypeTau: 1 }, ['livingCentral']) === 0);
+});

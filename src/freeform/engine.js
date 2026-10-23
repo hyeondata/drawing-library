@@ -12,6 +12,8 @@
 //     + wE Σ max(0, 2.0m − 창 낼 수 있는 바깥 벽)_r     거실·침실은 바깥(또는 발코니)에 닿아야 함
 
 import { dirName, sunHours } from '../generate/metrics.js';
+import { bfs, kendallTauB, nodeMetrics } from '../model/syntax.js';
+import { GENOTYPE_ORDER } from '../model/config.js';
 
 export const CELL = 0.3; // m
 const OUTDOOR = new Set(['발코니', '실외기실']);
@@ -346,7 +348,7 @@ function repairComponents(grid, nx, ny, nRooms) {
 }
 
 /** 화면·워커 공통: 외곽 설정에 따라 문제를 만든다. */
-export function buildProblem(unit, { area = null, outline = { mode: 'orig' }, outlineFree = false } = {}) {
+export function buildProblem(unit, { area = null, outline = { mode: 'orig' }, outlineFree = false, syntaxPrefs = [] } = {}) {
   let P;
   if (outline.mode === 'mask') P = setupMask(unit, outline.mask, outline);
   else {
@@ -354,6 +356,7 @@ export function buildProblem(unit, { area = null, outline = { mode: 'orig' }, ou
     P = setup(u2, { area, margin: outlineFree ? MARGIN : 0 });
   }
   P.outlineFree = outlineFree;
+  P.syntaxPrefs = syntaxPrefs;
   return P;
 }
 
@@ -584,7 +587,7 @@ export function roomStats(a, P, room) {
   return { n, perim, corners, thin, ext, out, touch, bbox: [x0, y0, x1, y1] };
 }
 
-export const WEIGHTS = { area: 6, compact: 1.2, corner: 1.2, thin: 3, adj: 1.5, window: 0.6, access: 10, through: 1.5, entry: 6, outline: 0.8 };
+export const WEIGHTS = { area: 6, compact: 1.2, corner: 1.2, thin: 3, adj: 1.5, window: 0.6, access: 10, through: 1.5, entry: 6, outline: 0.8, syntax: 4 };
 
 /** 모양 자유도: 'rect' 직사각형 위주, 'L' ㄱ자까지, 'free' ㄷ자·자유형. */
 export const FREEDOM = {
@@ -614,6 +617,77 @@ export function access(P, S) {
 }
 export const unreachableRooms = (P, S) => access(P, S).unreach;
 
+/**
+ * 공간구문(평가 모델과 같은 정의): 실 = 노드, 0.6m(2칸) 이상 맞닿으면 링크, 1.5㎡ 미만 고정 실(덕트)은 빼고,
+ * 현관에 세대 밖(외부) 노드를 붙인다(Byun & Choi 2016의 규약). 통합도 = 1/RRA(Hillier & Hanson 1984).
+ * 반환 { nodes: [{ k, type, depth, integration }], edges, livingBedroomRatio, kitchenBedroomRatio, genotypeTau, privacyDepthGap }
+ */
+export function syntaxOf(P, S) {
+  const link = Math.max(2, Math.ceil(0.6 / P.cellM));
+  const live = P.rooms.filter((r) => S[r.k]?.n && !(r.fixed && r.type !== '현관' && !OUTDOOR.has(r.type) && S[r.k].n * P.sx * P.sy < 1.5));
+  const idx = new Map(live.map((r, i) => [r.k, i]));
+  const adj = live.map(() => []);
+  const edges = [];
+  live.forEach((r, i) => {
+    for (const [q, c] of S[r.k].touch) {
+      const j = idx.get(q);
+      if (j === undefined || j <= i || c < link) continue;
+      adj[i].push(j);
+      adj[j].push(i);
+      edges.push([r.k, q]);
+    }
+  });
+  const ent = live.findIndex((r) => r.type === '현관');
+  const ext = live.length;
+  const sAdj = [...adj, []];
+  if (ent >= 0) {
+    sAdj[ent].push(ext);
+    sAdj[ext].push(ent);
+  }
+  const m = nodeMetrics(sAdj);
+  const depth = ent >= 0 ? bfs(sAdj, ent) : sAdj.map(() => Infinity);
+  const nodes = live.map((r, i) => ({ k: r.k, type: r.type, depth: depth[i], integration: m[i].integration }));
+  const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+  const integOf = (t) => mean(nodes.filter((nd) => nd.type === t && Number.isFinite(nd.integration)).map((nd) => nd.integration));
+  const bedI = integOf('침실');
+  const livingI = Math.max(-Infinity, ...nodes.filter((nd) => nd.type === '거실' && Number.isFinite(nd.integration)).map((nd) => nd.integration));
+  const geno = GENOTYPE_ORDER.map(integOf);
+  const depthOf = (types) => mean(nodes.filter((nd) => types.includes(nd.type) && Number.isFinite(nd.depth)).map((nd) => nd.depth));
+  const priv = depthOf(['침실', '드레스룸']);
+  const pub = depthOf(['거실', '주방']);
+  return {
+    nodes,
+    edges,
+    livingBedroomRatio: bedI && Number.isFinite(livingI) ? livingI / bedI : null,
+    kitchenBedroomRatio: bedI && integOf('주방') !== null ? integOf('주방') / bedI : null,
+    genotypeTau: geno.every((v) => v !== null) ? kendallTauB(geno, GENOTYPE_ORDER.map((_, k) => GENOTYPE_ORDER.length - k)) : null,
+    privacyDepthGap: priv !== null && pub !== null ? priv - pub : null,
+  };
+}
+
+/** 공간구문 선호의 벌점: 문헌 범위 아래로 떨어진 만큼(경첩). */
+export const SYNTAX_TARGETS = {
+  livingCentral: { label: '거실 중심형', vars: ['livingBedroomRatio', 'genotypeTau'], why: '거실/침실 통합도 비 ≥ 1.56(Byun & Choi 2016 거실 중심 군집 하한), 유전형 τ → 1(Hillier 외 1987)' },
+  privacy: { label: '사생활', vars: ['privacyDepthGap'], why: '공·사 깊이 차 ≥ 1(침실이 거실·주방보다 한 단계 이상 깊게; Ham & Lee 2017, Park 외 2024)' },
+  kitchenLink: { label: '대면형 주방', vars: ['kitchenBedroomRatio'], why: '주방/침실 통합도 비 ≥ 1.04(Byun & Choi 2016 범위 하한)' },
+};
+// 목표값: 문헌 범위의 가운데 쪽(하한만 넘기면 벌점이 0이 되어 효과가 거의 없었음, 실측)
+export const SYNTAX_GOAL = { lbr: 1.9, gap: 1.5, kbr: 1.3 };
+export function syntaxPenalty(sx, prefs) {
+  let p = 0;
+  if (prefs.includes('livingCentral')) {
+    const r = sx.livingBedroomRatio;
+    p += r === null ? 1 : Math.max(0, SYNTAX_GOAL.lbr - r) / SYNTAX_GOAL.lbr;
+    p += sx.genotypeTau === null ? 0.5 : (1 - sx.genotypeTau) / 2;
+  }
+  if (prefs.includes('privacy')) p += sx.privacyDepthGap === null ? 1 : Math.max(0, SYNTAX_GOAL.gap - sx.privacyDepthGap) / SYNTAX_GOAL.gap;
+  if (prefs.includes('kitchenLink')) {
+    const r = sx.kitchenBedroomRatio;
+    p += r === null ? 1 : Math.max(0, SYNTAX_GOAL.kbr - r) / SYNTAX_GOAL.kbr;
+  }
+  return p;
+}
+
 /** 전체 에너지와 항목별 값. */
 /** 세대 외곽(실내 칸 묶음)의 꼭짓점 수. */
 export function outlineCorners(a, P) {
@@ -638,7 +712,7 @@ export function energy(a, P, freedom = 'L', stats = null, outline = null) {
   const S = stats || {};
   for (const k of P.movable) S[k] ||= roomStats(a, P, k);
   for (const r of P.rooms) if (r.fixed && !S[r.k]) S[r.k] = roomStats(a, P, r.k);
-  const t = { area: 0, compact: 0, corner: 0, thin: 0, adj: 0, window: 0, access: 0, through: 0, entry: 0, outline: 0 };
+  const t = { area: 0, compact: 0, corner: 0, thin: 0, adj: 0, window: 0, access: 0, through: 0, entry: 0, outline: 0, syntax: 0 };
   const doorCells = Math.ceil(0.9 / P.cellM);
   for (const k of P.movable) {
     const s = S[k];
@@ -664,6 +738,11 @@ export function energy(a, P, freedom = 'L', stats = null, outline = null) {
     const ent = P.rooms.find((r) => r.type === '현관');
     if (ent && (S[ent.k]?.out || 0) < doorCells) t.entry = 1;
   }
+  let sx = null;
+  if (P.syntaxPrefs?.length) {
+    sx = syntaxOf(P, S);
+    t.syntax = syntaxPenalty(sx, P.syntaxPrefs);
+  }
   let oc = null;
   if (P.outlineFree) {
     oc = outline ?? outlineCorners(a, P);
@@ -671,7 +750,7 @@ export function energy(a, P, freedom = 'L', stats = null, outline = null) {
   }
   const w = { ...WEIGHTS, compact: F.compact };
   const total = Object.keys(t).reduce((s, k) => s + w[k] * t[k], 0);
-  return { total, terms: t, weights: w, stats: S, outlineCorners: oc };
+  return { total, terms: t, weights: w, stats: S, outlineCorners: oc, syntax: sx };
 }
 
 /** 실 room이 한 덩어리이고 칸 수가 size인가. */
@@ -1122,7 +1201,7 @@ export function summarize(res, P) {
     });
   const doorCells = Math.ceil(0.9 / P.cellM);
   const need = P.need.map(([p, q]) => ({ p, q, ok: (E.stats[p]?.touch.get(q) || 0) >= doorCells }));
-  return { rooms, need, total: E.total, terms: E.terms, weights: E.weights };
+  return { rooms, need, total: E.total, terms: E.terms, weights: E.weights, syntax: syntaxOf(P, E.stats) };
 }
 
 // ---------- 방위와 동지 일조(자유형) ----------
