@@ -6,10 +6,44 @@ import { show } from '../lib/source.js';
 import { badges } from '../generate/pipeline.js';
 import { TERMS_A, TERMS_B } from '../qubogen/model.js';
 import { SOLVERS } from '../generate/solvers.js';
+import { buildChoices } from '../generate/choices.js';
+import { SYNTAX_CHOICES, LIFESTYLE_CHOICES } from '../generate/preferences.js';
+import { PREF_EFFECTS } from '../qubogen/model.js';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const Q = 'src/qubogen/model.js';
 const solvers = SOLVERS.filter((s) => !['cpsat', 'exact'].includes(s.key));
+// 도면 생성 탭과 같은 선택지(같은 데이터에서 계산)
+const dir = path.join(process.cwd(), 'public', 'data', 'labels');
+const files = fs.readdirSync(dir);
+const read = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+const choices = buildChoices({
+  spaLabels: files.filter((f) => f.includes('_SPA_')).map((f) => ({ id: f.replace(/\.json$/, ''), label: read(f) })),
+  ocrLabels: files.filter((f) => f.includes('_OCR_')).map(read),
+});
+// 조건 → QUBO에 들어가는 방법
+const condMap = [
+  ['평수', '격자 크기와 모든 실의 목표 칸 수', '면적 항(정확)', 'easy'],
+  ['거실 크기', '거실 목표 칸 수', '면적 항(정확)', 'easy'],
+  ['방 개수', '실 목록(변수 수)', '변수·면적 항(정확)', 'easy'],
+  ['작은방 크기·안방 비중', '침실 목표 칸 수', '면적 항(정확)', 'easy'],
+  ['화장실 2개·드레스룸·다목적실', '실 목록', '변수·면적·맞닿음 항(정확)', 'easy'],
+  ['발코니', '남쪽 바깥 줄을 발코니로(있으면 발코니 문, 없으면 창)', '단계 B 창 항(정확)', 'easy'],
+  ['실외기실', '바깥 줄의 어느 칸을 실외기실로 쓸지', '단계 B 실외기실 항(정확)', 'easy'],
+  ['거실 중심형', '거실이 가운데·여러 실과 닿음', '근사 — 통합도는 그래프 경로라 이차식이 아님. 풀고 나서 실제 통합도 계산', 'hard'],
+  ['사생활 깊이', '침실 칸이 현관 칸에서 멀리', '근사 — 깊이는 경로 계산이라 이차식이 아님. 풀고 나서 실제 깊이 계산', 'hard'],
+  ['주방–거실 연계', '주방–거실 맞닿음 강화', '맞닿음 항(근사: 통합도 비는 풀고 나서 계산)', 'hard'],
+  ['현관–거실', '현관–거실 맞닿음 강화', '맞닿음 항', 'easy'],
+  ['넓은 공간', '거실 목표 한 단계 크게', '면적 항(정확)', 'easy'],
+  ['화장실', '화장실 2개', '실 목록', 'easy'],
+  ['방음', '침실끼리·침실–거실 떨어짐 강화', '떨어짐 항(정확)', 'easy'],
+  ['햇빛', '거실·침실을 앞(남)으로, 창 많이', '앞·뒤 띠·창 항', 'easy'],
+  ['수납', '드레스룸·다목적실', '실 목록', 'easy'],
+  ['평가 모델 점수 J', '도면 생성 탭의 채점(실제 아파트와 닮은 정도)', '어려움 — 평가 모델이 직사각형 실 전용. 대신 규칙 점검 점수와 공간구문 값을 보여 줌', 'no'],
+  ['외곽 모양', '도면 생성 탭도 직사각형', '이 탭도 직사각형 고정(넣을 수는 있으나 변수가 늘어 느려짐)', 'no'],
+];
 const prefs = [
   ['livingCentral', '거실 중심형', '거실 가운데 항 ×1.8'],
   ['privacy', '사생활', '침실–현관 떨어짐 항 강화'],
@@ -36,32 +70,57 @@ const steps = [
   <main class="qg">
     <form class="qg-form" id="qg-form">
       <fieldset>
-        <legend>1. 집 조건</legend>
-        <label>전용면적 <select id="qg-area"><option>59</option><option>74</option><option selected>84</option><option>101</option><option>114</option></select> ㎡</label>
-        <label>침실 <select id="qg-bed"><option>2</option><option selected>3</option><option>4</option></select></label>
-        <label>화장실 <select id="qg-bath"><option value="1">1</option><option value="2" selected>2</option></select></label>
-        <label><input type="checkbox" id="qg-dress" checked /> 드레스룸</label>
-        <label><input type="checkbox" id="qg-multi" /> 다목적실</label>
+        <legend>1. 평수</legend>
+        <div class="qg-opts">{choices.area.map((o) => <label class="qg-opt"><input type="radio" name="area" value={o.value} data-bedrooms={o.bedrooms} checked={o.value === 84} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
       </fieldset>
       <fieldset>
-        <legend>2. 선호(해당 QUBO 항의 무게가 커집니다)</legend>
-        {prefs.map(([k, l, d]) => <label title={d}><input type="checkbox" name="qg-pref" value={k} /> {l}</label>)}
+        <legend>2. 거실 크기</legend>
+        <div class="qg-opts">{choices.living.map((o) => <label class="qg-opt"><input type="radio" name="living" value={o.key} data-share={o.share} checked={o.key === 'standard'} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
       </fieldset>
       <fieldset>
-        <legend>3. QUBO 풀기</legend>
-        <label>격자 칸 <select id="qg-cell"><option value="1.2" selected>1.2m(변수 적음, 빠름)</option><option value="0.9">0.9m(더 섬세, 느림)</option></select></label>
-        <label>풀이기 <select id="qg-solver">{solvers.map((s) => <option value={s.key} selected={s.key === 'tabu'}>{s.name}</option>)}</select></label>
-        <label>시간 <select id="qg-budget"><option value="1500">1.5초</option><option value="3000" selected>3초</option><option value="6000">6초</option></select></label>
+        <legend>3. 방 개수</legend>
+        <div class="qg-opts">{choices.bedrooms.map((o) => <label class="qg-opt"><input type="radio" name="bedrooms" value={o.value} checked={o.value === 3} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
+      </fieldset>
+      <fieldset>
+        <legend>4. 방 크기</legend>
+        <span class="qg-sub">작은방</span>
+        <div class="qg-opts">{choices.roomSize.map((o) => <label class="qg-opt"><input type="radio" name="roomSize" value={o.key} data-share={o.share} checked={o.key === 'standard'} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
+        <span class="qg-sub">안방 비중</span>
+        <div class="qg-opts">{choices.master.map((o) => <label class="qg-opt"><input type="radio" name="master" value={o.key} data-ratio={o.ratio} checked={o.key === 'standard'} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
+      </fieldset>
+      <fieldset>
+        <legend>5. 방 구성</legend>
+        <div class="qg-opts">{choices.composition.map((o) => <label class="qg-opt"><input type="checkbox" name="composition" value={o.key} checked={o.default} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
+      </fieldset>
+      <fieldset>
+        <legend>6. 공간구문(근사 항)</legend>
+        <div class="qg-opts">{SYNTAX_CHOICES.map((c) => <label class="qg-opt"><input type="checkbox" name="syntax" value={c.key} checked={c.key === 'livingCentral'} /><b>{c.title}</b><small>{PREF_EFFECTS[c.key]}</small></label>)}</div>
+        <label>세기 <select id="qg-sxs"><option value="1" selected>보통(규칙 위반 없이)</option><option value="2">강하게(목표에 더 가깝게, 위반 생길 수 있음)</option></select></label>
+      </fieldset>
+      <fieldset>
+        <legend>7. 생활 선호</legend>
+        <div class="qg-opts">{LIFESTYLE_CHOICES.map((c) => <label class="qg-opt"><input type="checkbox" name="lifestyle" value={c.key} /><b>{c.title}</b><small>{PREF_EFFECTS[c.key] || ''}</small></label>)}</div>
+      </fieldset>
+      <fieldset>
+        <legend>8. QUBO 풀기</legend>
+        <div class="qg-opts qg-algos">{solvers.map((s) => <label class="qg-opt"><input type="checkbox" name="solver" value={s.key} checked={s.key === 'tabu'} /><b>{s.name}</b><small>{s.family}</small></label>)}</div>
+        <label>격자 칸 <select id="qg-cell"><option value="1.2" selected>1.2m(빠름)</option><option value="0.9">0.9m(섬세, 느림)</option></select></label>
+        <label>풀이기당 시간 <select id="qg-budget"><option value="1500">1.5초</option><option value="3000" selected>3초</option><option value="6000">6초</option></select></label>
         <label>시드 <input type="number" id="qg-seed" value="1" min="1" max="999" /></label>
       </fieldset>
       <button type="submit" class="button-primary" id="qg-run">QUBO로 도면 생성</button>
       <p class="note" id="qg-status"></p>
-      <p class="note">풀이기에 따라 결과가 크게 다릅니다. 변수가 수백~천 개이고 벌점이 커서, 한 변수씩 바꾸는 SA·SQA·SB는 이 크기에서 실이 흩어지는 해를 내기 쉽습니다(시험: Tabu·D²TS는 매번 반듯한 평면). 비교해 보세요.</p>
+      <p class="note">풀이기를 여러 개 고르면 같은 조건·시간·시드로 차례로 풀어 비교합니다. 변수가 수백~천 개이고 벌점이 커서, 한 변수씩 바꾸는 SA·SQA·SB는 이 크기에서 실이 흩어지는 해를 내기 쉽습니다.</p>
     </form>
 
     <div class="qg-out" id="qg-out" hidden>
+      <section class="qg-card" id="qg-cmp-card">
+        <h2>풀이기 비교</h2>
+        <div id="qg-cmp"></div>
+      </section>
+
       <section class="qg-card">
-        <h2>생성된 평면</h2>
+        <h2>생성된 평면 <span id="qg-which" class="note"></span></h2>
         <div class="qg-plan-row">
           <figure class="qg-plan" id="qg-plan"></figure>
           <div id="qg-summary"></div>
@@ -99,6 +158,8 @@ const steps = [
       <section class="qg-card">
         <h2>규칙 점검 <span class="pl-badge pl-eval">평가</span></h2>
         <div id="qg-checks"></div>
+        <h2 style="margin-top:14px">공간구문(풀고 나서 계산) <span class="pl-badge pl-eval">평가</span></h2>
+        <div id="qg-syntax"></div>
       </section>
 
       <section class="qg-card">
@@ -109,6 +170,31 @@ const steps = [
       <section class="qg-card">
         <h2>다른 후보(단계 A의 저에너지 해)</h2>
         <div class="qg-cands" id="qg-cands"></div>
+      </section>
+
+      <section class="qg-card">
+        <h2>도면 생성 탭의 조건은 QUBO에 어떻게 들어가나</h2>
+        <div class="mt-scroll"><table class="gen-table qg-terms">
+          <thead><tr><th>조건</th><th>무엇을 바꾸나</th><th>QUBO에서</th><th>난이도</th></tr></thead>
+          <tbody>{condMap.map(([a, b2, c, d]) => <tr><td><b>{a}</b></td><td>{b2}</td><td>{c}</td><td>{d === 'easy' ? <span class="good-text">쉬움(넣음)</span> : d === 'hard' ? <span class="qg-approx">어려움(근사로 넣음)</span> : <span class="error-text">어려움(넣지 않음)</span>}</td></tr>)}</tbody>
+        </table></div>
+      </section>
+
+      <section class="qg-card">
+        <h2>이 탭에서 QUBO가 아닌 부분</h2>
+        <div class="mt-scroll"><table class="gen-table qg-terms">
+          <thead><tr><th>부분</th><th>방식</th><th>내용</th></tr></thead>
+          <tbody>
+            <tr><td>세대 외곽</td><td set:html={badges(['rule'])} /><td>전용면적 ÷ 깊이로 정한 직사각형 하나로 고정</td></tr>
+            <tr><td>격자 크기·실 목록·목표 면적</td><td set:html={badges(['rule'])} /><td>실 프로그램(면적 비율 × 전용면적, 복도 7%)으로 계산한 QUBO의 입력</td></tr>
+            <tr><td>바깥 줄(발코니) 위치</td><td set:html={badges(['rule'])} /><td>맨 아래(남) 줄. 그 줄에서 실외기실 칸은 QUBO가 고름</td></tr>
+            <tr><td>문·창의 폭과 벽 칸 안 위치</td><td set:html={badges(['rule'])} /><td>QUBO는 "어느 벽 칸"을 고르고, 문 폭 0.9m를 칸 가운데에 놓는 것은 규칙</td></tr>
+            <tr><td>원-핫을 어긴 칸 처리</td><td set:html={badges(['rule'])} /><td>풀이기가 "칸마다 실 하나"를 어기면 계수가 가장 낮은 실로 채움(화면에 어긴 칸 수 표시)</td></tr>
+            <tr><td>실 연결·현관에서 가는 길·최소 폭·공간구문 값</td><td set:html={badges(['eval'])} /><td>이차식으로 정확히 쓸 수 없어 근사 항만 넣고, 풀고 나서 점검</td></tr>
+            <tr><td>후보 고르기</td><td set:html={badges(['eval'])} /><td>단계 A의 저에너지 해 여러 개 가운데 점검 점수가 가장 높은 것</td></tr>
+            <tr><td>설비(변기·싱크대)</td><td>—</td><td>이 탭에서는 놓지 않음</td></tr>
+          </tbody>
+        </table></div>
       </section>
 
       <section class="qg-card qg-diff">
@@ -131,7 +217,7 @@ const steps = [
       </section>
     </div>
   </main>
-  <script id="qg-data" type="application/json" set:html={JSON.stringify({ base, termsA: TERMS_A, termsB: TERMS_B, solvers: solvers.map((s) => ({ key: s.key, name: s.name })) })} />
+  <script id="qg-data" type="application/json" set:html={JSON.stringify({ base, termsA: TERMS_A, termsB: TERMS_B, solvers: solvers.map((s) => ({ key: s.key, name: s.name })), living: choices.living, targets: choices.targets, prefNames: Object.fromEntries([...SYNTAX_CHOICES, ...LIFESTYLE_CHOICES].map((c) => [c.key, c.title])) })} />
   <script>
     import '../scripts/qubo-gen.js';
   </script>

@@ -4,6 +4,7 @@
 // QUBO로 정확히 쓸 수 없는 규칙(실이 한 덩어리로 이어짐, 현관에서 모든 실에 갈 수 있음, 최소 폭)은 근사 항으로 넣고,
 // 풀고 난 뒤 따로 점검한다(evaluate). 같은 입력·같은 시드면 같은 결과다.
 import { programOf } from '../generate/layout.js';
+import { syntaxOf, SYNTAX_GOAL } from '../freeform/engine.js';
 
 export const CELLS = [1.2, 0.9];
 const BACK = new Set(['주방', '현관', '화장실', '드레스룸', '다목적공간']);
@@ -24,7 +25,22 @@ export const TERMS_A = [
   { id: 'entry', label: '현관 위치', rule: '현관은 뒤(복도 쪽) 바깥 벽에', qubo: '−Σ<sub>c∈맨 뒤 줄</sub> x<sub>c,현관</sub>', exact: true, w: 2 },
   { id: 'masterEnd', label: '안방은 끝', rule: '안방은 한쪽 끝(부속실을 뒤에 붙이려고)', qubo: '−Σ<sub>c∈양 끝 열</sub> x<sub>c,안방</sub>', exact: true, w: 0.8 },
   { id: 'livingMid', label: '거실은 가운데', rule: '거실 중심형(가족이 모이는 곳이 가운데)', qubo: 'Σ<sub>c</sub> |열<sub>c</sub> − 가운데| / 폭 · x<sub>c,거실</sub>', exact: true, w: 1.5 },
+  { id: 'livingHub', label: '거실이 여러 실과 닿음', rule: '공간구문 "거실 중심형": 거실이 집에서 가장 통합된(많은 실과 이어진) 실', qubo: '−Σ<sub>r≠거실</sub> Σ<sub>c~c′</sub> x<sub>c,거실</sub>x<sub>c′,r</sub>', exact: false, note: '통합도는 그래프 경로 계산이라 이차식이 아님. "거실이 많은 실과 맞닿음"으로 근사하고, 풀고 나서 실제 통합도를 계산', w: 0, pref: 'livingCentral', on: 0.4 },
+  { id: 'privacyDepth', label: '침실은 현관에서 멀리', rule: '공간구문 "사생활 깊이": 침실이 거실·주방보다 깊게(현관에서 멀게)', qubo: '+Σ<sub>c,c′</sub> 가까움(c, c′) · x<sub>c,침실</sub>x<sub>c′,현관</sub>', exact: false, note: '깊이(현관에서 문을 몇 번 지나나)는 경로 계산이라 이차식이 아님. 침실 칸과 현관 칸의 거리로 근사하고, 풀고 나서 실제 깊이를 계산', w: 0, pref: 'privacy', on: 2 },
 ];
+
+/** 선호를 고르면 바뀌는 무게(도면 생성 탭의 공간구문·생활 선호와 같은 선택지). */
+export const PREF_EFFECTS = {
+  livingCentral: '거실 가운데 항 ×1.8, 거실이 여러 실과 닿음 항 켬(근사)',
+  privacy: '침실–현관 떨어짐 ×1.7, 침실은 현관에서 멀리 항 켬(근사)',
+  kitchenLink: '주방–거실 맞닿음 ×1.4',
+  entryNear: '현관–거실 맞닿음 ×1.6',
+  spacious: '거실 목표 면적 한 단계 크게(면적 항)',
+  bath: '화장실 2개(실 목록)',
+  quiet: '침실끼리 떨어짐 ×2, 침실–거실 떨어짐 항 추가',
+  sunny: '앞·뒤 띠 ×1.4, 창 ×2',
+  storage: '드레스룸·다목적실 추가(실 목록)',
+};
 
 /** 단계 B의 항. */
 export const TERMS_B = [
@@ -33,6 +49,7 @@ export const TERMS_B = [
   { id: 'entryDoor', label: '현관문 하나', rule: '현관 바깥 벽에 현관문 하나(뒤쪽 우선)', qubo: 'P<sub>B</sub>(Σ<sub>e</sub> h<sub>e</sub> − 1)² + Σ 비용 · h<sub>e</sub>', exact: true },
   { id: 'opening', label: '공용 공간 트기', rule: '현관·거실·주방·복도끼리 맞닿으면 개구부 하나(가운데 우선)', qubo: 'P<sub>B</sub> Σ<sub>쌍</sub> (Σ<sub>e</sub> o<sub>e</sub> − 1)² + Σ 거리 · o<sub>e</sub>', exact: true },
   { id: 'clash', label: '문끼리 겹치지 않기', rule: '같은 벽 칸이나 이웃 벽 칸에 문 두 개를 두지 않음', qubo: '+Σ<sub>겹치는 쌍</sub> d<sub>e</sub> d<sub>e′</sub>', exact: true },
+  { id: 'outdoorUnit', label: '실외기실 자리', rule: '실외기실은 바깥 줄(발코니) 끝에 이어진 칸으로, 그 칸 쪽으로는 발코니 문을 내지 않음', qubo: '3(Σ<sub>i</sub> u<sub>i</sub> − k)² + Σ 끝에서 거리 · u<sub>i</sub> − Σ u<sub>i</sub>u<sub>i+1</sub> + 6Σ s<sub>i</sub>u<sub>i</sub>', exact: true },
   { id: 'windows', label: '창·발코니 문', rule: '거실·침실·주방은 바깥 벽 길이의 일정 비율만큼 창(발코니 쪽은 발코니 문), 이어지게', qubo: 'Σ<sub>r</sub> (Σ<sub>e</sub> w<sub>r,e</sub> − k<sub>r</sub>)² − Σ<sub>이웃 e~e′</sub> w<sub>e</sub>w<sub>e′</sub>', exact: true },
 ];
 
@@ -106,8 +123,10 @@ export function setupGrid(spec, { cell = 1.2, hall = true } = {}) {
   const C = nx * ny;
   const sumA = prog.reduce((s, r) => s + r.area, 0);
   const rooms = prog.map((r, k) => ({ k, key: r.key, type: r.type, name: r.name, area: r.area, t: (r.area / sumA) * C, fixed: false }));
-  const balconyRows = Math.max(1, Math.round(1.5 / cell));
-  return { spec, cell, nx, ny, C, rooms, balconyRows, area: C * cell * cell };
+  // 맨 아래(남) 바깥 줄: 발코니가 있으면 발코니, 없으면 실외기실만 둘 바깥 자리
+  const balcony = spec.balcony !== false;
+  const stripRows = balcony || spec.outdoorUnit ? Math.max(1, Math.round(1.5 / cell)) : 0;
+  return { spec, cell, nx, ny, C, rooms, balcony, outdoorUnit: Boolean(spec.outdoorUnit), stripRows, balconyRows: stripRows, area: C * cell * cell };
 }
 
 /** 이웃 칸 쌍(가로·세로). */
@@ -145,6 +164,7 @@ export function pairsOf(G, prefs = []) {
   const bad = [];
   const addB = (a, b, m = 1) => has(a) && has(b) && bad.push([a, b, m]);
   for (const b of beds) addB(b, 'entrance', prefs.includes('privacy') ? 2.5 : 1.5);
+  if (prefs.includes('quiet')) for (const b of beds) addB(b, 'living', 0.5);
   for (const b of beds) addB(b, 'kitchen', 0.6);
   for (let i = 0; i < beds.length; i++) for (let j = i + 1; j < beds.length; j++) addB(beds[i], beds[j], prefs.includes('quiet') ? 0.8 : 0.4);
   for (const b of others) addB(b, 'bathMaster', 2);
@@ -158,9 +178,10 @@ export function pairsOf(G, prefs = []) {
 }
 
 /** 단계 A QUBO. */
-export function buildStageA(G, { weights = {}, prefs = [] } = {}) {
-  const W = Object.fromEntries(TERMS_A.map((t) => [t.id, weights[t.id] ?? t.w]));
+export function buildStageA(G, { weights = {}, prefs = [], syntaxScale = 1 } = {}) {
+  const W = Object.fromEntries(TERMS_A.map((t) => [t.id, weights[t.id] ?? (t.pref && prefs.includes(t.pref) ? t.on * syntaxScale : t.w)]));
   if (prefs.includes('livingCentral')) W.livingMid *= 1.8;
+  if (prefs.includes('sunny')) ((W.zone *= 1.4), (W.window *= 2));
   const { nx, ny, C, rooms } = G;
   const R = rooms.length;
   const n = C * R;
@@ -222,6 +243,27 @@ export function buildStageA(G, { weights = {}, prefs = [] } = {}) {
   if (keyIdx.master !== undefined) for (let c = 0; c < C; c++) if (colOf(c) === 0 || colOf(c) === nx - 1) b.lin('masterEnd', v(c, keyIdx.master), -W.masterEnd);
   // 거실: 가운데
   if (keyIdx.living !== undefined) for (let c = 0; c < C; c++) b.lin('livingMid', v(c, keyIdx.living), W.livingMid * (Math.abs(colOf(c) + 0.5 - nx / 2) / nx));
+  // (거실 중심형, 근사) 거실이 다른 실과 맞닿을수록 보상
+  if (W.livingHub && keyIdx.living !== undefined)
+    for (const r of rooms) {
+      if (r.k === keyIdx.living) continue;
+      for (const [c, d] of nb) {
+        b.quad('livingHub', v(c, keyIdx.living), v(d, r.k), -W.livingHub);
+        b.quad('livingHub', v(d, keyIdx.living), v(c, r.k), -W.livingHub);
+      }
+    }
+  // (사생활 깊이, 근사) 침실 칸이 현관 칸에 가까울수록 감점: 가까움 = max(0, 1 − 맨해튼 거리 / (nx + ny)/2)
+  if (W.privacyDepth && keyIdx.entrance !== undefined) {
+    const half = (nx + ny) / 2;
+    for (const r of rooms) {
+      if (r.type !== '침실') continue;
+      for (let c = 0; c < C; c++)
+        for (let d = 0; d < C; d++) {
+          const near = Math.max(0, 1 - (Math.abs(colOf(c) - colOf(d)) + Math.abs(rowOf(c) - rowOf(d))) / half);
+          if (near > 0) b.quad('privacyDepth', v(c, r.k), v(d, keyIdx.entrance), (W.privacyDepth * near) / Math.max(1, r.t));
+        }
+    }
+  }
 
   // 벌점: 한 변수의 목적 계수 절댓값 합의 최댓값 + 1
   const pre = b.finish(n, []);
@@ -241,6 +283,7 @@ export function buildStageA(G, { weights = {}, prefs = [] } = {}) {
   const q = b.finish(n, groups);
   q.penalty = P;
   q.weights = W;
+  q.prefNotes = prefs.filter((k) => PREF_EFFECTS[k]).map((k) => [k, PREF_EFFECTS[k]]);
   q.vars = Array.from({ length: n }, (_, i) => ({ c: Math.floor(i / R), r: i % R }));
   return q;
 }
@@ -283,7 +326,7 @@ function edgesOf(G, assign) {
       if (j + 1 < ny) {
         const d = c + nx;
         if (assign[c] !== assign[d]) out.push({ kind: 'in', a: assign[c], b: assign[d], c1: c, c2: d, x1: i * s, y1: (j + 1) * s, x2: (i + 1) * s, y2: (j + 1) * s, v: false });
-      } else out.push({ kind: 'balc', side: 'S', a: assign[c], c1: c, x1: i * s, y1: ny * s, x2: (i + 1) * s, y2: ny * s, v: false });
+      } else out.push({ kind: G.balcony ? 'balc' : 'ext', side: 'S', col: i, a: assign[c], c1: c, x1: i * s, y1: ny * s, x2: (i + 1) * s, y2: ny * s, v: false });
       if (j === 0) out.push({ kind: 'ext', side: 'N', a: assign[c], c1: c, x1: i * s, y1: 0, x2: (i + 1) * s, y2: 0, v: false });
     }
   return out;
@@ -379,6 +422,23 @@ export function buildStageB(G, assign) {
       for (let q = p + 1; q < ids.length; q++) if (touchE(vars[ids[p]].e, vars[ids[q]].e)) b.quad('windows', ids[p], ids[q], -0.4);
     }
   }
+  // 6. 실외기실: 바깥 줄(발코니 줄)의 어느 칸을 실외기실로 쓸지. 끝 칸 우선, 이어지게, 그 칸 쪽으로는 발코니 문을 내지 않음.
+  if (G.outdoorUnit) {
+    const { nx } = G;
+    const k = Math.max(1, Math.round(1.5 / G.cell));
+    const ids = [];
+    for (let i = 0; i < nx; i++) {
+      const id = add({ kind: 'outdoor', col: i });
+      ids.push(id);
+      b.lin('outdoorUnit', id, 0.6 * Math.min(i, nx - 1 - i));
+    }
+    b.countTo('outdoorUnit', ids, k, 3);
+    for (let i = 0; i + 1 < nx; i++) b.quad('outdoorUnit', ids[i], ids[i + 1], -1);
+    if (G.balcony)
+      vars.forEach((vv, j) => {
+        if (vv.kind === 'sliding' && vv.e.col !== undefined) b.quad('outdoorUnit', j, ids[vv.e.col], 6);
+      });
+  }
   const n = vars.length;
   const pre = b.finish(n, []);
   let gmax = 0;
@@ -395,6 +455,9 @@ export function buildStageB(G, assign) {
   return q;
 }
 
+/** 단계 B 해에서 실외기실 열. */
+export const outdoorCols = (qB, x) => qB.vars.map((vv, i) => (vv.kind === 'outdoor' && x[i] ? vv.col : -1)).filter((c) => c >= 0);
+
 /** 단계 B 해 → 문·창 목록(자유형 그림과 같은 형식, 단위 m). */
 export function decodeB(G, qB, x) {
   const out = [];
@@ -402,6 +465,7 @@ export function decodeB(G, qB, x) {
   for (let i = 0; i < qB.n; i++) {
     if (!x[i]) continue;
     const vv = qB.vars[i];
+    if (vv.kind === 'outdoor') continue;
     const e = vv.e;
     const L = s;
     const w = vv.kind === 'door' || vv.kind === 'entry' ? Math.min(0.9, L - 0.2) : vv.kind === 'opening' ? L - 0.1 : L - 0.1;
@@ -523,14 +587,41 @@ export function evaluate(G, assign, openings) {
   return { rooms: res, checks, score };
 }
 
-/** 평면 그림용 P(자유형 planSvg 형식): 실내 칸 + 맨 아래 발코니 줄. */
-export function planP(G, assign) {
-  const { nx, ny, balconyRows, cell, rooms } = G;
+/** 평면 그림용 P(자유형 planSvg 형식): 실내 칸 + 맨 아래 바깥 줄(발코니·실외기실). */
+export function planP(G, assign, outCols = []) {
+  const { nx, ny, stripRows, cell, rooms } = G;
   const balK = rooms.length;
-  const full = new Int16Array(nx * (ny + balconyRows));
+  const ouK = rooms.length + 1;
+  const full = new Int16Array(nx * (ny + stripRows));
   full.set(assign);
-  for (let c = nx * ny; c < full.length; c++) full[c] = balK;
-  const prs = rooms.map((r) => ({ k: r.k, type: r.type, fixed: false, cells: 0 })).concat([{ k: balK, type: '발코니', fixed: true, cells: nx * balconyRows }]);
-  for (const v of assign) prs[v].cells++;
-  return { P: { nx, ny: ny + balconyRows, sx: cell, sy: cell, rooms: prs }, assign: full, names: Object.fromEntries(rooms.map((r) => [r.k, r.name]).concat([[balK, '발코니']])) };
+  for (let j = 0; j < stripRows; j++)
+    for (let i = 0; i < nx; i++) full[(ny + j) * nx + i] = outCols.includes(i) ? ouK : G.balcony ? balK : -1;
+  const prs = rooms.map((r) => ({ k: r.k, type: r.type, fixed: false, cells: 0 })).concat([
+    { k: balK, type: '발코니', fixed: true, cells: 0 },
+    { k: ouK, type: '실외기실', fixed: true, cells: 0 },
+  ]);
+  for (const v of full) if (v >= 0) prs[v].cells++;
+  return { P: { nx, ny: ny + stripRows, sx: cell, sy: cell, rooms: prs }, assign: full, names: Object.fromEntries(rooms.map((r) => [r.k, r.name]).concat([[balK, '발코니'], [ouK, '실외기실']])) };
+}
+
+/** 공간구문(평가 모델·자유형과 같은 정의): 맞닿은 길이 0.6m 이상인 실을 잇는 그래프에서 통합도·깊이. */
+export function syntaxGrid(G, assign) {
+  const { nx, ny, rooms, cell } = G;
+  const S = {};
+  for (const r of rooms) S[r.k] = { n: 0, touch: new Map() };
+  const touch = (a, b) => {
+    if (a === b) return;
+    S[a].touch.set(b, (S[a].touch.get(b) || 0) + cell / 0.3);
+    S[b].touch.set(a, (S[b].touch.get(a) || 0) + cell / 0.3);
+  };
+  for (let j = 0; j < ny; j++)
+    for (let i = 0; i < nx; i++) {
+      const c = j * nx + i;
+      S[assign[c]].n++;
+      if (i + 1 < nx) touch(assign[c], assign[c + 1]);
+      if (j + 1 < ny) touch(assign[c], assign[c + nx]);
+    }
+  const P = { cellM: 0.3, sx: 0.3, sy: 0.3, rooms: rooms.map((r) => ({ k: r.k, type: r.type, fixed: false })) };
+  const sx = syntaxOf(P, S);
+  return { livingBedroomRatio: sx.livingBedroomRatio, kitchenBedroomRatio: sx.kitchenBedroomRatio, genotypeTau: sx.genotypeTau, privacyDepthGap: sx.privacyDepthGap, goal: SYNTAX_GOAL };
 }

@@ -7,25 +7,48 @@ const data = JSON.parse(document.getElementById('qg-data').textContent);
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const f = (v, d = 2) => (Number.isFinite(v) ? Number(v).toFixed(d) : '—');
-const TARGETS = { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877, bath: 0.032, entrance: 0.0389, dress: 0.0499, multi: 0.0303 };
+
 
 let worker = null;
 let reqId = 0;
-const st = { res: null, cur: 0, step: 4 };
+const st = { res: null, sol: 0, cur: 0, step: 4 };
+const form = $('#qg-form');
+const radio = (name) => form.querySelector(`input[name="${name}"]:checked`);
+const checks = (name) => [...form.querySelectorAll(`input[name="${name}"]:checked`)].map((i) => i.value);
+const R = () => st.res.results[st.sol];
+const QA = () => st.res.QA;
 
+/** 도면 생성 탭(generate.js buildSpec)과 같은 방식으로 조건 → 사양. */
 function readSpec() {
+  const area = Number(radio('area').value);
+  const bedrooms = Number(radio('bedrooms').value);
+  const comp = new Set(checks('composition'));
+  const syntax = checks('syntax');
+  const life = checks('lifestyle');
+  let li = data.living.findIndex((o) => o.key === radio('living').value);
+  if (life.includes('spacious')) li = Math.min(data.living.length - 1, li + 1);
+  const other = Number(radio('roomSize').dataset.share);
+  const ratio = Number(radio('master').dataset.ratio);
+  const t = data.targets;
   return {
-    area: Number($('#qg-area').value),
-    bedrooms: Number($('#qg-bed').value),
-    baths: Number($('#qg-bath').value),
-    dress: $('#qg-dress').checked,
-    multi: $('#qg-multi').checked,
-    outdoorUnit: false,
-    balcony: true,
-    targets: TARGETS,
-    prefs: [...document.querySelectorAll('input[name="qg-pref"]:checked')].map((e) => e.value),
+    area,
+    bedrooms,
+    baths: comp.has('baths2') || life.includes('bath') ? 2 : 1,
+    dress: comp.has('dress') || life.includes('storage'),
+    multi: comp.has('multi') || life.includes('storage'),
+    outdoorUnit: comp.has('outdoorUnit'),
+    balcony: comp.has('balcony'),
+    targets: { living: data.living[li].share, kitchen: t.kitchen, master: bedrooms > 1 ? other * ratio : other * 1.6, other, bath: t.bath, entrance: t.entrance, dress: t.dress, multi: t.multi },
+    prefs: [...syntax, ...life],
   };
 }
+// 평수를 고르면 그 주택형에서 흔한 침실 수를 먼저 고른다(도면 생성 탭과 같음)
+form.querySelectorAll('input[name="area"]').forEach((r) =>
+  r.addEventListener('change', () => {
+    const b = form.querySelector(`input[name="bedrooms"][value="${r.dataset.bedrooms}"]`);
+    if (b) b.checked = true;
+  }),
+);
 
 $('#qg-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -47,25 +70,56 @@ $('#qg-form').addEventListener('submit', (e) => {
     }
     $('#qg-run').disabled = false;
     st.res = d;
+    // 점검 점수가 가장 높은 풀이기의 결과부터
+    st.sol = d.results.reduce((bi, r, i, arr) => (r.cands[0].ev.score > arr[bi].cands[0].ev.score ? i : bi), 0);
     st.cur = 0;
     st.step = 4;
-    $('#qg-status').textContent = `완료: 단계 A 변수 ${d.A.n}개, ${(d.A.ms / 1000).toFixed(1)}초, 평가 ${d.A.evals.toLocaleString()}회 · 후보 ${d.cands.length}개`;
+    $('#qg-status').textContent = `완료: 단계 A 변수 ${d.QA.n}개 · 풀이기 ${d.results.length}개`;
     render();
     $('#qg-out').hidden = false;
   };
-  worker.postMessage({ id, spec: readSpec(), cell: Number($('#qg-cell').value), solver: $('#qg-solver').value, budgetMs: Number($('#qg-budget').value), seed: Number($('#qg-seed').value) || 1 });
+  const solvers = checks('solver');
+  if (!solvers.length) {
+    $('#qg-status').textContent = '풀이기를 하나 이상 고르세요.';
+    $('#qg-run').disabled = false;
+    return;
+  }
+  worker.postMessage({ id, spec: readSpec(), cell: Number($('#qg-cell').value), solvers, budgetMs: Number($('#qg-budget').value), seed: Number($('#qg-seed').value) || 1, syntaxScale: Number($('#qg-sxs').value) });
 });
 
 function drawPlan(c, { ops = true, small = false } = {}) {
   const G = st.res.G;
-  const { P, assign, names } = planP(G, Int16Array.from(c.assign));
+  const { P, assign, names } = planP(G, Int16Array.from(c.assign), c.outCols || []);
   const m2 = (k) => (k < G.rooms.length ? c.ev.rooms[k].m2 : null);
   return planSvg(assign, P, { openings: ops ? c.ops : [], names, mode: ops ? 'full' : 'space', small, areaOf: small ? null : m2 });
 }
 
+const solName = (k) => data.solvers.find((s) => s.key === k)?.name || k;
+function renderCmp() {
+  const rows = st.res.results
+    .map((r, i) => {
+      const c = r.cands[0];
+      const k = c.ev.checks;
+      const viol = k.missing.length + k.split.length + k.thin.length + k.noWindow.length + k.unreachable.length + k.throughBed.length;
+      return `<tr class="${i === st.sol ? 'on' : ''}"><td><button type="button" class="button-ghost small" data-sol="${i}">${esc(solName(r.solver))}</button></td><td class="mono">${f(c.eA, 2)}</td><td>${c.broken ? `<span class="error-text">${c.broken}칸 어김</span>` : '지킴'}</td><td class="mono">${viol}</td><td class="mono"><b>${f(c.ev.score, 1)}</b></td><td class="mono">${(r.A.ms / 1000).toFixed(1)}초 · ${r.A.evals.toLocaleString()}회</td></tr>`;
+    })
+    .join('');
+  $('#qg-cmp').innerHTML = `<div class="mt-scroll"><table class="gen-table qs-tbl"><thead><tr><th>풀이기</th><th>단계 A 최저 에너지 ↓</th><th>칸마다 실 하나</th><th>규칙 위반 수</th><th>점검 점수 ↑</th><th>시간 · 평가 횟수</th></tr></thead><tbody>${rows}</tbody></table></div><p class="note">같은 QUBO·같은 시간·같은 시드. 풀이기를 누르면 그 결과를 아래에 보여 줍니다. 한 번 실행이라 통계적 비교는 아닙니다.</p>`;
+  document.querySelectorAll('[data-sol]').forEach((b) =>
+    b.addEventListener('click', () => {
+      st.sol = Number(b.dataset.sol);
+      st.cur = 0;
+      render();
+    }),
+  );
+}
 function render() {
-  const { G, A, cands } = st.res;
+  const { G } = st.res;
+  const A = { ...QA(), ...R().A, solver: R().solver };
+  const cands = R().cands;
   const c = cands[st.cur];
+  renderCmp();
+  $('#qg-which').textContent = `— ${solName(R().solver)} · 후보 ${st.cur + 1}`;
   $('#qg-plan').innerHTML = drawPlan(c);
   const rows = c.ev.rooms
     .filter((r) => r.cells || r.target)
@@ -75,6 +129,7 @@ function render() {
   renderSteps();
   renderTerms(c);
   renderChecks(c);
+  renderSyntax(c);
   renderTrace();
   $('#qg-cands').innerHTML = cands
     .map((k, i) => `<button type="button" class="qg-cand ${i === st.cur ? 'on' : ''}" data-cand="${i}">${drawPlan(k, { small: true })}<span>후보 ${i + 1} · E ${f(k.eA, 1)} · 점검 ${f(k.ev.score, 0)}</span></button>`)
@@ -88,7 +143,7 @@ function render() {
 }
 
 function renderSteps() {
-  const c = st.res.cands[st.cur];
+  const c = R().cands[st.cur];
   const G = st.res.G;
   document.querySelectorAll('[data-qstep]').forEach((b) => b.setAttribute('aria-current', Number(b.dataset.qstep) === st.step ? 'step' : 'false'));
   const tpl = document.querySelector(`template[data-qstep-tpl="${st.step}"]`);
@@ -96,16 +151,16 @@ function renderSteps() {
   let fig = '';
   if (st.step === 1) {
     fig = gridSvg();
-    live = `<p class="proc-run">격자 ${G.nx} × ${G.ny} = ${G.C}칸, 칸 ${G.cell}m, 실 ${G.rooms.length}개 → 단계 A 변수 ${G.C} × ${G.rooms.length} = <b>${st.res.A.n}개</b>. 목표 칸 수: ${G.rooms.map((r) => `${esc(r.name)} ${f(r.t, 1)}`).join(', ')}</p>`;
+    live = `<p class="proc-run">격자 ${G.nx} × ${G.ny} = ${G.C}칸, 칸 ${G.cell}m, 실 ${G.rooms.length}개 → 단계 A 변수 ${G.C} × ${G.rooms.length} = <b>${QA().n}개</b>. 목표 칸 수: ${G.rooms.map((r) => `${esc(r.name)} ${f(r.t, 1)}`).join(', ')}</p>`;
   } else if (st.step === 2) {
     fig = drawPlan(c, { ops: false });
-    live = `<p class="proc-run">풀이기 ${esc(data.solvers.find((s) => s.key === st.res.A.solver)?.name || st.res.A.solver)} · 변수 ${st.res.A.n}개 · 원-핫 묶음 ${st.res.A.groups}개 · 벌점 P = ${st.res.A.penalty} · ${(st.res.A.ms / 1000).toFixed(1)}초 · 이 해의 에너지 ${f(c.eA, 2)}${c.broken ? ` · 원-핫 어긴 칸 ${c.broken}개` : ' · 원-핫 모두 지킴'}</p>`;
+    live = `<p class="proc-run">풀이기 ${esc(data.solvers.find((s) => s.key === R().solver)?.name || R().solver)} · 변수 ${QA().n}개 · 원-핫 묶음 ${QA().groups}개 · 벌점 P = ${QA().penalty} · ${(R().A.ms / 1000).toFixed(1)}초 · 이 해의 에너지 ${f(c.eA, 2)}${c.broken ? ` · 원-핫 어긴 칸 ${c.broken}개` : ' · 원-핫 모두 지킴'}</p>`;
   } else if (st.step === 3) {
     fig = drawPlan(c);
     live = `<p class="proc-run">변수 ${c.B.n}개(${Object.entries(c.B.vars).map(([k, v]) => `${{ door: '문', entry: '현관문', opening: '개구부', window: '창', sliding: '발코니 문' }[k] || k} ${v}`).join(', ')}) · 원-핫 묶음 ${c.B.groups}개 · 벌점 P = ${c.B.penalty} · 에너지 ${f(c.B.e, 2)} · ${c.B.feasible ? '원-핫 모두 지킴' : '<span class="error-text">원-핫 어김</span>'}</p>`;
   } else {
     fig = drawPlan(c);
-    live = `<p class="proc-run">점검 점수 ${f(c.ev.score, 1)} = 100 − 25·(없는 실) − 15·(나뉜 실) − 6·(좁은 실) − 10·(창 없는 거실·침실) − 15·(갈 수 없는 실) − 8·(침실을 지나야 하는 실) − 60·(면적 오차 평균). 후보 ${st.res.cands.length}개 중 이 점수가 가장 높은 안이 처음에 보입니다.</p>`;
+    live = `<p class="proc-run">점검 점수 ${f(c.ev.score, 1)} = 100 − 25·(없는 실) − 15·(나뉜 실) − 6·(좁은 실) − 10·(창 없는 거실·침실) − 15·(갈 수 없는 실) − 8·(침실을 지나야 하는 실) − 60·(면적 오차 평균). 후보 ${R().cands.length}개 중 이 점수가 가장 높은 안이 처음에 보입니다.</p>`;
   }
   $('#qg-step-plan').innerHTML = fig;
   $('#qg-step-text').innerHTML = `<div class="proc-method">${tpl ? tpl.innerHTML : ''}${live}</div>`;
@@ -129,7 +184,7 @@ document.querySelectorAll('[data-qstep]').forEach((b) =>
 );
 
 function renderTerms(c) {
-  const A = st.res.A;
+  const A = QA();
   const head = '<thead><tr><th>규칙</th><th>QUBO 항</th><th>정확/근사</th><th>무게</th><th>항 수(일차·이차)</th><th>이 해의 에너지 기여</th></tr></thead>';
   const rowsA = data.termsA
     .map((t) => {
@@ -139,7 +194,8 @@ function renderTerms(c) {
     })
     .join('');
   const sumA = Object.values(c.termsA).reduce((s, v) => s + v, 0);
-  $('#qg-termsA').innerHTML = `${head}<tbody>${rowsA}<tr><td colspan="5"><b>합 = 단계 A 에너지</b></td><td class="mono"><b>${f(sumA, 2)}</b> ${Math.abs(sumA - c.eA) < 1e-6 ? '✓' : '✗'}</td></tr></tbody>`;
+  const notes = (A.prefNotes || []).map(([k, t]) => `<li><b>${esc(data.prefNames?.[k] || k)}</b>: ${esc(t)}</li>`).join('');
+  $('#qg-termsA').innerHTML = `${notes ? `<caption class="qg-cap">고른 선호로 바뀐 무게: <ul>${notes}</ul></caption>` : ''}${head}<tbody>${rowsA}<tr><td colspan="5"><b>합 = 단계 A 에너지</b></td><td class="mono"><b>${f(sumA, 2)}</b> ${Math.abs(sumA - c.eA) < 1e-6 ? '✓' : '✗'}</td></tr></tbody>`;
   const rowsB = data.termsB
     .map((t) => {
       const cnt = c.B.counts[t.id] || { lin: 0, quad: 0 };
@@ -164,8 +220,24 @@ function renderChecks(c) {
   </tbody></table></div>`;
 }
 
+function renderSyntax(c) {
+  const sx = c.syntax;
+  const prefs = st.res.G.spec.prefs;
+  const row = (label, v, goal, pref, ref) => {
+    const chosen = prefs.includes(pref);
+    const ok = v !== null && v !== undefined && v >= goal;
+    return `<tr><td>${label}</td><td class="mono">${v === null || v === undefined ? '—' : f(v, 2)}</td><td class="mono">${goal}</td><td>${chosen ? (ok ? '<span class="good-text">✓ 목표 이상</span>' : '<span class="qg-approx">목표 미만</span>') : '<span class="note">선호 안 고름</span>'}</td><td><small>${ref}</small></td></tr>`;
+  };
+  $('#qg-syntax').innerHTML = `<div class="mt-scroll"><table class="gen-table qs-tbl"><thead><tr><th>공간구문 변수</th><th>이 평면</th><th>목표</th><th>고른 선호</th><th>근거</th></tr></thead><tbody>
+    ${row('거실/침실 통합도 비', sx.livingBedroomRatio, sx.goal.lbr, 'livingCentral', 'Byun & Choi 2016 거실 중심 군집 하한 1.56, 자유형 목표 1.9')}
+    ${row('유전형 순서 τ', sx.genotypeTau, 0.5, 'livingCentral', 'Hillier 외 1987 (1이면 거실 > 주방 > 침실 순 통합)')}
+    ${row('공·사 깊이 차', sx.privacyDepthGap, sx.goal.gap, 'privacy', 'Ham & Lee 2017, Park 외 2024 (침실이 거실·주방보다 깊게)')}
+    ${row('주방/침실 통합도 비', sx.kitchenBedroomRatio, sx.goal.kbr, 'kitchenLink', 'Byun & Choi 2016 범위 하한 1.04')}
+  </tbody></table></div><p class="note">평가 모델·자유형 탭과 같은 정의(맞닿은 길이 0.6m 이상인 실을 잇는 그래프에서 통합도 = 1/RRA, 깊이 = 현관에서 몇 번 건너나)로 풀고 나서 계산한 값입니다. QUBO에는 이 값 자체가 아니라 근사 항(거실이 여러 실과 닿음, 침실과 현관의 거리)만 들어 있어 목표에 못 미칠 수 있습니다. "강하게"를 고르면 더 가까워지지만 다른 규칙 위반이 생길 수 있습니다.</p>`;
+}
+
 function renderTrace() {
-  const tr = st.res.A.trace;
+  const tr = R().A.trace;
   if (tr.length < 2) {
     $('#qg-trace').innerHTML = '';
     return;
