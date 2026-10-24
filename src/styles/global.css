@@ -5052,3 +5052,70 @@ a.gr-cite.lit:hover {
 .pl-kinds td:last-child {
   min-width: 220px;
 }
+/* 알고리즘 이름 · QUBO로 가능 여부 */
+.pl-algo {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+.q-chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.q-chip a {
+  color: inherit;
+}
+.q-done {
+  background: rgba(91, 63, 240, 0.14);
+  color: #5b3ff0;
+}
+.q-other {
+  background: rgba(47, 122, 61, 0.14);
+  color: #2f7a3d;
+}
+.q-pos {
+  background: rgba(42, 120, 214, 0.12);
+  color: #2a78d6;
+}
+.q-no {
+  background: rgba(220, 70, 70, 0.12);
+  color: #b42f2f;
+}
+.q-na {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.q-why {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+.pl-q {
+  min-width: 170px;
+}
+.proc-algo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 13px;
+  margin: 6px 0 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.proc-algo b {
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.proc-algo .q-why {
+  display: inline;
+  margin-left: 6px;
+}

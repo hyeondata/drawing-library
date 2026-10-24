@@ -1,6 +1,7 @@
 ---
 // 생성 과정의 단계별 방식 구분표(규칙 / QUBO 최적화 / 탐색 / 담금질 / 평가). 정의는 src/generate/pipeline.js 한곳.
-import { badges, kindsTable, SELECT_STAGES, MODEL_STAGES, FREE_STAGES, QG_STAGES } from '../generate/pipeline.js';
+import { badges, kindsTable, quboHtml, SELECT_STAGES, MODEL_STAGES, FREE_STAGES, QG_STAGES } from '../generate/pipeline.js';
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 interface Props {
   show?: 'select' | 'free' | 'both';
@@ -27,19 +28,20 @@ const blocks = [
       <h4>{b.title}</h4>
       <div class="mt-scroll">
         <table class="gen-table pl-table">
-          <thead><tr><th>#</th><th>무엇을 정하나</th><th>방식</th><th>어떻게</th><th>코드</th></tr></thead>
+          <thead><tr><th>#</th><th>무엇을 정하나</th><th>방식 · 알고리즘</th><th>어떻게</th><th>QUBO로?</th><th>코드</th></tr></thead>
           <tbody>
             {b.rows.map((r, i) => (
               <tr class={r.key ? 'pl-key' : ''}>
                 <td class="mono">{i + 1}</td>
                 <td>{r.what}</td>
-                <td set:html={badges(r.kinds)} />
+                <td><Fragment set:html={badges(r.kinds)} /><div class="pl-algo">{r.algo}</div></td>
                 <td>{r.how}</td>
+                <td class="pl-q" set:html={quboHtml(r.q, base)} />
                 <td class="mono pl-code">{r.code}</td>
               </tr>
             ))}
             {b.extra && (
-              <tr class="pl-extra"><td colspan="5">{b.extraTitle}: <Fragment set:html={badges(b.extra[0].kinds)} /> {b.extra[0].how} <span class="mono pl-code">({b.extra[0].code})</span></td></tr>
+              <tr class="pl-extra"><td colspan="6">{b.extraTitle}: <Fragment set:html={badges(b.extra[0].kinds)} /> {b.extra[0].how} <span class="mono pl-code">({b.extra[0].code})</span></td></tr>
             )}
           </tbody>
         </table>
