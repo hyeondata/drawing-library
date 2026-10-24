@@ -7,6 +7,8 @@ import { REFERENCES } from '../model/config.js';
 import { buildChoices } from '../generate/choices.js';
 import { LIFESTYLE_CHOICES, SYNTAX_CHOICES } from '../generate/preferences.js';
 import { SOLVERS } from '../generate/solvers.js';
+import { GEN_STAGES } from '../generate/pipeline.js';
+import { show, showSeg } from '../lib/source.js';
 
 const algos = [
   { key: 'model', name: '기존: 모델 직접 탐색', family: '평가 모델로 바로 최적화(무작위 + 국소 탐색, 평가 800회)', cite: '' },
@@ -14,6 +16,9 @@ const algos = [
 ];
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+// 생성 과정 단계마다 실제 코드(빌드 때 소스에서 잘라 옴)
+const codeOf = (list) => (list || []).map((c) => (c.length === 3 ? showSeg(c[0], c[1], c[2]) : show(c[0], c[1]))).join('');
+const procCode = GEN_STAGES.map((g) => ({ code: codeOf(g.code), model: codeOf(g.modelCode) }));
 const dir = path.join(process.cwd(), 'public', 'data', 'labels');
 const files = fs.readdirSync(dir);
 const read = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
@@ -265,6 +270,13 @@ const steps = [
                 <figure class="gen-plan" id="proc-plan"></figure>
                 <div class="gen-process-text" id="proc-text" aria-live="polite"></div>
               </div>
+              <div class="proc-method" id="proc-method"></div>
+              {procCode.map((c, i) => (
+                <>
+                  <template data-proc-code={String(i + 1)} set:html={c.code} />
+                  {c.model && <template data-proc-code={`${i + 1}m`} set:html={c.model} />}
+                </>
+              ))}
             </section>
             <section class="gen-fx" id="gen-fx" aria-label="식과 변수">
               <div class="gen-process-head">

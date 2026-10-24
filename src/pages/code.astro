@@ -6,6 +6,7 @@ import Topbar from '../components/Topbar.astro';
 import fs from 'node:fs';
 import path from 'node:path';
 import { show } from '../lib/source.js';
+import { badges } from '../generate/pipeline.js';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const root = process.cwd();
@@ -16,6 +17,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const S = 'src/generate/solvers.js';
 const Q = 'src/generate/qubo.js';
 const F = 'src/freeform/engine.js';
+const KIND_OF = { qubo: ['qubo'], common: ['qubo'], d2ts: ['qubo'], pr: ['qubo'], memetic: ['qubo'], tabu: ['qubo'], sa: ['qubo'], pt: ['qubo'], sqa: ['qubo'], sb: ['qubo'], cpsat: ['qubo'], exact: ['qubo'], model: ['search'], runner: ['qubo'], size: ['rule', 'search'], 'ff-init': ['rule'], 'ff-energy': ['sa'], 'ff-anneal': ['sa'] };
 const sections = [
   {
     id: 'qubo', title: '0. QUBO 만들기와 에너지', run: null,
@@ -86,7 +88,7 @@ const sections = [
     </section>
     {sections.map((s) => (
       <section class="mt-sec" id={s.id}>
-        <h2>{s.title}</h2>
+        <h2>{s.title} {KIND_OF[s.id] && <Fragment set:html={badges(KIND_OF[s.id])} />}</h2>
         <ul class="cd-what">{s.what.map((w) => <li set:html={w} />)}</ul>
         {s.stepper && (
           <div class="sa-step" id="sa-stepper">

@@ -1,4 +1,5 @@
 // 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
+import { GEN_STAGES, badges } from '../generate/pipeline.js';
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
 import { MIN_SIDE } from '../generate/layout.js';
 import { renderFormulas } from './generate-formulas.js';
@@ -558,11 +559,32 @@ function stageText(c, stage) {
 function renderProcess() {
   const c = state.top[state.current];
   if (!c) return;
-  $('#proc-steps').innerHTML = STAGES.map(([t, sub], i) => `<li><button type="button" data-stage="${i + 1}" aria-current="${proc.stage === i + 1 ? 'step' : 'false'}"><span class="gen-num">${i + 1}</span><span><b>${t}</b><small>${sub}</small></span></button></li>`).join('');
+  const isModel = !(c.algo && c.algo.key !== 'model');
+  const kindsOf = (i) => (i === 2 && isModel ? GEN_STAGES[i].modelKinds : GEN_STAGES[i].kinds);
+  $('#proc-steps').innerHTML = STAGES.map(([t, sub], i) => `<li><button type="button" data-stage="${i + 1}" aria-current="${proc.stage === i + 1 ? 'step' : 'false'}"><span class="gen-num">${i + 1}</span><span><b>${t}</b><small>${sub}</small><span class="pl-mini">${badges(kindsOf(i))}</span></span></button></li>`).join('');
   $('#proc-steps').querySelectorAll('[data-stage]').forEach((b) => b.addEventListener('click', () => setStage(Number(b.dataset.stage), true)));
   $('#proc-plan').innerHTML = layoutSvg(c.layout, { stage: proc.stage, title: `${proc.stage}. ${STAGES[proc.stage - 1][0]}` });
   $('#proc-text').innerHTML = stageText(c, proc.stage);
   $('#proc-count').textContent = `${proc.stage} / ${STAGES.length}`;
+  renderMethod(c, proc.stage, isModel, kindsOf(proc.stage - 1));
+}
+/** 고른 단계가 어떤 규칙·알고리즘으로 이루어지는지: 방식 배지, 설명, 이 안의 값, 실제 코드. */
+function renderMethod(c, stage, isModel, kinds) {
+  const g = GEN_STAGES[stage - 1];
+  const useModel = stage === 3 && isModel;
+  const lines = (useModel ? g.modelMethod : g.method).map((m) => `<li>${m.replaceAll('{base}', base)}</li>`).join('');
+  let run = '';
+  if (stage === 3 && !isModel) {
+    const a = c.algo;
+    const tpl = a.perTemplate?.find((p) => p.k === a.template);
+    run = `<p class="proc-run">이 안: 풀이기 <b>${esc(a.name)}</b>, 템플릿 앞 침실 ${a.template + 1}개, QUBO 에너지 <b>${Number(a.energy).toFixed(3)}</b>${tpl && !tpl.feasible ? ' (원-핫 제약 어김 → 규칙으로 복구)' : ''}, 예산 ${esc(a.budget || '')}.</p>`;
+  }
+  if ((stage === 1 || stage === 2 || stage === 4) && c.params) {
+    const p = c.params;
+    run = `<p class="proc-run">이 안의 탐색 결과: 깊이 D ${Number(p.depth).toFixed(2)}m · 앞 띠 비율 f ${Number(p.frontShare).toFixed(2)} · 작은방 폭 w ${Number(p.bedWidth ?? 3).toFixed(2)}m · 안방 깊이 g ${Number(p.masterDepth ?? 1).toFixed(2)}</p>`;
+  }
+  const tpl = document.querySelector(`template[data-proc-code="${stage}${useModel ? 'm' : ''}"]`);
+  $('#proc-method').innerHTML = `<div class="proc-method-head"><b>이 단계는 어떻게 정해지나</b> ${badges(kinds)}</div><ul>${lines}</ul>${run}<details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;
 }
 function setStage(k, stop = false) {
   proc.stage = Math.max(1, Math.min(STAGES.length, k));

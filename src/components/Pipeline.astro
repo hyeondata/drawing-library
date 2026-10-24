@@ -1,0 +1,48 @@
+---
+// 생성 과정의 단계별 방식 구분표(규칙 / QUBO 최적화 / 탐색 / 담금질 / 평가). 정의는 src/generate/pipeline.js 한곳.
+import { KINDS, badges, SELECT_STAGES, MODEL_STAGES, FREE_STAGES } from '../generate/pipeline.js';
+
+interface Props {
+  show?: 'select' | 'free' | 'both';
+  legend?: boolean;
+}
+const { show = 'both', legend = true } = Astro.props;
+const blocks = [
+  ...(show !== 'free' ? [{ title: '선택형(도면 생성 탭)', rows: SELECT_STAGES, extra: MODEL_STAGES, extraTitle: '비교용 "기존: 모델 직접 탐색"을 고르면 위 3~5단계 대신' }] : []),
+  ...(show !== 'select' ? [{ title: '자유형(자유형 평면 탭)', rows: FREE_STAGES }] : []),
+];
+---
+
+<div class="pl-box">
+  {legend && (
+    <ul class="pl-legend">
+      {Object.entries(KINDS).map(([k, v]) => (
+        <li><Fragment set:html={badges([k])} /> {v.desc}</li>
+      ))}
+    </ul>
+  )}
+  {blocks.map((b) => (
+    <div class="pl-block">
+      <h4>{b.title}</h4>
+      <div class="mt-scroll">
+        <table class="gen-table pl-table">
+          <thead><tr><th>#</th><th>무엇을 정하나</th><th>방식</th><th>어떻게</th><th>코드</th></tr></thead>
+          <tbody>
+            {b.rows.map((r, i) => (
+              <tr class={r.key ? 'pl-key' : ''}>
+                <td class="mono">{i + 1}</td>
+                <td>{r.what}</td>
+                <td set:html={badges(r.kinds)} />
+                <td>{r.how}</td>
+                <td class="mono pl-code">{r.code}</td>
+              </tr>
+            ))}
+            {b.extra && (
+              <tr class="pl-extra"><td colspan="5">{b.extraTitle}: <Fragment set:html={badges(b.extra[0].kinds)} /> {b.extra[0].how} <span class="mono pl-code">({b.extra[0].code})</span></td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  ))}
+</div>

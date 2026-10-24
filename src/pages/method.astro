@@ -2,6 +2,7 @@
 // 방법과 근거: 생성 식, QUBO 정식화, 풀이기별 알고리즘, 자유형 에너지. 표·가중치·예시 QUBO는 빌드 때 실제 코드로 계산한다.
 import Base from '../layouts/Base.astro';
 import Topbar from '../components/Topbar.astro';
+import Pipeline from '../components/Pipeline.astro';
 import { TERMS, buildQubo, decode } from '../generate/qubo.js';
 import { CALIBRATED } from '../generate/qubo-weights.js';
 import { runSolver } from '../generate/solvers.js';
@@ -353,14 +354,16 @@ const EX = {
     <section id="flow" class="mt-sec">
       <h2>1. 전체 흐름</h2>
       <ol class="mt-flow">
-        <li><b>조건</b><span>평수·방 개수·구성·선호</span></li>
-        <li><b>QUBO</b><span>어느 실이 어느 칸에</span></li>
-        <li><b>풀이기</b><span>11종 중 고른 것</span></li>
-        <li><b>평면으로 풀기</b><span>판상형 문법</span></li>
-        <li><b>연속값 다듬기</b><span>깊이·폭 30번</span></li>
-        <li><b>고르기</b><span>목적함수 J</span></li>
+        <li><b>조건 → 실 목록·면적</b><span>규칙</span></li>
+        <li><b>방 순서</b><span>QUBO 최적화(풀이기 11종)</span></li>
+        <li><b>평면으로 풀기</b><span>규칙(판상형 문법·폭 나누기)</span></li>
+        <li><b>치수 다듬기</b><span>탐색(깊이·비율 30번)</span></li>
+        <li><b>문·창·설비</b><span>규칙</span></li>
+        <li><b>고르기</b><span>평가(목적함수 J)</span></li>
       </ol>
       <p>평면 전체를 한 번에 QUBO로 만들지 않습니다. 실 폭·깊이 같은 연속값과 공간구문 통합도 같은 경로 기반 지표는 이차식으로 쓸 수 없기 때문입니다. 그래서 <b>이산적인 결정(실의 순서와 위치)만 QUBO로 풀고</b>, 연속값은 그 해를 평면으로 풀어 낸 뒤 다듬으며, 마지막 선택은 평가 모델의 점수로 합니다. QUBO는 평가 모델의 대리(surrogate)이고, 대리가 원래 목적과 얼마나 맞는지는 따로 재야 합니다 <a class="mt-c" href={R.jin.u} target="_blank" rel="noopener">Jin 2011</a>.</p>
+      <h3>단계별 방식 구분</h3>
+      <Pipeline />
     </section>
 
     <section id="grammar" class="mt-sec">
