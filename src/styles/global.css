@@ -4400,3 +4400,131 @@ table.plain td.num {
   cursor: pointer;
   font-weight: 600;
 }
+/* ---- QUBO 도면 생성 ---- */
+.qg {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 16px 40px;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.qg-form {
+  position: sticky;
+  top: 74px;
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+}
+.qg-form fieldset {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px 10px;
+  display: grid;
+  gap: 6px;
+  background: var(--surface-1);
+}
+.qg-form legend {
+  font-weight: 700;
+  padding: 0 4px;
+}
+.qg-form select,
+.qg-form input[type='number'] {
+  max-width: 100%;
+}
+.qg-out {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.qg-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: var(--surface-1);
+  min-width: 0;
+}
+.qg-card h2 {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+.qg-card h2 + .mt-scroll + h2,
+.qg-card .mt-scroll + h2 {
+  margin-top: 16px;
+}
+.qg-plan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.qg-plan {
+  margin: 0;
+}
+.qg-plan svg {
+  width: 100%;
+  height: auto;
+}
+.qg-steps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.qg-step-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+  margin-top: 10px;
+  align-items: start;
+}
+.qg-terms td,
+.qg-terms th {
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+.qg-terms small {
+  color: var(--text-muted);
+}
+.qg-approx {
+  color: #b5600c;
+  font-weight: 700;
+}
+.qg-cands {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.qg-cand {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px;
+  background: var(--surface-1);
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  color: inherit;
+}
+.qg-cand.on {
+  outline: 3px solid var(--accent);
+}
+.qg-cand svg {
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 900px) {
+  .qg {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .qg-form {
+    position: static;
+  }
+  .qg-plan-row,
+  .qg-step-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .qg-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

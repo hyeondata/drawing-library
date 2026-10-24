@@ -143,3 +143,11 @@ export const GEN_STAGES = [
     code: [['src/generate/fixtures.js', 'placeFixtures']],
   },
 ];
+
+/** QUBO 도면 생성 탭: 규칙으로 하던 것까지 QUBO 항으로. */
+export const QG_STAGES = [
+  { what: '격자와 목표 칸 수', kinds: ['rule'], how: '전용면적을 1.2m(또는 0.9m) 칸 격자로 바꾸고, 실 프로그램(+ 복도 7%)에서 목표 칸 수를 계산. QUBO에 넣을 입력 준비', code: 'qubogen/model.js setupGrid' },
+  { what: '칸마다 어느 실인지: 방 순서·크기·모양·복도·부속실 위치', kinds: ['qubo'], how: '단계 A QUBO: 칸마다 실 하나(벌점) + 면적 + 둘레 + 앞·뒤 띠 + 창 + 맞닿음·떨어짐 + 현관 위치 + 안방 끝 + 거실 가운데', code: 'qubogen/model.js buildStageA', key: true },
+  { what: '문·개구부·현관문·창·발코니 문', kinds: ['qubo'], how: '단계 B QUBO: 실마다 문 하나(벌점) + 이웃 실 종류 비용 + 문끼리 겹침 감점 + 창 개수·이어짐', code: 'qubogen/model.js buildStageB', key: true },
+  { what: '점검과 고르기', kinds: ['eval'], how: 'QUBO로 정확히 못 쓰는 규칙(실의 연결, 현관에서 가는 길, 최소 폭)을 풀고 나서 점검하고, 후보 중 점검 점수가 가장 높은 안', code: 'qubogen/model.js evaluate' },
+];

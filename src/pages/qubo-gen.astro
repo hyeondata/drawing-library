@@ -1,0 +1,138 @@
+---
+// QUBO 도면 생성: 도면 생성 탭에서 규칙으로 하던 일(방 크기·모양, 문·창 위치)까지 모두 QUBO 항으로 써서 평면을 만든다.
+import Base from '../layouts/Base.astro';
+import Topbar from '../components/Topbar.astro';
+import { show } from '../lib/source.js';
+import { badges } from '../generate/pipeline.js';
+import { TERMS_A, TERMS_B } from '../qubogen/model.js';
+import { SOLVERS } from '../generate/solvers.js';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const Q = 'src/qubogen/model.js';
+const solvers = SOLVERS.filter((s) => !['cpsat', 'exact'].includes(s.key));
+const prefs = [
+  ['livingCentral', '거실 중심형', '거실 가운데 항 ×1.8'],
+  ['privacy', '사생활', '침실–현관 떨어짐 항 강화'],
+  ['kitchenLink', '대면형 주방', '주방–거실 맞닿음 항 강화'],
+  ['entryNear', '현관–거실 가깝게', '현관–거실 맞닿음 항 강화'],
+  ['quiet', '방음', '침실끼리 떨어짐 항 강화'],
+];
+const steps = [
+  { n: 1, kinds: ['rule'], title: '격자와 목표 만들기', what: ['전용면적을 칸(1.2m 또는 0.9m)으로 나눈 직사각형 격자로 바꿉니다. 깊이 = 7.4 × (A/84)<sup>0.3</sup>m를 칸 수로 반올림하고, 폭 칸 수 = A ÷ (깊이 칸 × 칸²). 맨 아래(남)에 발코니 줄을 붙입니다.', '실 목록과 목표 면적은 도면 생성과 같은 실 프로그램(+ 복도 7%)이고, 목표 칸 수 t<sub>r</sub> = 목표 면적 비율 × 실내 칸 수입니다.', '이 단계는 QUBO에 넣을 입력(격자·목표)을 준비하는 계산이라 <b>규칙</b>입니다. 결정은 하지 않습니다.'], code: show(Q, 'setupGrid') },
+  { n: 2, kinds: ['qubo'], title: '단계 A: 실 배치 QUBO', what: ['변수 x<sub>c,r</sub> = 1이면 칸 c가 실 r에 속합니다. 칸 수 × 실 수만큼 변수가 있습니다.', '도면 생성 탭에서 <b>규칙</b>으로 하던 방 크기·모양(폭 나누기, 복도·부속실)과 앞·뒤 띠, 실 사이 관계를 모두 아래 표의 항으로 씁니다. 실의 순서도, 크기도, 모양도 이 QUBO의 해 하나로 함께 정해집니다.', '고른 풀이기로 이 에너지를 가장 낮게 만드는 x를 찾고, 에너지가 낮은 해 몇 개를 후보로 남깁니다.'], code: show(Q, 'buildStageA') },
+  { n: 3, kinds: ['qubo'], title: '단계 B: 문·창 QUBO', what: ['단계 A가 정한 실 경계의 벽 칸마다 "여기에 문(창)을 둔다" 변수를 둡니다.', '도면 생성 탭에서 <b>규칙</b>(우선순위 순서대로 문 달기)으로 하던 것을, 실마다 문 하나(원-핫 벌점) + 이웃 실 종류에 따른 비용 + 문끼리 겹치지 않기 + 창 개수·이어짐 항으로 씁니다.', '두 단계로 나눈 이유: 문 변수는 "벽 칸 × 실 쌍"마다 필요해 한 QUBO에 넣으면 변수가 수천 개가 되어 브라우저에서 풀기 어렵습니다. 그래서 실 배치를 먼저 정하고(단계 A), 그 경계 위에서 문·창을 정합니다(단계 B). 두 단계 모두 QUBO입니다.'], code: show(Q, 'buildStageB') },
+  { n: 4, kinds: ['eval'], title: '점검과 고르기', what: ['QUBO로 <b>정확히</b> 쓸 수 없는 규칙을 풀고 난 뒤 따로 점검합니다: 실이 한 덩어리로 이어졌나(연결은 이차식이 아님), 현관에서 문을 따라 모든 실에 갈 수 있나(경로 계산), 최소 폭을 지키나, 거실·침실에 창이 있나, 면적 오차.', '단계 A의 후보마다 단계 B를 풀고 점검해, 점검 점수가 가장 높은 안을 보여 줍니다. 이 점검은 평면을 고치지 않습니다(위반이 있으면 그대로 보여 줌).'], code: show(Q, 'evaluate') },
+];
+---
+
+<Base title="QUBO 도면 생성 · 평면 생성 랩" description="방 크기·모양과 문·창까지 모든 규칙을 QUBO 항으로 써서 평면을 생성하고, 규칙마다 QUBO 식과 에너지를 보여 줍니다.">
+  <Topbar current="qubogen" />
+  <section class="hero hero-compact">
+    <p class="eyebrow">모든 규칙 → QUBO 항 → 풀이기</p>
+    <h1>QUBO <span class="gradient-text">도면 생성</span></h1>
+    <p class="lede">도면 생성 탭에서는 QUBO가 <b>방 순서</b>만 정하고 방 크기·문·창은 규칙으로 만듭니다. 이 탭은 그 규칙들까지 <b>모두 QUBO 항으로 써서</b> 평면을 만듭니다. 칸마다 어느 실인지(단계 A)와 문·창 위치(단계 B)를 QUBO로 풀고, QUBO로 정확히 쓸 수 없는 규칙(실의 연결, 현관에서 가는 길)은 풀고 난 뒤 점검합니다.</p>
+  </section>
+
+  <main class="qg">
+    <form class="qg-form" id="qg-form">
+      <fieldset>
+        <legend>1. 집 조건</legend>
+        <label>전용면적 <select id="qg-area"><option>59</option><option>74</option><option selected>84</option><option>101</option><option>114</option></select> ㎡</label>
+        <label>침실 <select id="qg-bed"><option>2</option><option selected>3</option><option>4</option></select></label>
+        <label>화장실 <select id="qg-bath"><option value="1">1</option><option value="2" selected>2</option></select></label>
+        <label><input type="checkbox" id="qg-dress" checked /> 드레스룸</label>
+        <label><input type="checkbox" id="qg-multi" /> 다목적실</label>
+      </fieldset>
+      <fieldset>
+        <legend>2. 선호(해당 QUBO 항의 무게가 커집니다)</legend>
+        {prefs.map(([k, l, d]) => <label title={d}><input type="checkbox" name="qg-pref" value={k} /> {l}</label>)}
+      </fieldset>
+      <fieldset>
+        <legend>3. QUBO 풀기</legend>
+        <label>격자 칸 <select id="qg-cell"><option value="1.2" selected>1.2m(변수 적음, 빠름)</option><option value="0.9">0.9m(더 섬세, 느림)</option></select></label>
+        <label>풀이기 <select id="qg-solver">{solvers.map((s) => <option value={s.key} selected={s.key === 'tabu'}>{s.name}</option>)}</select></label>
+        <label>시간 <select id="qg-budget"><option value="1500">1.5초</option><option value="3000" selected>3초</option><option value="6000">6초</option></select></label>
+        <label>시드 <input type="number" id="qg-seed" value="1" min="1" max="999" /></label>
+      </fieldset>
+      <button type="submit" class="button-primary" id="qg-run">QUBO로 도면 생성</button>
+      <p class="note" id="qg-status"></p>
+      <p class="note">풀이기에 따라 결과가 크게 다릅니다. 변수가 수백~천 개이고 벌점이 커서, 한 변수씩 바꾸는 SA·SQA·SB는 이 크기에서 실이 흩어지는 해를 내기 쉽습니다(시험: Tabu·D²TS는 매번 반듯한 평면). 비교해 보세요.</p>
+    </form>
+
+    <div class="qg-out" id="qg-out" hidden>
+      <section class="qg-card">
+        <h2>생성된 평면</h2>
+        <div class="qg-plan-row">
+          <figure class="qg-plan" id="qg-plan"></figure>
+          <div id="qg-summary"></div>
+        </div>
+      </section>
+
+      <section class="qg-card">
+        <h2>생성 과정 <span class="note">단계를 누르면 방식과 실제 코드를 봅니다</span></h2>
+        <ol class="gen-process-steps qg-steps" id="qg-steps">
+          {steps.map((s) => (
+            <li><button type="button" data-qstep={s.n}><span class="gen-num">{s.n}</span><span><b>{s.title}</b><span class="pl-mini"><Fragment set:html={badges(s.kinds)} /></span></span></button></li>
+          ))}
+        </ol>
+        <div class="qg-step-body">
+          <figure class="qg-plan small" id="qg-step-plan"></figure>
+          <div id="qg-step-text"></div>
+        </div>
+        {steps.map((s) => (
+          <template data-qstep-tpl={s.n}>
+            <div class="proc-method-head"><b>{s.title}</b> <Fragment set:html={badges(s.kinds)} /></div>
+            <ul>{s.what.map((w) => <li set:html={w} />)}</ul>
+            <details class="cd-code"><summary>실제 코드 보기</summary><Fragment set:html={s.code} /></details>
+          </template>
+        ))}
+      </section>
+
+      <section class="qg-card">
+        <h2>규칙 → QUBO 항 (단계 A: 실 배치)</h2>
+        <p class="note">"정확" = 규칙을 그대로 이차식으로 썼음, "근사" = 이차식으로 쓸 수 없어 비슷한 이차식으로 바꿨음(풀고 나서 점검). 에너지 기여는 이 해에서 그 항이 낸 값(낮을수록 잘 지킴).</p>
+        <div class="mt-scroll"><table class="gen-table qg-terms" id="qg-termsA"></table></div>
+        <h2>규칙 → QUBO 항 (단계 B: 문·창)</h2>
+        <div class="mt-scroll"><table class="gen-table qg-terms" id="qg-termsB"></table></div>
+      </section>
+
+      <section class="qg-card">
+        <h2>규칙 점검 <span class="pl-badge pl-eval">평가</span></h2>
+        <div id="qg-checks"></div>
+      </section>
+
+      <section class="qg-card">
+        <h2>풀이 과정: 시간에 따른 최저 에너지(단계 A)</h2>
+        <div id="qg-trace"></div>
+      </section>
+
+      <section class="qg-card">
+        <h2>다른 후보(단계 A의 저에너지 해)</h2>
+        <div class="qg-cands" id="qg-cands"></div>
+      </section>
+
+      <section class="qg-card qg-diff">
+        <h2>도면 생성 탭과 무엇이 다른가</h2>
+        <div class="mt-scroll">
+          <table class="gen-table">
+            <thead><tr><th>정하는 것</th><th>도면 생성 탭</th><th>이 탭</th></tr></thead>
+            <tbody>
+              <tr><td>방 순서</td><td set:html={badges(['qubo'])} /><td set:html={badges(['qubo']) + ' 단계 A'} /></tr>
+              <tr><td>방 크기(폭·깊이)</td><td set:html={badges(['rule', 'search']) + ' 폭 나누기 식 + 치수 다듬기'} /><td set:html={badges(['qubo']) + ' 단계 A(면적 항)'} /></tr>
+              <tr><td>방 모양</td><td set:html={badges(['rule']) + ' 직사각형만'} /><td set:html={badges(['qubo']) + ' 단계 A(둘레 항) — ㄱ자도 나올 수 있음'} /></tr>
+              <tr><td>복도·부속실 위치</td><td set:html={badges(['rule'])} /><td set:html={badges(['qubo']) + ' 단계 A(맞닿음 항)'} /></tr>
+              <tr><td>문·개구부·창</td><td set:html={badges(['rule'])} /><td set:html={badges(['qubo']) + ' 단계 B'} /></tr>
+              <tr><td>실 연결·현관에서 가는 길</td><td set:html={badges(['eval']) + ' 감점'} /><td set:html={badges(['eval']) + ' 점검(QUBO로 정확히 못 씀)'} /></tr>
+              <tr><td>평가 모델 점수 J</td><td set:html={badges(['eval'])} /><td>쓰지 않음(직사각형 실 전용이라). 대신 위 규칙 점검 점수</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">단계별 QUBO 식은 <a href={`${base}qubo-step/`}>QUBO 따라가기</a>(도면 생성의 방 순서 QUBO)와 같은 방식으로 만들었습니다: 항마다 단위 기여 × 무게를 더하고, 원-핫 벌점 P = ⌈1 + 한 변수가 받는 목적 계수 절댓값 합의 최댓값⌉.</p>
+      </section>
+    </div>
+  </main>
+  <script id="qg-data" type="application/json" set:html={JSON.stringify({ base, termsA: TERMS_A, termsB: TERMS_B, solvers: solvers.map((s) => ({ key: s.key, name: s.name })) })} />
+  <script>
+    import '../scripts/qubo-gen.js';
+  </script>
+</Base>
