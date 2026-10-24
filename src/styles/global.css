@@ -4949,3 +4949,29 @@ table.plain td.num {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* 생성 과정: 쓰인 규칙 */
+.gr-table td,
+.gr-table th {
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.gr-table td:nth-child(1),
+.gr-table td:nth-child(2) {
+  white-space: nowrap;
+}
+.gr-table tr.gr-bad td {
+  background: rgba(220, 70, 70, 0.07);
+}
+.proc-allrules {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--surface-1);
+}
+.proc-allrules summary {
+  cursor: pointer;
+  font-size: 14px;
+}

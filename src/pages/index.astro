@@ -271,6 +271,7 @@ const steps = [
                 <div class="gen-process-text" id="proc-text" aria-live="polite"></div>
               </div>
               <div class="proc-method" id="proc-method"></div>
+              <details class="proc-allrules" id="proc-allrules"><summary><b>이 평면에 쓰인 규칙 전체 보기</b></summary><div class="gr-all"></div></details>
               {procCode.map((c, i) => (
                 <>
                   <template data-proc-code={String(i + 1)} set:html={c.code} />

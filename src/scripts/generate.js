@@ -1,5 +1,6 @@
 // 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
 import { GEN_STAGES, badges, kindsTable } from '../generate/pipeline.js';
+import { rulesOf } from '../generate/gen-rules.js';
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
 import { MIN_SIDE } from '../generate/layout.js';
 import { renderFormulas } from './generate-formulas.js';
@@ -567,7 +568,28 @@ function renderProcess() {
   $('#proc-text').innerHTML = stageText(c, proc.stage);
   $('#proc-count').textContent = `${proc.stage} / ${STAGES.length}`;
   renderMethod(c, proc.stage, isModel, kindsOf(proc.stage - 1));
+  renderAllRules(c);
 }
+/** 규칙 표: 번호 · 방식 · 규칙 · 이 평면에서의 결과 · 지켜짐 */
+function rulesTable(rules) {
+  const mark = (ok) => (ok === true ? '<span class="good-text">✓</span>' : ok === false ? '<span class="error-text">✗</span>' : '<span class="note">—</span>');
+  return `<div class="mt-scroll"><table class="gen-table gr-table"><thead><tr><th>번호</th><th>방식</th><th>규칙</th><th>이 평면에서</th><th></th></tr></thead><tbody>${rules
+    .map((r) => `<tr class="${r.ok === false ? 'gr-bad' : ''}"><td class="mono">${r.id}</td><td>${badges([r.kind])}</td><td>${r.text}</td><td>${r.result}</td><td>${mark(r.ok)}</td></tr>`)
+    .join('')}</tbody></table></div>`;
+}
+/** 8단계 규칙 전체(한 표). */
+function renderAllRules(c) {
+  const box = $('#proc-allrules');
+  if (!box) return;
+  const all = [1, 2, 3, 4, 5, 6, 7, 8].flatMap((k) => rulesOf(k, c, state.spec).map((r) => ({ ...r, stage: `${k}. ${STAGES[k - 1][0]}` })));
+  const nOk = all.filter((r) => r.ok === true).length;
+  const nBad = all.filter((r) => r.ok === false).length;
+  box.querySelector('summary').innerHTML = `<b>이 평면에 쓰인 규칙 전체 보기</b> — ${all.length}개 · 지켜짐 ${nOk} · 어김 ${nBad}`;
+  box.querySelector('.gr-all').innerHTML = `<div class="mt-scroll"><table class="gen-table gr-table"><thead><tr><th>단계</th><th>번호</th><th>방식</th><th>규칙</th><th>이 평면에서</th><th></th></tr></thead><tbody>${all
+    .map((r) => `<tr class="${r.ok === false ? 'gr-bad' : ''}"><td>${r.stage}</td><td class="mono">${r.id}</td><td>${badges([r.kind])}</td><td>${r.text}</td><td>${r.result}</td><td>${r.ok === true ? '<span class="good-text">✓</span>' : r.ok === false ? '<span class="error-text">✗</span>' : '<span class="note">—</span>'}</td></tr>`)
+    .join('')}</tbody></table></div><p class="note">✓ = 규칙대로 됨, ✗ = 어김(점수에서 감점되거나 복구됨), — = 값만 보여 줌. 규칙은 생성 코드(layout.js·openings.js·fixtures.js·qubo.js·compare.js)의 동작을 그대로 옮긴 것이고, 결과는 이 평면에서 직접 계산했습니다.</p>`;
+}
+
 /** 고른 단계가 어떤 규칙·알고리즘으로 이루어지는지: 방식 배지, 설명, 이 안의 값, 실제 코드. */
 function renderMethod(c, stage, isModel, kinds) {
   const g = GEN_STAGES[stage - 1];
@@ -584,7 +606,7 @@ function renderMethod(c, stage, isModel, kinds) {
     run = `<p class="proc-run">이 안의 탐색 결과: 깊이 D ${Number(p.depth).toFixed(2)}m · 앞 띠 비율 f ${Number(p.frontShare).toFixed(2)} · 작은방 폭 w ${Number(p.bedWidth ?? 3).toFixed(2)}m · 안방 깊이 g ${Number(p.masterDepth ?? 1).toFixed(2)}</p>`;
   }
   const tpl = document.querySelector(`template[data-proc-code="${stage}${useModel ? 'm' : ''}"]`);
-  $('#proc-method').innerHTML = `<div class="proc-method-head"><b>이 단계는 어떻게 정해지나</b> ${badges(kinds)}</div><ul>${lines}</ul>${run}<details class="pl-what"><summary>배지(${kinds.map((k) => k === 'qubo' ? 'QUBO 최적화' : k === 'sa' ? '담금질 최적화' : k === 'rule' ? '규칙' : k === 'search' ? '탐색' : '평가').join('·')})는 무슨 뜻인가요?</summary>${kindsTable(kinds)}<p class="note">다섯 가지 방식 전체 비교: <a href="${base}how/#kinds">생성 원리 0절</a></p></details><details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;
+  $('#proc-method').innerHTML = `<div class="proc-method-head"><b>${stage}단계에서 쓰인 규칙</b> ${badges(kinds)}</div>${rulesTable(rulesOf(stage, c, state.spec))}<details class="pl-what"><summary>이 단계는 어떻게 정해지나(설명)</summary><ul>${lines}</ul></details>${run}<details class="pl-what"><summary>배지(${kinds.map((k) => k === 'qubo' ? 'QUBO 최적화' : k === 'sa' ? '담금질 최적화' : k === 'rule' ? '규칙' : k === 'search' ? '탐색' : '평가').join('·')})는 무슨 뜻인가요?</summary>${kindsTable(kinds)}<p class="note">다섯 가지 방식 전체 비교: <a href="${base}how/#kinds">생성 원리 0절</a></p></details><details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;
 }
 function setStage(k, stop = false) {
   proc.stage = Math.max(1, Math.min(STAGES.length, k));
