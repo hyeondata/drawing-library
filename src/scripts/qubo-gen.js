@@ -258,95 +258,155 @@ function renderTrace() {
 }
 
 
-// ---------------- 살아 있는 식: 조건이 바뀌면 식의 항·조각·무게가 생기고, 없어지고, 바뀐다 ----------------
+// ---------------- 지금 조건의 QUBO 식: 항 버튼(요약) + 눌러서 펼치는 자세히, 생김·바뀜·없어짐 표시 ----------------
 const prevF = { A: null, B: null, meta: null };
+const openTerms = new Set();
 const logItems = [];
 const fmt = (v) => (Number.isInteger(v) ? String(v) : (Math.round(v * 100) / 100).toString());
 const plain = (h) => h.replace(/<[^>]+>/g, '');
 
-/** 항 목록 렌더(이전과 비교해 생김·없어짐·바뀜 표시). 반환: 바뀐 내용 문장들. */
-function renderEq(el, stage, terms, prev) {
-  const notes = [];
-  const prevMap = new Map((prev || []).map((t, i) => [t.id, { ...t, i }]));
-  const curIds = new Set(terms.map((t) => t.id));
-  // 없어진 항도 이전 자리에 잠깐 남겨 둔다
-  const merged = terms.map((t) => ({ ...t, state: prev && !prevMap.has(t.id) ? 'in' : '' }));
-  if (prev)
-    for (const [id, t] of prevMap)
-      if (!curIds.has(id)) {
-        merged.splice(Math.min(t.i, merged.length), 0, { ...t, state: 'out' });
-        notes.push({ p: 0, t: `− 항 없어짐: ${t.label}` });
-      }
-  const rows = merged.map((t, ti) => {
-    const p = prevMap.get(t.id);
-    if (t.state === 'in') notes.push({ p: 0, t: `＋ 항 생김: ${t.label}${t.why?.length ? ` (${t.why.join(', ')})` : ''}` });
-    const wTxt = t.wSym ? `${t.wSym}${t.w !== undefined ? `=${fmt(t.w)}` : ''}` : fmt(t.w);
-    const wChg = p && t.state !== 'out' && p.w !== t.w;
-    if (wChg && t.w !== undefined) notes.push({ p: t.id === 'onehot' ? 3 : 2, t: `${t.label} 무게 ${fmt(p.w)} → ${fmt(t.w)}${t.why?.length ? ` (${t.why.join(', ')})` : ''}` });
-    let body;
+/** 이전 식과 비교해 항마다 상태(in/out/chg)와 조각 목록(생김·바뀜·없어짐 포함)을 만든다. */
+function diffTerms(terms, prev, notes, tag) {
+  const pm = new Map((prev || []).map((t, i) => [t.id, { ...t, i }]));
+  const ids = new Set(terms.map((t) => t.id));
+  const out = terms.map((t) => {
+    const p = pm.get(t.id);
+    const st = { term: prev && !p ? 'in' : '', w: p && p.w !== t.w ? 'chg' : '' };
+    if (st.term) notes.push({ p: 0, t: `${tag} ＋ 항 생김: ${t.label}${t.why.length ? ` (${t.why.join(', ')})` : ''}` });
+    if (st.w && t.w !== undefined) notes.push({ p: 2, t: `${tag} ${t.label} 무게 ${fmt(p.w)} → ${fmt(t.w)}${t.why.length ? ` (${t.why.join(', ')})` : ''}` });
+    let chips = null;
+    let nIn = 0;
+    let nOut = 0;
+    let nChg = 0;
     if (t.chips) {
       const pc = new Map((p?.chips || []).map((c, i) => [c.key, { ...c, i }]));
       const cc = new Set(t.chips.map((c) => c.key));
-      let nChg = 0;
-      let lastChg = '';
-      const chips = t.chips.map((c) => {
-        const old = pc.get(c.key);
-        const st = t.state === 'in' || t.state === 'out' ? '' : !old && p ? 'in' : old && old.html !== c.html ? 'chg' : '';
-        if (st === 'in') notes.push({ p: 1, t: `＋ ${t.label}: ${plain(c.html)}` });
-        if (st === 'chg') ((nChg += 1), (lastChg = `${plain(old.html)} → ${plain(c.html)}`));
-        return { ...c, st };
+      chips = t.chips.map((c) => {
+        const o = pc.get(c.key);
+        const cs = !p || st.term ? '' : !o ? 'in' : o.html !== c.html ? 'chg' : '';
+        if (cs === 'in') (nIn++, notes.push({ p: 1, t: `${tag} ＋ ${t.label}: ${plain(c.html)}` }));
+        if (cs === 'chg') nChg++;
+        return { ...c, st: cs };
       });
-      if (nChg === 1) notes.push({ p: 3, t: `${t.label}: ${lastChg}` });
-      else if (nChg > 1) notes.push({ p: 3, t: `${t.label}: 조각 ${nChg}개의 숫자가 바뀜(목표·비율)` });
-      if (p && t.state !== 'out')
+      if (p && !st.term)
         for (const [k, c] of pc)
           if (!cc.has(k)) {
+            nOut++;
             chips.splice(Math.min(c.i, chips.length), 0, { ...c, st: 'out' });
-            notes.push({ p: 1, t: `− ${t.label}: ${plain(c.html)}` });
+            notes.push({ p: 1, t: `${tag} − ${t.label}: ${plain(c.html)}` });
           }
-      body = `[ ${chips.map((c) => `<span class="qf-chip ${c.st ? `qf-${c.st}` : ''}">${c.sign === '−' ? '' : ''}${c.html}</span>`).join('<span class="qf-op"> + </span>')} ]`;
-    } else {
-      const hChg = p && t.state !== 'out' && p.head !== t.head;
-      body = `<span class="qf-chip ${hChg ? 'qf-chg' : ''}">${t.head}</span>`;
-    }
-    return `<div class="qf-term ${t.state ? `qf-${t.state}` : ''}"><span class="qf-op">${ti === 0 ? '' : '+'}</span><span class="qf-w ${wChg ? 'qf-chg' : ''}">${wTxt}</span><span class="qf-dot">·</span><span class="qf-body">${body}</span><span class="qf-lab">${esc(t.label)}${t.approx ? ' <em>근사</em>' : ''}${t.why?.length ? ` <i>${esc(t.why.join(', '))}</i>` : ''}</span></div>`;
+      if (nChg) notes.push({ p: 3, t: `${tag} ${t.label}: 숫자 ${nChg}곳 바뀜(목표·비율)` });
+    } else if (p && p.head !== t.head) nChg = 1;
+    const changed = st.term || st.w || nIn || nOut || nChg;
+    return { ...t, st, chips, changed: changed ? (st.term ? 'in' : 'chg') : '', counts: { nIn, nOut, nChg } };
   });
-  el.innerHTML = `<div class="qf-E">E<sub>${stage}</sub>(x) =</div>${rows.join('')}`;
-  return notes;
+  if (prev)
+    for (const [id, t] of pm)
+      if (!ids.has(id)) {
+        out.splice(Math.min(t.i, out.length), 0, { ...t, st: { term: 'out' }, changed: 'out', chips: t.chips, counts: {} });
+        notes.push({ p: 0, t: `${tag} − 항 없어짐: ${t.label}` });
+      }
+  return out;
+}
+
+const wText = (t) => (t.wSym ? `${t.wSym}${t.w !== undefined ? ` = ${fmt(t.w)}` : ''}` : fmt(t.w));
+
+/** 단계 하나: 그룹별 항 버튼 줄 + 펼친 항의 자세히 카드. */
+function renderStage(el, stage, terms) {
+  const groups = [];
+  for (const t of terms) {
+    let g = groups.find((x) => x.name === t.group);
+    if (!g) groups.push((g = { name: t.group, terms: [] }));
+    g.terms.push(t);
+  }
+  const pill = (t, i) => `<button type="button" class="qf-pill ${t.approx ? 'approx' : ''} ${t.changed ? `qf-${t.changed}` : ''} ${openTerms.has(stage + t.id) ? 'open' : ''}" data-term="${stage}${t.id}" aria-expanded="${openTerms.has(stage + t.id)}">${i ? '<span class="qf-plus">+</span>' : ''}<span class="qf-pw ${t.st.w ? 'qf-chg' : ''}">${wText(t)}</span><span class="qf-pdot">·</span><span class="qf-pl">${esc(t.label)}</span>${t.approx ? '<span class="qf-tag">근사</span>' : ''}${t.why.length ? '<span class="qf-tag pref">조건 반영</span>' : ''}</button>`;
+  let k = 0;
+  const rows = groups.map((g) => `<div class="qf-group"><span class="qf-gname">${esc(g.name)}</span><div class="qf-pills">${g.terms.map((t) => pill(t, k++)).join('')}</div></div>`).join('');
+  const cards = terms
+    .filter((t) => openTerms.has(stage + t.id) && t.st.term !== 'out')
+    .map((t) => {
+      const list = t.chips
+        ? `<ul class="qf-list">${t.chips.map((c) => `<li class="${c.st ? `qf-${c.st}` : ''}">${c.html}</li>`).join('')}</ul>`
+        : `<div class="qf-math">${t.head}</div>`;
+      return `<div class="qf-card" data-card="${stage}${t.id}">
+        <div class="qf-card-head"><b>${esc(t.label)}</b> <span class="qf-cw">무게 ${wText(t)}</span> ${t.approx ? '<span class="qg-approx">근사</span>' : '<span class="good-text">정확</span>'} <button type="button" class="qf-x" data-term="${stage}${t.id}" aria-label="접기">접기 ✕</button></div>
+        <dl class="qf-dl">
+          <dt>규칙</dt><dd>${esc(t.rule || '')}</dd>
+          <dt>일반식</dt><dd class="qf-math">${t.general || ''}</dd>
+          ${t.why.length ? `<dt>조건 반영</dt><dd>${esc(t.why.join(', '))}</dd>` : ''}
+          ${t.note ? `<dt>근사인 이유</dt><dd>${esc(t.note)}</dd>` : ''}
+          <dt>이 조건에서${t.chips ? ` (${t.chips.filter((c) => c.st !== 'out').length}개)` : ''}</dt><dd>${list}</dd>
+        </dl></div>`;
+    })
+    .join('');
+  el.innerHTML = `${stage === 'A' ? '<div class="qf-stitle"><b>단계 A: 실 배치 QUBO</b> <span class="pl-badge pl-qubo">QUBO 최적화</span></div>' : ''}<div class="qf-line"><span class="qf-E">E<sub>${stage}</sub>(x) =</span>${rows}</div>${cards ? `<div class="qf-cards">${cards}</div>` : ''}`;
 }
 
 let fTimer = null;
-function updateFormula() {
-  const spec = readSpec();
-  const F = formulaOf(spec, { cell: Number($('#qg-cell').value), syntaxScale: Number($('#qg-sxs').value) });
-  const meta = { n: F.n, P: F.P, C: F.G.C, R: F.G.R, nx: F.G.nx, ny: F.G.ny };
-  const pm = prevF.meta;
-  const ch = (k) => (pm && pm[k] !== meta[k] ? 'qf-chg' : '');
-  $('#qf-metaA').innerHTML = `격자 <b class="${ch('nx')}">${meta.nx}</b> × <b class="${ch('ny')}">${meta.ny}</b> = <b class="${ch('C')}">${meta.C}</b>칸 · 실 <b class="${ch('R')}">${meta.R}</b>개 → 변수 n = ${meta.C} × ${meta.R} = <b class="qf-big ${ch('n')}">${meta.n}</b>개 · 벌점 P<sub>A</sub> = <b class="${ch('P')}">${meta.P}</b>`;
+let lastF = null;
+function updateFormula(redrawOnly = false) {
   let notes = [];
-  if (pm && pm.n !== meta.n) notes.push({ p: 1, t: `변수 ${pm.n} → ${meta.n}개` });
-  if (pm && pm.P !== meta.P) notes.push({ p: 3, t: `벌점 P ${pm.P} → ${meta.P}(목적 계수가 바뀌어 다시 계산)` });
-  notes.push(...renderEq($('#qf-A'), 'A', F.termsA, prevF.A).map((n) => ({ ...n, t: `[A] ${n.t}` })));
-  notes.push(...renderEq($('#qf-B'), 'B', F.termsB, prevF.B).map((n) => ({ ...n, t: `[B] ${n.t}` })));
-  notes = notes.sort((a, b) => a.p - b.p).map((n) => n.t);
-  prevF.A = F.termsA;
-  prevF.B = F.termsB;
-  prevF.meta = meta;
-  if (notes.length) {
-    const t = new Date();
-    logItems.unshift({ time: `${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`, notes });
-    logItems.length = Math.min(logItems.length, 12);
+  if (!redrawOnly) {
+    const spec = readSpec();
+    const F = formulaOf(spec, { cell: Number($('#qg-cell').value), syntaxScale: Number($('#qg-sxs').value) });
+    const meta = { nx: F.G.nx, ny: F.G.ny, C: F.G.C, R: F.G.R, n: F.n, P: F.P };
+    const pm = prevF.meta;
+    if (pm && pm.n !== meta.n) notes.push({ p: 1, t: `변수 ${pm.n} → ${meta.n}개` });
+    if (pm && pm.P !== meta.P) notes.push({ p: 3, t: `벌점 P ${pm.P} → ${meta.P}` });
+    const A = diffTerms(F.termsA, prevF.A, notes, '[A]');
+    const B = diffTerms(F.termsB, prevF.B, notes, '[B]');
+    lastF = { A, B, meta, pm };
+    prevF.A = F.termsA;
+    prevF.B = F.termsB;
+    prevF.meta = meta;
+    notes = notes.sort((a, b) => a.p - b.p).map((n) => n.t);
+    if (notes.length) {
+      const t = new Date();
+      logItems.unshift({ time: `${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`, notes });
+      logItems.length = Math.min(logItems.length, 15);
+    }
   }
-  $('#qf-log').innerHTML = logItems.map((l, i) => `<li class="${i === 0 ? 'qf-in' : ''}"><small>${l.time}</small>${l.notes.slice(0, 8).map((n) => `<div class="${n.includes('＋') ? 'qf-add' : n.includes('− ') && !n.includes('→') ? 'qf-del' : 'qf-mod'}">${esc(n)}</div>`).join('')}${l.notes.length > 8 ? `<div class="note">외 ${l.notes.length - 8}개</div>` : ''}</li>`).join('') || '<li class="note">조건을 바꿔 보세요.</li>';
-  // 없어진 조각은 애니메이션 뒤 지운다
-  setTimeout(() => document.querySelectorAll('#qg-live .qf-out').forEach((e) => e.remove()), 900);
+  const { A, B, meta, pm } = lastF;
+  const ch = (k) => (!redrawOnly && pm && pm[k] !== meta[k] ? 'qf-chg' : '');
+  $('#qf-stats').innerHTML = `<div class="qf-stat"><span>격자</span><b class="${ch('C')}">${meta.nx} × ${meta.ny} = ${meta.C}칸</b></div><div class="qf-stat"><span>실</span><b class="${ch('R')}">${meta.R}개</b></div><div class="qf-stat"><span>변수 n = 칸 × 실</span><b class="${ch('n')}">${meta.n}개</b></div><div class="qf-stat"><span>벌점 P<sub>A</sub></span><b class="${ch('P')}">${meta.P}</b></div><div class="qf-stat"><span>항</span><b>${A.filter((t) => t.st.term !== 'out').length}개(근사 ${A.filter((t) => t.approx && t.st.term !== 'out').length})</b></div>`;
+  const cls = (n) => (n.includes('＋') ? 'qf-add' : n.includes(' − ') ? 'qf-del' : 'qf-mod');
+  const last = logItems[0];
+  $('#qf-recent').innerHTML = last
+    ? `<details ${$('#qf-recent details')?.open ? 'open' : ''}><summary><b>방금 바뀐 것</b> <small>${last.time}</small> — ${last.notes.slice(0, 2).map((n) => `<span class="${cls(n)}">${esc(n)}</span>`).join(' · ')}${last.notes.length > 2 ? ` <span class="note">외 ${last.notes.length - 2}개 · 기록 보기</span>` : ' <span class="note">기록 보기</span>'}</summary><ol class="qf-log">${logItems.map((l) => `<li><small>${l.time}</small><ul>${l.notes.map((n) => `<li class="${cls(n)}">${esc(n)}</li>`).join('')}</ul></li>`).join('')}</ol></details>`
+    : '<p class="note">조건을 바꾸면 여기에 무엇이 바뀌었는지 나옵니다.</p>';
+  renderStage($('#qf-A'), 'A', redrawOnly ? A.map((t) => ({ ...t, changed: '', st: { ...t.st, w: '' } })) : A);
+  renderStage($('#qf-B'), 'B', redrawOnly ? B.map((t) => ({ ...t, changed: '', st: { ...t.st, w: '' } })) : B);
+  $('#qf-Bsum').textContent = `— 항 ${B.filter((t) => t.st.term !== 'out').length}개${B.some((t) => t.changed) && !redrawOnly ? ' · 바뀐 항 있음' : ''}`;
+  if (!redrawOnly && B.some((t) => t.changed)) $('#qf-Bbox').classList.add('qf-chg');
+  setTimeout(() => {
+    document.querySelectorAll('#qg-live .qf-out').forEach((e) => e.remove());
+    $('#qf-Bbox').classList.remove('qf-chg');
+  }, 1000);
 }
+$('#qg-live').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-term]');
+  if (!b) return;
+  const id = b.dataset.term;
+  if (openTerms.has(id)) openTerms.delete(id);
+  else openTerms.add(id);
+  if (id.startsWith('B')) $('#qf-Bbox').open = true;
+  updateFormula(true);
+});
+$('#qf-openall').addEventListener('click', () => {
+  for (const t of lastF.A) openTerms.add(`A${t.id}`);
+  for (const t of lastF.B) openTerms.add(`B${t.id}`);
+  $('#qf-Bbox').open = true;
+  updateFormula(true);
+});
+$('#qf-closeall').addEventListener('click', () => {
+  openTerms.clear();
+  updateFormula(true);
+});
 form.addEventListener('change', () => {
   clearTimeout(fTimer);
-  fTimer = setTimeout(updateFormula, 120);
+  fTimer = setTimeout(() => updateFormula(false), 120);
 });
-updateFormula();
-
+updateFormula(false);
 
 // ---------------- 생성 진행: 막대 · 최저 에너지 그래프 · 지금까지 가장 좋은 배치 ----------------
 const prog = { G: null, solvers: [], cur: -1, series: {}, rows: {} };

@@ -650,9 +650,10 @@ export function formulaOf(spec, { cell = 1.2, syntaxScale = 1 } = {}) {
   const front = G.rooms.filter((r) => FRONT.has(r.type)).map((r) => r.name);
   const back = G.rooms.filter((r) => BACK.has(r.type)).map((r) => r.name);
   const termsA = [];
+  const GROUP_A = { onehot: '제약(벌점)', area: '크기·모양', perim: '크기·모양', zone: '위치', window: '위치', entry: '위치', masterEnd: '위치', livingMid: '위치', adjGood: '실 사이 관계', adjBad: '실 사이 관계', livingHub: '공간구문(근사)', privacyDepth: '공간구문(근사)' };
   const T = (id, o) => {
     const t = TERMS_A.find((x) => x.id === id);
-    termsA.push({ id, label: t.label, approx: !t.exact, w: id === 'onehot' ? q.penalty : W[id], why: why[id] || [], ...o });
+    termsA.push({ id, label: t.label, group: GROUP_A[id], rule: t.rule, general: t.qubo, note: t.note || '', approx: !t.exact, w: id === 'onehot' ? q.penalty : W[id], why: why[id] || [], ...o });
   };
   T('onehot', { wSym: 'P<sub>A</sub>', head: `Σ<sub>c=1…${G.C}</sub> (Σ<sub>r=1…${R}</sub> x<sub>c,r</sub> − 1)²` });
   T('area', { chips: G.rooms.map((r) => ({ key: `area:${r.key}`, html: `((N<sub>${r.name}</sub> − ${f2(r.t)}) / ${f2(r.t)})²` })) });
@@ -676,6 +677,11 @@ export function formulaOf(spec, { cell = 1.2, syntaxScale = 1 } = {}) {
     { id: 'clash', label: '문끼리 겹치지 않기', w: 8, head: 'Σ<sub>겹치는 쌍</sub> d<sub>e</sub>d<sub>e′</sub>' },
     { id: 'windows', label: G.balcony ? '창·발코니 문' : '창(발코니 없음 → 남쪽 벽도 창)', w: 1, chips: winRooms.map((r) => ({ key: `wb:${r.key}`, html: `(Σ<sub>e</sub> w<sub>${r.name},e</sub> − k<sub>${r.name}</sub>)²` })) },
   ];
-  if (G.outdoorUnit) termsB.push({ id: 'outdoorUnit', label: '실외기실 자리', w: 3, head: `(Σ<sub>i=1…${G.nx}</sub> u<sub>i</sub> − ${Math.max(1, Math.round(1.5 / G.cell))})² + 끝에서 거리·u − 이어짐${G.balcony ? ' + 2·발코니 문×u' : ''}` });
+  const GROUP_B = { oneDoor: '제약(벌점)', entryDoor: '제약(벌점)', opening: '제약(벌점)', doorSide: '문 위치', clash: '문 위치', windows: '창', outdoorUnit: '실외기실' };
+  for (const t of termsB) {
+    const d = TERMS_B.find((x) => x.id === t.id);
+    Object.assign(t, { group: GROUP_B[t.id], rule: d?.rule || '', general: d?.qubo || '', approx: false, why: [] });
+  }
+  if (G.outdoorUnit) termsB.push({ id: 'outdoorUnit', label: '실외기실 자리', group: GROUP_B.outdoorUnit, rule: TERMS_B.find((x) => x.id === 'outdoorUnit').rule, general: TERMS_B.find((x) => x.id === 'outdoorUnit').qubo, approx: false, why: [], w: 3, head: `(Σ<sub>i=1…${G.nx}</sub> u<sub>i</sub> − ${Math.max(1, Math.round(1.5 / G.cell))})² + 끝에서 거리·u − 이어짐${G.balcony ? ' + 2·발코니 문×u' : ''}` });
   return { G: { nx: G.nx, ny: G.ny, C: G.C, R, cell: G.cell }, n: q.n, P: q.penalty, termsA, termsB };
 }
