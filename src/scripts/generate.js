@@ -1,6 +1,6 @@
 // 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
 import { GEN_STAGES, badges, kindsTable } from '../generate/pipeline.js';
-import { rulesOf } from '../generate/gen-rules.js';
+import { rulesOf, basisHtml, BASIS_LEGEND } from '../generate/gen-rules.js';
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
 import { MIN_SIDE } from '../generate/layout.js';
 import { renderFormulas } from './generate-formulas.js';
@@ -573,8 +573,8 @@ function renderProcess() {
 /** 규칙 표: 번호 · 방식 · 규칙 · 이 평면에서의 결과 · 지켜짐 */
 function rulesTable(rules) {
   const mark = (ok) => (ok === true ? '<span class="good-text">✓</span>' : ok === false ? '<span class="error-text">✗</span>' : '<span class="note">—</span>');
-  return `<div class="mt-scroll"><table class="gen-table gr-table"><thead><tr><th>번호</th><th>방식</th><th>규칙</th><th>이 평면에서</th><th></th></tr></thead><tbody>${rules
-    .map((r) => `<tr class="${r.ok === false ? 'gr-bad' : ''}"><td class="mono">${r.id}</td><td>${badges([r.kind])}</td><td>${r.text}</td><td>${r.result}</td><td>${mark(r.ok)}</td></tr>`)
+  return `${BASIS_LEGEND}<div class="mt-scroll"><table class="gen-table gr-table"><thead><tr><th>번호</th><th>방식</th><th>규칙과 근거</th><th>이 평면에서</th><th></th></tr></thead><tbody>${rules
+    .map((r) => `<tr class="${r.ok === false ? 'gr-bad' : ''}"><td class="mono">${r.id}</td><td>${badges([r.kind])}</td><td><div class="gr-text">${r.text}</div>${basisHtml(r.basis)}</td><td>${r.result}</td><td>${mark(r.ok)}</td></tr>`)
     .join('')}</tbody></table></div>`;
 }
 /** 8단계 규칙 전체(한 표). */
@@ -585,8 +585,10 @@ function renderAllRules(c) {
   const nOk = all.filter((r) => r.ok === true).length;
   const nBad = all.filter((r) => r.ok === false).length;
   box.querySelector('summary').innerHTML = `<b>이 평면에 쓰인 규칙 전체 보기</b> — ${all.length}개 · 지켜짐 ${nOk} · 어김 ${nBad}`;
-  box.querySelector('.gr-all').innerHTML = `<div class="mt-scroll"><table class="gen-table gr-table"><thead><tr><th>단계</th><th>번호</th><th>방식</th><th>규칙</th><th>이 평면에서</th><th></th></tr></thead><tbody>${all
-    .map((r) => `<tr class="${r.ok === false ? 'gr-bad' : ''}"><td>${r.stage}</td><td class="mono">${r.id}</td><td>${badges([r.kind])}</td><td>${r.text}</td><td>${r.result}</td><td>${r.ok === true ? '<span class="good-text">✓</span>' : r.ok === false ? '<span class="error-text">✗</span>' : '<span class="note">—</span>'}</td></tr>`)
+  const nLit = all.filter((r) => r.basis.some((b) => b.type === 'lit')).length;
+  const nAssumeOnly = all.filter((r) => r.basis.length && r.basis.every((b) => b.type === 'assume')).length;
+  box.querySelector('.gr-all').innerHTML = `${BASIS_LEGEND}<p class="note">규칙 ${all.length}개 가운데 문헌 근거가 있는 것 ${nLit}개, 설계 가정만 있는 것 ${nAssumeOnly}개.</p><div class="mt-scroll"><table class="gen-table gr-table"><thead><tr><th>단계</th><th>번호</th><th>방식</th><th>규칙과 근거</th><th>이 평면에서</th><th></th></tr></thead><tbody>${all
+    .map((r) => `<tr class="${r.ok === false ? 'gr-bad' : ''}"><td>${r.stage}</td><td class="mono">${r.id}</td><td>${badges([r.kind])}</td><td><div class="gr-text">${r.text}</div>${basisHtml(r.basis)}</td><td>${r.result}</td><td>${r.ok === true ? '<span class="good-text">✓</span>' : r.ok === false ? '<span class="error-text">✗</span>' : '<span class="note">—</span>'}</td></tr>`)
     .join('')}</tbody></table></div><p class="note">✓ = 규칙대로 됨, ✗ = 어김(점수에서 감점되거나 복구됨), — = 값만 보여 줌. 규칙은 생성 코드(layout.js·openings.js·fixtures.js·qubo.js·compare.js)의 동작을 그대로 옮긴 것이고, 결과는 이 평면에서 직접 계산했습니다.</p>`;
 }
 

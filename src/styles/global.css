@@ -4975,3 +4975,80 @@ table.plain td.num {
   cursor: pointer;
   font-size: 14px;
 }
+/* 규칙의 근거 */
+.gr-text {
+  margin-bottom: 4px;
+}
+.gr-basis,
+.gr-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.gr-legend {
+  align-items: center;
+  margin: 2px 0 8px;
+  font-size: 12px;
+}
+.gr-cite {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 5px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid;
+  max-width: 100%;
+}
+.gr-cite b {
+  font-weight: 700;
+}
+.gr-cite small {
+  font-size: 10px;
+  opacity: 0.8;
+}
+.gr-cite span {
+  color: var(--text-secondary);
+  flex-basis: 100%;
+}
+.gr-legend .gr-cite span {
+  display: none;
+}
+.gr-cite.lit {
+  border-color: rgba(91, 63, 240, 0.45);
+  background: rgba(91, 63, 240, 0.06);
+}
+.gr-cite.lit b {
+  color: var(--accent);
+}
+a.gr-cite.lit:hover {
+  background: rgba(91, 63, 240, 0.14);
+}
+.gr-cite.law {
+  border-color: rgba(42, 120, 214, 0.5);
+  background: rgba(42, 120, 214, 0.06);
+}
+.gr-cite.law b {
+  color: #2a78d6;
+}
+.gr-cite.data {
+  border-color: rgba(47, 122, 61, 0.5);
+  background: rgba(47, 122, 61, 0.06);
+}
+.gr-cite.data b {
+  color: #2f7a3d;
+}
+.gr-cite.assume {
+  border: 1px dashed var(--text-muted);
+  background: transparent;
+}
+.gr-cite.assume b {
+  color: var(--text-muted);
+}
+.pl-kinds td:last-child {
+  min-width: 220px;
+}

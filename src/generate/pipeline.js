@@ -1,4 +1,6 @@
 // 생성 과정의 단계마다 "어떤 방식으로 정하는가"를 한곳에 정의한다(모든 탭이 같은 구분과 같은 배지를 쓰도록).
+import { basisHtml, lit, data, assume } from './gen-rules.js';
+
 // 방식: rule(정해진 규칙·식) · qubo(QUBO 최적화) · search(탐색: 조금씩 바꿔 점수가 오르면 채택) · sa(담금질 최적화, QUBO 아님) · eval(평가 모델로 채점·비교)
 
 export const KINDS = {
@@ -10,6 +12,7 @@ export const KINDS = {
     random: '없음 — 같은 입력이면 언제나 같은 결과',
     why: '건축 상식·치수 기준처럼 답이 정해진 것, 그리고 다른 단계가 정한 값을 실제 도면(벽·문·창)으로 바꾸는 계산',
     analogy: '레시피대로 요리하기',
+    basis: [lit('seo2007', '판상형 아파트의 띠 구성 문법(앞 거실·침실, 뒤 서비스)'), lit('upasani2020', '최소 폭·종횡비를 지키는 치수 규칙'), assume('개별 치수·비율 값은 통상 치수에서 정함(규칙 표에서 항목별로 표시)')],
   },
   qubo: {
     label: 'QUBO 최적화',
@@ -19,6 +22,7 @@ export const KINDS = {
     random: '풀이기에 따라 있음(같은 시드면 같은 결과). 전수 열거·분기한정은 없음',
     why: '경우의 수가 많은 이산 결정(어느 실을 어느 칸에)이고, 양자 어닐러(D-Wave)에 그대로 보낼 수 있는 형식이기 때문',
     analogy: '퍼즐 조각을 놓는 모든 방법 가운데 벌점 합이 가장 작은 방법 찾기',
+    basis: [lit('lucas2014', '배정 문제를 이징·QUBO로, 제약은 원-핫 벌점으로'), lit('glover2019', 'QUBO 정식화 튜토리얼(배정 문제 형식)'), lit('ayodele2022', '순열 QUBO의 벌점 크기'), lit('glover2010', '이 사이트 기본 풀이기 계열(tabu)의 대표 알고리즘 D²TS'), lit('dunning2018', '같은 예산으로 풀이기를 공정하게 비교')],
   },
   search: {
     label: '탐색',
@@ -28,6 +32,7 @@ export const KINDS = {
     random: '있음(어떤 값을 얼마나 바꿀지 무작위, 시드로 고정하면 같은 결과)',
     why: '깊이·폭 같은 연속값과 평가 모델 점수(통합도 등 경로 계산 포함)는 QUBO의 이차식으로 쓸 수 없기 때문',
     analogy: '간을 보며 소금을 조금씩 더하기 — 맛이 나아지면 그대로 두고, 아니면 되돌림',
+    basis: [lit('michalek2002', '배치 최적화에서 무작위 탐색 + 국소 탐색 혼합이 SA·GA 단독보다 나음'), lit('merrell2010', '주거 평면 생성에서 점수를 보며 고쳐 가는 확률 탐색')],
   },
   sa: {
     label: '담금질 최적화',
@@ -37,6 +42,7 @@ export const KINDS = {
     random: '있음(시드로 고정하면 같은 결과)',
     why: 'ㄱ자·ㄷ자 실은 "칸이 서로 이어져야 한다"는 조건이 필요해 QUBO 이차식으로 쓰기 어렵기 때문',
     analogy: '쇠를 뜨겁게 했다가 천천히 식혀 단단하게 만드는 담금질 — 처음엔 많이 흔들고 나중엔 조금만',
+    basis: [lit('kirk1983', '담금질(Simulated Annealing) 원전: 받아들일 확률 e^(−ΔE/T)'), lit('lopes2010', '처음 배치를 만드는 제약 성장법'), lit('merrell2010', '주거 평면의 메트로폴리스 탐색')],
   },
   eval: {
     label: '평가',
@@ -46,6 +52,7 @@ export const KINDS = {
     random: '없음',
     why: 'QUBO 에너지는 평가의 대리(근사)라서, 마지막 판단은 원래 목표인 평가 점수로 해야 하기 때문',
     analogy: '심사위원이 완성된 작품에 점수 매기기',
+    basis: [data('실제 아파트 35세대(AI 허브 라벨)의 지표 분포와 비교하는 평가 모델'), lit('hillier1984', '공간구문 지표(통합도·깊이)'), lit('byun2016', '한국 아파트 거실 중심 유형의 통합도 비'), lit('zeng2025', '생성 평면 평가 지표(안방 우위·실 형태)'), lit('jin2011', 'QUBO 에너지는 평가의 대리 → 마지막 판단은 원래 평가로')],
   },
 };
 
@@ -58,10 +65,10 @@ export function kindsTable(kinds = Object.keys(KINDS)) {
   const rows = kinds
     .map((k) => {
       const v = KINDS[k];
-      return `<tr><td>${badge(k)}</td><td>${v.what}</td><td>${v.example}</td><td>${v.random}</td><td>${v.why}</td><td>${v.analogy}</td></tr>`;
+      return `<tr><td>${badge(k)}</td><td>${v.what}</td><td>${v.example}</td><td>${v.random}</td><td>${v.why}</td><td>${v.analogy}</td><td>${basisHtml(v.basis || [])}</td></tr>`;
     })
     .join('');
-  return `<div class="mt-scroll"><table class="gen-table pl-kinds"><thead><tr><th>방식</th><th>무엇을 하나</th><th>이 사이트의 예</th><th>무작위성</th><th>왜 이 방식을 썼나</th><th>비유</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class="mt-scroll"><table class="gen-table pl-kinds"><thead><tr><th>방식</th><th>무엇을 하나</th><th>이 사이트의 예</th><th>무작위성</th><th>왜 이 방식을 썼나</th><th>비유</th><th>근거</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 /** 선택형(도면 생성 탭). */
