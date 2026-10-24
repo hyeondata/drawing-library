@@ -178,10 +178,18 @@ export function pairsOf(G, prefs = []) {
 }
 
 /** 단계 A QUBO. */
-export function buildStageA(G, { weights = {}, prefs = [], syntaxScale = 1 } = {}) {
+/** 단계 A의 무게: 기본값에 선호를 반영(식 패널과 QUBO가 같은 함수를 쓴다). why: 항마다 바뀐 이유 */
+export function weightsA(prefs = [], { weights = {}, syntaxScale = 1 } = {}) {
   const W = Object.fromEntries(TERMS_A.map((t) => [t.id, weights[t.id] ?? (t.pref && prefs.includes(t.pref) ? t.on * syntaxScale : t.w)]));
-  if (prefs.includes('livingCentral')) W.livingMid *= 1.8;
-  if (prefs.includes('sunny')) ((W.zone *= 1.4), (W.window *= 2));
+  const why = {};
+  for (const t of TERMS_A) if (t.pref && prefs.includes(t.pref)) why[t.id] = [`${t.pref === 'livingCentral' ? '거실 중심형' : '사생활 깊이'} 선택${syntaxScale !== 1 ? ` · 세기 ×${syntaxScale}` : ''}`];
+  if (prefs.includes('livingCentral')) ((W.livingMid *= 1.8), (why.livingMid = ['거실 중심형 ×1.8']));
+  if (prefs.includes('sunny')) ((W.zone *= 1.4), (W.window *= 2), (why.zone = ['햇빛 ×1.4']), (why.window = ['햇빛 ×2']));
+  return { W, why };
+}
+
+export function buildStageA(G, { weights = {}, prefs = [], syntaxScale = 1 } = {}) {
+  const { W } = weightsA(prefs, { weights, syntaxScale });
   const { nx, ny, C, rooms } = G;
   const R = rooms.length;
   const n = C * R;
@@ -624,4 +632,50 @@ export function syntaxGrid(G, assign) {
   const P = { cellM: 0.3, sx: 0.3, sy: 0.3, rooms: rooms.map((r) => ({ k: r.k, type: r.type, fixed: false })) };
   const sx = syntaxOf(P, S);
   return { livingBedroomRatio: sx.livingBedroomRatio, kitchenBedroomRatio: sx.kitchenBedroomRatio, genotypeTau: sx.genotypeTau, privacyDepthGap: sx.privacyDepthGap, goal: SYNTAX_GOAL };
+}
+
+/**
+ * 식 패널용: 지금 조건에서 단계 A·B의 에너지 식을 항과 조각(실·실 쌍)으로 나눠 돌려준다.
+ * 조각마다 key가 있어 화면이 무엇이 생기고 없어지고 바뀌었는지 비교할 수 있다.
+ */
+export function formulaOf(spec, { cell = 1.2, syntaxScale = 1 } = {}) {
+  const G = setupGrid(spec, { cell });
+  const prefs = spec.prefs || [];
+  const q = buildStageA(G, { prefs, syntaxScale });
+  const { W, why } = weightsA(prefs, { syntaxScale });
+  const R = G.rooms.length;
+  const nm = (k) => G.rooms.find((r) => r.key === k)?.name || k;
+  const f2 = (v) => (Math.round(v * 100) / 100).toString();
+  const { good, bad } = pairsOf(G, prefs);
+  const front = G.rooms.filter((r) => FRONT.has(r.type)).map((r) => r.name);
+  const back = G.rooms.filter((r) => BACK.has(r.type)).map((r) => r.name);
+  const termsA = [];
+  const T = (id, o) => {
+    const t = TERMS_A.find((x) => x.id === id);
+    termsA.push({ id, label: t.label, approx: !t.exact, w: id === 'onehot' ? q.penalty : W[id], why: why[id] || [], ...o });
+  };
+  T('onehot', { wSym: 'P<sub>A</sub>', head: `Σ<sub>c=1…${G.C}</sub> (Σ<sub>r=1…${R}</sub> x<sub>c,r</sub> − 1)²` });
+  T('area', { chips: G.rooms.map((r) => ({ key: `area:${r.key}`, html: `((N<sub>${r.name}</sub> − ${f2(r.t)}) / ${f2(r.t)})²` })) });
+  T('perim', { chips: G.rooms.map((r) => ({ key: `perim:${r.key}`, html: `둘레<sub>${r.name}</sub> / ${f2(4 * Math.sqrt(r.t))}` })) });
+  T('zone', { chips: [{ key: 'zone:front', html: `앞(남)으로: ${front.join('·')}` }, { key: 'zone:back', html: `뒤(북)으로: ${back.join('·')}` }] });
+  T('window', { chips: G.rooms.filter((r) => NEEDS_WINDOW.has(r.type)).map((r) => ({ key: `win:${r.key}`, html: `−바깥 칸<sub>${r.name}</sub>` })) });
+  T('adjGood', { chips: good.map(([a, b2, m]) => ({ key: `good:${a}:${b2}`, html: `${m === 1 ? '' : `${f2(m)}·`}맞닿음(${nm(a)}, ${nm(b2)})`, sign: '−' })) });
+  T('adjBad', { chips: bad.map(([a, b2, m]) => ({ key: `bad:${a}:${b2}`, html: `${m === 1 ? '' : `${f2(m)}·`}맞닿음(${nm(a)}, ${nm(b2)})` })) });
+  T('entry', { head: '−Σ<sub>c∈맨 뒤 줄</sub> x<sub>c,현관</sub>' });
+  T('masterEnd', { head: '−Σ<sub>c∈양 끝 열</sub> x<sub>c,안방</sub>' });
+  T('livingMid', { head: 'Σ<sub>c</sub> |열<sub>c</sub> − 가운데| / 폭 · x<sub>c,거실</sub>' });
+  if (W.livingHub) T('livingHub', { head: '−Σ<sub>r≠거실</sub> 맞닿음(거실, r)' });
+  if (W.privacyDepth) T('privacyDepth', { chips: G.rooms.filter((r) => r.type === '침실').map((r) => ({ key: `priv:${r.key}`, html: `가까움(${r.name}, 현관) / ${f2(r.t)}` })) });
+  const doorRooms = G.rooms.filter((r) => !PUBLIC.has(r.type));
+  const winRooms = G.rooms.filter((r) => ['거실', '침실', '주방'].includes(r.type));
+  const termsB = [
+    { id: 'oneDoor', label: '실마다 문 하나', wSym: 'P<sub>B</sub>', chips: doorRooms.map((r) => ({ key: `door:${r.key}`, html: `(Σ<sub>e</sub> d<sub>${r.name},e</sub> − 1)²` })) },
+    { id: 'doorSide', label: '문 쪽 우선순위', w: 1, chips: doorRooms.map((r) => ({ key: `side:${r.key}`, html: `비용(${r.name}의 이웃)·d` })) },
+    { id: 'entryDoor', label: '현관문 하나', wSym: 'P<sub>B</sub>', head: '(Σ<sub>e∈현관 바깥 벽</sub> h<sub>e</sub> − 1)² + 비용·h' },
+    { id: 'opening', label: '공용 공간 트기', wSym: 'P<sub>B</sub>', head: 'Σ<sub>맞닿은 공용 쌍</sub> (Σ<sub>e</sub> o<sub>e</sub> − 1)² + 거리·o' },
+    { id: 'clash', label: '문끼리 겹치지 않기', w: 8, head: 'Σ<sub>겹치는 쌍</sub> d<sub>e</sub>d<sub>e′</sub>' },
+    { id: 'windows', label: G.balcony ? '창·발코니 문' : '창(발코니 없음 → 남쪽 벽도 창)', w: 1, chips: winRooms.map((r) => ({ key: `wb:${r.key}`, html: `(Σ<sub>e</sub> w<sub>${r.name},e</sub> − k<sub>${r.name}</sub>)²` })) },
+  ];
+  if (G.outdoorUnit) termsB.push({ id: 'outdoorUnit', label: '실외기실 자리', w: 3, head: `(Σ<sub>i=1…${G.nx}</sub> u<sub>i</sub> − ${Math.max(1, Math.round(1.5 / G.cell))})² + 끝에서 거리·u − 이어짐${G.balcony ? ' + 2·발코니 문×u' : ''}` });
+  return { G: { nx: G.nx, ny: G.ny, C: G.C, R, cell: G.cell }, n: q.n, P: q.penalty, termsA, termsB };
 }

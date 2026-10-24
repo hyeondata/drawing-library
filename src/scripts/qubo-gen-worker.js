@@ -11,16 +11,37 @@ self.onmessage = (e) => {
     const t0 = performance.now();
     const qA = buildStageA(G, { prefs: spec.prefs, syntaxScale });
     const buildMs = performance.now() - t0;
+    self.postMessage({ id, start: true, n: qA.n, P: qA.penalty, G: { nx: G.nx, ny: G.ny, C: G.C, cell: G.cell, rooms: G.rooms, stripRows: G.stripRows, balconyRows: G.balconyRows, balcony: G.balcony, outdoorUnit: G.outdoorUnit } });
     const results = [];
     solvers.forEach((solver, si) => {
       self.postMessage({ id, note: `${si + 1}/${solvers.length}: ${solver} — 단계 A QUBO(변수 ${qA.n}개) 푸는 중…` });
-      const rA = runSolver(solver, qA, { seed, budgetMs });
+      const total = solvers.length;
+      const rA = runSolver(solver, qA, {
+        seed,
+        budgetMs,
+        // 진행 표시: 경과 비율, 지금까지 최저 에너지, 그 해를 칸 배정으로(화면이 미리보기로 그림)
+        onTick: ({ evals, ms, best }) =>
+          self.postMessage({
+            id,
+            tick: true,
+            si,
+            total,
+            solver,
+            frac: Math.min(1, ms / budgetMs),
+            evals,
+            ms,
+            e: best ? best.e : null,
+            assign: best ? Array.from(decodeA(G, qA, best.x).assign) : null,
+            broken: best ? decodeA(G, qA, best.x).broken : null,
+          }),
+      });
       const cands = [];
       const seen = new Set();
-      for (const smp of rA.samples) {
+      rA.samples.forEach((smp, k) => {
+        self.postMessage({ id, tick: true, si, total, solver, frac: 1, phase: 'B', k: k + 1, of: rA.samples.length, evals: rA.evals, ms: rA.ms, e: rA.energy });
         const { assign, broken } = decodeA(G, qA, smp.x);
         const sig = Array.from(assign).join(',');
-        if (seen.has(sig)) continue;
+        if (seen.has(sig)) return;
         seen.add(sig);
         const qB = buildStageB(G, assign);
         // 단계 B도 같은 풀이기로 푼다(작은 QUBO라 시간은 0.3초).
@@ -39,8 +60,9 @@ self.onmessage = (e) => {
           ev,
           syntax: syntaxGrid(G, assign),
         });
-      }
+      });
       cands.sort((a, b) => b.ev.score - a.ev.score || a.eA - b.eA);
+      self.postMessage({ id, tick: true, si, total: solvers.length, solver, frac: 1, stageB: true, evals: rA.evals, ms: rA.ms, e: rA.energy });
       results.push({ solver, A: { energy: rA.energy, evals: rA.evals, ms: rA.ms, trace: rA.trace.map(([t, ev, en]) => [t, ev, en]) }, cands });
     });
     self.postMessage({

@@ -113,6 +113,34 @@ const steps = [
       <p class="note">풀이기를 여러 개 고르면 같은 조건·시간·시드로 차례로 풀어 비교합니다. 변수가 수백~천 개이고 벌점이 커서, 한 변수씩 바꾸는 SA·SQA·SB는 이 크기에서 실이 흩어지는 해를 내기 쉽습니다.</p>
     </form>
 
+    <div class="qg-right">
+    <section class="qg-card qg-prog" id="qg-prog" hidden aria-live="polite">
+      <h2>생성 진행 <span class="note" id="qp-label"></span></h2>
+      <div class="qp-bar"><div class="qp-fill" id="qp-fill"></div></div>
+      <div class="qp-grid">
+        <div>
+          <div id="qp-rows"></div>
+          <div id="qp-chart"></div>
+        </div>
+        <figure class="qp-plan" id="qp-plan"><figcaption>지금까지 가장 좋은 배치(단계 A)</figcaption></figure>
+      </div>
+    </section>
+    <section class="qg-card qg-live" id="qg-live" aria-live="polite">
+      <div class="qg-live-head">
+        <h2>지금 조건의 QUBO 식 <span class="note">조건을 바꾸면 식이 바로 바뀝니다</span></h2>
+        <div class="qf-legend"><span class="qf-in-s">새로 생김</span><span class="qf-chg-s">값이 바뀜</span><span class="qf-out-s">없어짐</span></div>
+      </div>
+      <div class="qf-grid">
+        <div>
+          <div class="qf-stage">단계 A: 실 배치 <span class="pl-badge pl-qubo">QUBO 최적화</span></div>
+          <div class="qf-meta" id="qf-metaA"></div>
+          <div class="qf-eq" id="qf-A"></div>
+          <div class="qf-stage">단계 B: 문·창 <span class="pl-badge pl-qubo">QUBO 최적화</span> <span class="note">(변수 개수는 단계 A의 해가 정한 벽에 따라 달라짐)</span></div>
+          <div class="qf-eq" id="qf-B"></div>
+        </div>
+        <aside class="qf-log"><b>바뀐 것</b><ol id="qf-log"></ol></aside>
+      </div>
+    </section>
     <div class="qg-out" id="qg-out" hidden>
       <section class="qg-card" id="qg-cmp-card">
         <h2>풀이기 비교</h2>
@@ -215,6 +243,7 @@ const steps = [
         </div>
         <p class="note">단계별 QUBO 식은 <a href={`${base}qubo-step/`}>QUBO 따라가기</a>(도면 생성의 방 순서 QUBO)와 같은 방식으로 만들었습니다: 항마다 단위 기여 × 무게를 더하고, 원-핫 벌점 P = ⌈1 + 한 변수가 받는 목적 계수 절댓값 합의 최댓값⌉.</p>
       </section>
+    </div>
     </div>
   </main>
   <script id="qg-data" type="application/json" set:html={JSON.stringify({ base, termsA: TERMS_A, termsB: TERMS_B, solvers: solvers.map((s) => ({ key: s.key, name: s.name })), living: choices.living, targets: choices.targets, prefNames: Object.fromEntries([...SYNTAX_CHOICES, ...LIFESTYLE_CHOICES].map((c) => [c.key, c.title])) })} />

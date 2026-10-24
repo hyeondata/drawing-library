@@ -565,7 +565,7 @@ export const SOLVERS = [
 /**
  * 풀이기 하나를 돌린다. 반환: { key, energy, feasible, ms, evals, samples: [{ x, e, feasible }], note }
  */
-export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null, onEvent = null } = {}) {
+export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null, onEvent = null, onTick = null } = {}) {
   const solver = SOLVERS.find((s) => s.key === key);
   const r = makeRng(seed * 7919 + key.length * 104729);
   const pool = new Pool(6);
@@ -587,7 +587,22 @@ export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null, o
   let info;
   try {
     // onEvent: 보기용 기록(코드로 보기 탭). 주지 않으면 계산은 기록 없이 똑같이 돈다.
-    info = solver.run(q, { r, deadline: t0 + budgetMs, pool, count: () => evals++, ev: onEvent ? (e) => onEvent({ ...e, evals }) : null }) || {};
+    // onTick: 진행 표시용(QUBO 도면 생성 탭). 평가 8192회마다 시계를 보고 0.12초 넘게 지났으면 지금까지 최저 해를 알린다. 계산에는 영향 없음.
+    let lastTick = 0;
+    const count = onTick
+      ? () => {
+          evals++;
+          if ((evals & 8191) === 0) {
+            const t = realNow() - wall0;
+            if (t - lastTick > 120) {
+              lastTick = t;
+              const b0 = pool.items[0];
+              onTick({ evals, ms: t, budgetMs, best: b0 ? { e: b0.e, x: b0.x } : null });
+            }
+          }
+        }
+      : () => evals++;
+    info = solver.run(q, { r, deadline: t0 + budgetMs, pool, count, ev: onEvent ? (e) => onEvent({ ...e, evals }) : null }) || {};
   } finally {
     now = realNow;
   }

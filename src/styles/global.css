@@ -4579,3 +4579,254 @@ table.plain td.num {
   margin: 4px 0;
   padding-left: 18px;
 }
+/* ---- 살아 있는 식 ---- */
+.qg-right {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.qg-live-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+.qf-legend {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+.qf-legend span {
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+.qf-in-s {
+  background: rgba(47, 160, 90, 0.18);
+}
+.qf-chg-s {
+  background: rgba(240, 190, 30, 0.3);
+}
+.qf-out-s {
+  background: rgba(220, 70, 70, 0.18);
+  text-decoration: line-through;
+}
+.qf-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 14px;
+  align-items: start;
+}
+.qf-stage {
+  font-weight: 700;
+  margin: 10px 0 4px;
+  font-size: 14px;
+}
+.qf-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.qf-big {
+  font-size: 16px;
+}
+.qf-eq {
+  font-family: 'Times New Roman', 'Noto Serif KR', serif;
+  font-size: 15px;
+  line-height: 1.9;
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+.qf-E {
+  font-weight: 700;
+  font-size: 16px;
+}
+.qf-term {
+  display: grid;
+  grid-template-columns: 16px auto 10px minmax(0, 1fr);
+  column-gap: 4px;
+  align-items: baseline;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.qf-term .qf-lab {
+  grid-column: 2 / -1;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: -4px;
+  margin-bottom: 2px;
+  font-family: system-ui, sans-serif;
+}
+.qf-lab em {
+  color: #b5600c;
+  font-style: normal;
+  font-weight: 700;
+}
+.qf-lab i {
+  color: var(--accent);
+  font-style: normal;
+}
+.qf-w {
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.qf-op {
+  color: var(--text-muted);
+}
+.qf-chip {
+  display: inline;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+.qf-in {
+  animation: qfIn 1.8s ease-out;
+}
+.qf-chg {
+  animation: qfChg 1.6s ease-out;
+}
+.qf-out {
+  animation: qfOut 0.9s ease-in forwards;
+  text-decoration: line-through;
+}
+@keyframes qfIn {
+  0% {
+    background: rgba(47, 160, 90, 0.45);
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  15% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    background: transparent;
+  }
+}
+@keyframes qfChg {
+  0%,
+  30% {
+    background: rgba(240, 190, 30, 0.55);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@keyframes qfOut {
+  0% {
+    background: rgba(220, 70, 70, 0.4);
+    opacity: 1;
+  }
+  100% {
+    background: rgba(220, 70, 70, 0.1);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qf-in,
+  .qf-chg,
+  .qf-out {
+    animation-duration: 0.01s;
+  }
+}
+.qf-log {
+  font-size: 12px;
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+  max-height: 560px;
+  overflow: auto;
+}
+.qf-log ol {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+}
+.qf-log li {
+  margin-bottom: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.qf-log small {
+  color: var(--text-muted);
+}
+.qf-add {
+  color: #2f7a3d;
+}
+.qf-del {
+  color: #b42f2f;
+}
+.qf-mod {
+  color: #8a6400;
+}
+@media (max-width: 900px) {
+  .qf-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .qf-log {
+    border-left: 0;
+    padding-left: 0;
+    max-height: 220px;
+  }
+}
+/* ---- 생성 진행 ---- */
+.qp-bar {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin: 4px 0 10px;
+}
+.qp-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #3b5bff, #b14ce6);
+  transition: width 0.25s linear;
+}
+.qp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  gap: 14px;
+  align-items: start;
+}
+.qp-row {
+  display: grid;
+  grid-template-columns: 10px 110px minmax(0, 1fr) 52px 70px;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  margin: 3px 0;
+}
+.qp-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.qp-mini {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.qp-mini div {
+  height: 100%;
+  transition: width 0.2s linear;
+}
+.qp-plan {
+  margin: 0;
+}
+.qp-plan figcaption {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.qp-plan svg {
+  width: 100%;
+  height: auto;
+}
+@media (max-width: 900px) {
+  .qp-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
