@@ -4371,3 +4371,32 @@ table.plain td.num {
 .qs-kinds summary {
   cursor: pointer;
 }
+.pl-explain h4 {
+  margin: 8px 0 4px;
+  font-size: 14px;
+}
+.pl-sum {
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 4px 0 8px;
+}
+.pl-kinds td,
+.pl-kinds th {
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.pl-kinds td:first-child {
+  white-space: nowrap;
+}
+.pl-kinds td:nth-child(2) {
+  min-width: 260px;
+}
+.pl-what {
+  margin: 8px 0;
+}
+.pl-what summary {
+  cursor: pointer;
+  font-weight: 600;
+}

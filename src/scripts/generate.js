@@ -1,5 +1,5 @@
 // 도면 생성 화면: 단계별 선택 → 사양 → Web Worker에서 생성·최적화 → 상위 3안 보여 주기.
-import { GEN_STAGES, badges } from '../generate/pipeline.js';
+import { GEN_STAGES, badges, kindsTable } from '../generate/pipeline.js';
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
 import { MIN_SIDE } from '../generate/layout.js';
 import { renderFormulas } from './generate-formulas.js';
@@ -584,7 +584,7 @@ function renderMethod(c, stage, isModel, kinds) {
     run = `<p class="proc-run">이 안의 탐색 결과: 깊이 D ${Number(p.depth).toFixed(2)}m · 앞 띠 비율 f ${Number(p.frontShare).toFixed(2)} · 작은방 폭 w ${Number(p.bedWidth ?? 3).toFixed(2)}m · 안방 깊이 g ${Number(p.masterDepth ?? 1).toFixed(2)}</p>`;
   }
   const tpl = document.querySelector(`template[data-proc-code="${stage}${useModel ? 'm' : ''}"]`);
-  $('#proc-method').innerHTML = `<div class="proc-method-head"><b>이 단계는 어떻게 정해지나</b> ${badges(kinds)}</div><ul>${lines}</ul>${run}<details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;
+  $('#proc-method').innerHTML = `<div class="proc-method-head"><b>이 단계는 어떻게 정해지나</b> ${badges(kinds)}</div><ul>${lines}</ul>${run}<details class="pl-what"><summary>배지(${kinds.map((k) => k === 'qubo' ? 'QUBO 최적화' : k === 'sa' ? '담금질 최적화' : k === 'rule' ? '규칙' : k === 'search' ? '탐색' : '평가').join('·')})는 무슨 뜻인가요?</summary>${kindsTable(kinds)}<p class="note">다섯 가지 방식 전체 비교: <a href="${base}how/#kinds">생성 원리 0절</a></p></details><details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;
 }
 function setStage(k, stop = false) {
   proc.stage = Math.max(1, Math.min(STAGES.length, k));
