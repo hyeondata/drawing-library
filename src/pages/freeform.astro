@@ -3,10 +3,26 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Base from '../layouts/Base.astro';
 import Topbar from '../components/Topbar.astro';
+import { WEIGHTS, FREEDOM, MIN_WIDTH, CELL, SYNTAX_GOAL, FIXED } from '../freeform/engine.js';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const units = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'shapes.json'), 'utf8'));
 const drawings = new Set(units.map((u) => u.drawing)).size;
+const W = WEIGHTS;
+const door = Math.ceil(0.9 / CELL);
+const terms = [
+  ['면적', W.area, 'Σ<sub>r</sub> ((n<sub>r</sub> − t<sub>r</sub>) / t<sub>r</sub>)²', '목표 칸 수에서 벗어난 비율의 제곱. 큰 실·작은 실을 같은 무게로 봅니다(칸이 하나도 없는 실은 10).'],
+  ['둘레', 'w<sub>P</sub>', 'Σ<sub>r</sub> (둘레<sub>r</sub> / (4√n<sub>r</sub>) − 1)', '같은 칸 수의 정사각형보다 둘레가 긴 만큼. 구불구불한 실을 막습니다.'],
+  ['꼭짓점', W.corner, 'Σ<sub>r</sub> max(0, 꼭짓점<sub>r</sub> − K)', '모양 자유도의 상한 K(아래 표)를 넘은 꼭짓점 수. 사각형은 4, ㄱ자는 6, ㄷ자는 8개입니다.'],
+  ['좁은 부분', W.thin, 'Σ<sub>r</sub> 좁은 칸<sub>r</sub> / n<sub>r</sub>', `가로·세로로 이어진 길이가 모두 최소 폭(${Object.entries(MIN_WIDTH).map(([k, v]) => `${k} ${v}`).join(', ')}m)보다 짧은 칸의 비율.`],
+  ['창', W.window, 'Σ<sub>r∈거실·침실</sub> max(0, 2.0 − 바깥 벽 길이<sub>r</sub>)', '거실·침실이 바깥(발코니 포함)에 2.0m 이상 닿지 않은 만큼(m).'],
+  ['인접', W.adj, 'Σ<sub>(p,q)∈필요 쌍</sub> [맞닿은 길이(p, q) &lt; 문 폭]', `기준 세대에서 문이 필요했던 실 쌍(공용 실과 닿는 쌍, 드레스룸·화장실–침실)이 문 폭 0.9m(${door}칸)만큼 맞닿지 않으면 1.`],
+  ['접근', W.access, '현관에서 갈 수 없는 실의 수', '문 폭 이상 맞닿은 실을 따라 현관에서 출발해 닿을 수 없는 실.'],
+  ['침실 통과', W.through, '침실을 지나야만 갈 수 있는 실의 수', '공용 실에 닿지 않아 침실을 거쳐야 하는 실.'],
+  ['현관', W.entry, '[현관이 바깥에 닿은 길이 &lt; 문 폭]', '외곽을 바꿨을 때만. 현관문이 복도 쪽 바깥에 나야 합니다.'],
+  ['외곽', W.outline, 'max(0, 외곽 꼭짓점 − K<sub>외곽</sub>)', '외곽도 다듬을 때만. 지나치게 들쭉날쭉한 외곽을 막습니다.'],
+  ['공간구문', '4 (강하게 10)', `거실 중심: max(0, ${SYNTAX_GOAL.lbr} − 거실/침실 통합도 비)/${SYNTAX_GOAL.lbr} + (1 − τ)/2<br>사생활: max(0, ${SYNTAX_GOAL.gap} − 공·사 깊이 차)/${SYNTAX_GOAL.gap}<br>대면형 주방: max(0, ${SYNTAX_GOAL.kbr} − 주방/침실 통합도 비)/${SYNTAX_GOAL.kbr}`, '공간구문 선호를 고른 경우만. 통합도·깊이는 평가 모델과 같은 정의로 매번 정확히 계산합니다.'],
+];
 ---
 
 <Base title="자유형 평면 · 평면 생성 랩" description="AI 허브 Sample에서 사각형이 아닌 실(ㄱ자 거실 등)이 있는 세대를 골라, 그 외곽과 실 구성을 바탕으로 새 평면을 만들고 계산 과정을 보여 줍니다.">
@@ -19,6 +35,59 @@ const drawings = new Set(units.map((u) => u.drawing)).size;
       AI 허브 Sample {drawings}장에서 뽑은, 사각형이 아닌 실(ㄱ자 거실·주방 등)이 있는 {units.length}세대 중 하나를 고르세요.
       그 세대의 외곽과 현관·발코니 위치, 실 구성과 연결 관계를 그대로 두고 안쪽을 다시 나눠, ㄱ자·ㄷ자 실까지 나올 수 있는 새 평면을 만듭니다.
     </p>
+  </section>
+
+
+  <section class="ff-algo" aria-labelledby="ff-algo-h">
+    <details open>
+      <summary><h2 id="ff-algo-h">어떻게 푸나: 알고리즘과 수식</h2></summary>
+      <p class="ff-algo-lead"><b>한 줄 요약.</b> 세대를 {CELL}m 칸으로 나누고, <b>칸마다 어느 실인지</b>를 정하는 문제로 풉니다. ① <b>제약 성장</b>으로 처음 배치를 만들고, ② <b>담금질(Simulated Annealing)</b>로 아래 에너지 E를 줄입니다. 도면 생성 탭과 달리 QUBO를 쓰지 않습니다. ㄱ자·ㄷ자 실이 되려면 "실을 이루는 칸들이 서로 이어져 있어야 한다"는 조건이 필요한데, 이 연결 조건은 QUBO의 이차식으로 쓰기 어렵기 때문입니다.</p>
+
+      <h3>1. 해(답)의 모양</h3>
+      <div class="mt-eq">a : 칸 c → 실 번호 a(c) ∈ {'{'}1, …, R{'}'} &nbsp;(외곽도 다듬으면 바깥 −1 포함),&nbsp;&nbsp; n<sub>r</sub> = |{'{'}c : a(c) = r{'}'}|,&nbsp;&nbsp; t<sub>r</sub> = 목표 칸 수</div>
+      <p>목표 칸 수 t<sub>r</sub>는 기준 세대에서 그 실이 차지한 비율 × 움직일 수 있는 칸 수입니다. {[...FIXED].join('·')}과 1.5㎡ 미만의 작은 실은 제자리에 고정하고, 나머지 실의 칸만 바꿉니다. <b>조건</b>: 실마다 칸이 한 덩어리로 이어져 있어야 합니다(이 조건을 깨는 이동은 하지 않음).</p>
+
+      <h3>2. 처음 배치: 제약 성장 (Lopes 외 2010)</h3>
+      <ol>
+        <li>실마다 씨앗 칸을 기준 세대의 원래 위치 근처에 놓습니다(무작위로 조금 옮김, 공용 실은 덜 옮김).</li>
+        <li>n<sub>r</sub> / t<sub>r</sub>가 가장 작은(가장 모자란) 실부터, <b>직사각형을 유지하며</b> 한 줄씩 넓힙니다.</li>
+        <li>더 넓힐 수 없으면 줄의 일부만 넓혀 <b>ㄱ자로</b> 자랍니다.</li>
+        <li>끝까지 남은 칸은 가장 많이 맞닿은 실에 줍니다.</li>
+      </ol>
+
+      <h3>3. 에너지: 낮을수록 좋은 평면</h3>
+      <div class="mt-eq">E(a) = Σ<sub>k</sub> w<sub>k</sub> · T<sub>k</sub>(a)</div>
+      <div class="mt-scroll">
+        <table class="gen-table ff-algo-tbl">
+          <thead><tr><th>항 T<sub>k</sub></th><th>무게 w<sub>k</sub></th><th>식</th><th>뜻</th></tr></thead>
+          <tbody>{terms.map(([n, w, f, d]) => <tr><td>{n}</td><td class="mono" set:html={String(w)} /><td set:html={f} /><td set:html={d} /></tr>)}</tbody>
+        </table>
+      </div>
+      <div class="mt-scroll">
+        <table class="gen-table ff-algo-tbl">
+          <thead><tr><th>모양 자유도</th><th>실 꼭짓점 상한 K</th><th>둘레 무게 w<sub>P</sub></th><th>외곽 꼭짓점 상한 K<sub>외곽</sub></th></tr></thead>
+          <tbody>{Object.values(FREEDOM).map((f) => <tr><td>{f.label}</td><td class="mono">{f.K}</td><td class="mono">{f.compact}</td><td class="mono">{f.Kout}</td></tr>)}</tbody>
+        </table>
+      </div>
+      <p class="note">꼭짓점은 2×2 칸 창을 훑으며 셉니다(창 안에서 그 실 칸이 1개나 3개면 꼭짓점 1개, 대각선 2개면 2개). 무게는 "접근 불가(10)"처럼 꼭 지켜야 할 것을 크게, "침실 통과(1.5)"처럼 피하면 좋은 것을 작게 잡았습니다.</p>
+
+      <h3>4. 담금질 (Kirkpatrick 외 1983)</h3>
+      <div class="mt-eq">T<sub>s</sub> = T<sub>0</sub> · (T<sub>1</sub> / T<sub>0</sub>)<sup>s / N</sup> &nbsp;(T<sub>0</sub> = 1.5, T<sub>1</sub> = 0.005),&nbsp;&nbsp; 받아들일 확률 p = min(1, e<sup>−ΔE / T<sub>s</sub></sup>)</div>
+      <ol>
+        <li><b>이동 하나 제안</b>(N번 반복, N = 화면의 이동 수):
+          <ul>
+            <li>80%: <b>벽 밀기</b> — 두 실이 맞닿은 벽 한 줄을 통째로 한 칸 밉니다. 직사각형을 유지한 채 크기만 바뀝니다.</li>
+            <li>20%: <b>칸 넘기기</b> — 칸 하나를 이웃 실로 넘깁니다.</li>
+            <li>외곽도 다듬으면 이동의 25%는 바깥 벽 칸을 떼거나 바깥 칸을 붙입니다(발코니에 붙은 벽은 그대로, 갇힌 구멍은 만들지 않음).</li>
+          </ul>
+        </li>
+        <li>실이 둘로 쪼개지면 바로 되돌립니다.</li>
+        <li>바뀐 실(과 맞닿은 실)만 다시 세어 <b>ΔE = E(새 배치) − E(지금 배치)</b>를 구합니다.</li>
+        <li>ΔE ≤ 0이면 받아들이고, ΔE &gt; 0이면 확률 e<sup>−ΔE/T</sup>로만 받아들입니다. 처음(T가 클 때)은 나빠지는 이동도 가끔 받아들여 갇히지 않고, 끝(T가 작을 때)은 좋아지는 이동만 남습니다.</li>
+        <li>지금까지 E가 가장 낮았던 배치를 답으로 냅니다.</li>
+      </ol>
+      <p class="note">벽 밀기를 주로 쓰는 이유: 칸 하나만 옮기면 거의 매번 꼭짓점이 2개 늘어 E가 올라갑니다(실측: 이동 282개 중 좋아지는 것 10개). "후보 개수"만큼 시드를 바꿔 따로 풀어 여러 안을 보여 줍니다. 실제 코드와 걸음별 ΔE·온도·확률은 <a href={`${base}code/#ff-anneal`}>코드로 보기 14~16</a>, 근거는 <a href={`${base}method/#freeform`}>방법과 근거 7절</a>에 있습니다.</p>
+    </details>
   </section>
 
   <main class="ff" id="ff">

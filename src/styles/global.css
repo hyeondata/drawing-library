@@ -4185,3 +4185,39 @@ table.plain td.num {
     font-size: 26px;
   }
 }
+/* 자유형: 알고리즘과 수식 */
+.ff-algo {
+  max-width: 1120px;
+  margin: 0 auto 18px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-1);
+  line-height: 1.75;
+}
+.ff-algo summary {
+  cursor: pointer;
+  list-style: revert;
+}
+.ff-algo summary h2 {
+  display: inline;
+  font-size: 20px;
+}
+.ff-algo h3 {
+  margin: 16px 0 6px;
+  font-size: 16px;
+}
+.ff-algo-lead {
+  margin-top: 10px;
+}
+.ff-algo-tbl td {
+  vertical-align: top;
+  font-size: 13px;
+}
+.ff-algo-tbl th,
+.ff-algo-tbl td {
+  text-align: left;
+}
+.ff-algo-tbl td.mono {
+  white-space: nowrap;
+}
