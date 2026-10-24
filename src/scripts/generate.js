@@ -30,7 +30,7 @@ function buildSpec() {
   const comp = new Set(checks('composition'));
   const syntax = checks('syntax');
   const life = checks('lifestyle');
-  // '공간이 넓은 게 좋아'는 거실을 한 단계 넓힌다.
+  // '넓은 공용 공간'은 거실을 한 단계 넓힌다.
   let li = data.living.findIndex((o) => o.key === radio('living').value);
   if (life.includes('spacious')) li = Math.min(data.living.length - 1, li + 1);
   const other = Number(radio('roomSize').dataset.share);

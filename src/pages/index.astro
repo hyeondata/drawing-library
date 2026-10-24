@@ -31,26 +31,26 @@ const strip = (c) => ({ key: c.key, short: c.short, title: c.title, desc: c.desc
 const src = choices.source;
 
 const steps = [
-  { key: 'area', title: '평수', q: '전용면적을 고르세요.' },
-  { key: 'living', title: '거실 크기', q: '거실을 얼마나 넓게 할까요?' },
-  { key: 'bedrooms', title: '방 개수', q: '침실은 몇 개가 필요하세요?' },
-  { key: 'roomSize', title: '방 크기', q: '작은방 크기와 안방 비중을 고르세요.' },
-  { key: 'composition', title: '방 구성', q: '넣을 실을 고르세요(여러 개).' },
-  { key: 'syntax', title: '공간구문', q: '동선과 공간 위계를 어떻게 할까요(여러 개)?' },
-  { key: 'lifestyle', title: '생활 선호', q: '어떤 집이 좋으세요(여러 개)?' },
+  { key: 'area', title: '전용면적', q: '전용면적 선택' },
+  { key: 'living', title: '거실 면적', q: '거실 면적 비율(전용면적 대비)' },
+  { key: 'bedrooms', title: '침실 수', q: '침실 수' },
+  { key: 'roomSize', title: '침실 면적', q: '침실 면적(작은방 면적 비율, 안방 비중)' },
+  { key: 'composition', title: '실 구성', q: '실 구성(복수 선택)' },
+  { key: 'syntax', title: '공간구문 조건', q: '공간구문 조건: 동선과 공간 위계(복수 선택)' },
+  { key: 'lifestyle', title: '생활 조건', q: '생활 조건(복수 선택)' },
   { key: 'result', title: '최적 도면', q: '조건에 맞춰 만든 평면과 그 평면이 만들어지는 과정입니다.' },
 ];
 ---
 
-<Base title="도면 생성 · 평면 생성 랩" description="평수·거실·방·구성과 공간구문·생활 선호를 고르면 판상형 아파트 평면을 만들고, 만들어지는 과정을 단계별로 보여 줍니다.">
+<Base title="도면 생성 · 평면 생성 랩" description="전용면적·거실·침실·실 구성과 공간구문·생활 조건을 선택하면 판상형 아파트 평면을 만들고, 만들어지는 과정을 단계별로 보여 줍니다.">
   <Topbar current="generate" />
 
   <section class="hero hero-compact">
     <p class="eyebrow">조건 → 생성 → 모델로 최적화</p>
     <h1>도면 <span class="gradient-text">생성하기</span></h1>
     <p class="lede">
-      평수부터 생활 선호까지 차례로 고르면 판상형 아파트 평면을 수백 개 만들어 조건에 가장 잘 맞는 안을 고르고, 그 평면이 전용면적 사각형에서 문·창·설비까지 어떻게 만들어지는지 단계별로 보여 줍니다.
-      크기·개수·구성 선택지는 AI 허브 라벨(SPA {src.units}세대 · OCR {src.ocrDrawings}장)에서, 공간구문·생활 선호는 평가 지표와 그 근거 논문에서 가져왔습니다.
+      전용면적부터 생활 조건까지 차례로 선택하면 판상형 아파트 평면을 수백 개 만들어 조건에 가장 잘 맞는 안을 고르고, 그 평면이 전용면적 사각형에서 문·창·설비까지 어떻게 만들어지는지 단계별로 보여 줍니다.
+      크기·개수·구성 선택지는 AI 허브 라벨(SPA {src.units}세대 · OCR {src.ocrDrawings}장)에서, 공간구문·생활 조건은 평가 지표와 그 근거 논문에서 가져왔습니다.
     </p>
   </section>
 
@@ -109,7 +109,7 @@ const steps = [
               </label>
             ))}
           </div>
-          <p class="note">기준 세대의 침실 수 분포입니다. 평수를 고르면 그 주택형에서 흔한 개수가 먼저 선택됩니다.</p>
+          <p class="note">기준 세대의 침실 수 분포입니다. 전용면적을 선택하면 그 주택형에서 흔한 개수가 먼저 선택됩니다.</p>
         </div>
 
         <!-- 4. 방 크기 -->
@@ -167,7 +167,7 @@ const steps = [
           <p class="note">문 정보가 없는 인접 그래프에서 계산하는 평가 모델의 공간구문 지표·규칙입니다. 고른 항목은 최적화 목적함수에 더해집니다.</p>
         </div>
 
-        <!-- 7. 생활 선호 -->
+        <!-- 7. 생활 조건 -->
         <div class="gen-step" data-step="6" hidden>
           <h2>{steps[6].q}</h2>
           <div class="gen-options gen-multi gen-wide" data-group="lifestyle" data-multi>

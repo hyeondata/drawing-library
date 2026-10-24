@@ -25,22 +25,22 @@ const choices = buildChoices({
 });
 // 조건 → QUBO에 들어가는 방법
 const condMap = [
-  ['평수', '격자 크기와 모든 실의 목표 칸 수', '면적 항(정확)', 'easy'],
-  ['거실 크기', '거실 목표 칸 수', '면적 항(정확)', 'easy'],
-  ['방 개수', '실 목록(변수 수)', '변수·면적 항(정확)', 'easy'],
-  ['작은방 크기·안방 비중', '침실 목표 칸 수', '면적 항(정확)', 'easy'],
+  ['전용면적', '격자 크기와 모든 실의 목표 칸 수', '면적 항(정확)', 'easy'],
+  ['거실 면적 비율', '거실 목표 칸 수', '면적 항(정확)', 'easy'],
+  ['침실 수', '실 목록(변수 수)', '변수·면적 항(정확)', 'easy'],
+  ['침실 면적(작은방·안방 비중)', '침실 목표 칸 수', '면적 항(정확)', 'easy'],
   ['화장실 2개·드레스룸·다목적실', '실 목록', '변수·면적·맞닿음 항(정확)', 'easy'],
   ['발코니', '남쪽 바깥 줄을 발코니로(있으면 발코니 문, 없으면 창)', '단계 B 창 항(정확)', 'easy'],
   ['실외기실', '바깥 줄의 어느 칸을 실외기실로 쓸지', '단계 B 실외기실 항(정확)', 'easy'],
   ['거실 중심형', '거실이 가운데·여러 실과 닿음', '근사 — 통합도는 그래프 경로라 이차식이 아님. 풀고 나서 실제 통합도 계산', 'hard'],
   ['사생활 깊이', '침실 칸이 현관 칸에서 멀리', '근사 — 깊이는 경로 계산이라 이차식이 아님. 풀고 나서 실제 깊이 계산', 'hard'],
   ['주방–거실 연계', '주방–거실 맞닿음 강화', '맞닿음 항(근사: 통합도 비는 풀고 나서 계산)', 'hard'],
-  ['현관–거실', '현관–거실 맞닿음 강화', '맞닿음 항', 'easy'],
-  ['넓은 공간', '거실 목표 한 단계 크게', '면적 항(정확)', 'easy'],
-  ['화장실', '화장실 2개', '실 목록', 'easy'],
-  ['방음', '침실끼리·침실–거실 떨어짐 강화', '떨어짐 항(정확)', 'easy'],
-  ['햇빛', '거실·침실을 앞(남)으로, 창 많이', '앞·뒤 띠·창 항', 'easy'],
-  ['수납', '드레스룸·다목적실', '실 목록', 'easy'],
+  ['현관–거실 직접 연결', '현관–거실 맞닿음 강화', '맞닿음 항', 'easy'],
+  ['넓은 공용 공간', '거실 목표 한 단계 크게', '면적 항(정확)', 'easy'],
+  ['화장실 2개', '공용·부부욕실', '실 목록', 'easy'],
+  ['침실 소음 분리', '침실끼리·침실–거실 떨어짐 강화', '떨어짐 항(정확)', 'easy'],
+  ['채광 확보', '거실·침실을 앞(남)으로, 창 많이', '앞·뒤 띠·창 항', 'easy'],
+  ['수납 공간', '드레스룸·다목적실', '실 목록', 'easy'],
   ['평가 모델 점수 J', '도면 생성 탭의 채점(실제 아파트와 닮은 정도)', '어려움 — 평가 모델이 직사각형 실 전용. 대신 규칙 점검 점수와 공간구문 값을 보여 줌', 'no'],
   ['외곽 모양', '도면 생성 탭도 직사각형', '이 탭도 직사각형 고정(넣을 수는 있으나 변수가 늘어 느려짐)', 'no'],
 ];
@@ -70,35 +70,35 @@ const steps = [
   <main class="qg">
     <form class="qg-form" id="qg-form">
       <fieldset>
-        <legend>1. 평수</legend>
+        <legend>1. 전용면적</legend>
         <div class="qg-opts">{choices.area.map((o) => <label class="qg-opt"><input type="radio" name="area" value={o.value} data-bedrooms={o.bedrooms} checked={o.value === 84} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
       </fieldset>
       <fieldset>
-        <legend>2. 거실 크기</legend>
+        <legend>2. 거실 면적 비율</legend>
         <div class="qg-opts">{choices.living.map((o) => <label class="qg-opt"><input type="radio" name="living" value={o.key} data-share={o.share} checked={o.key === 'standard'} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
       </fieldset>
       <fieldset>
-        <legend>3. 방 개수</legend>
+        <legend>3. 침실 수</legend>
         <div class="qg-opts">{choices.bedrooms.map((o) => <label class="qg-opt"><input type="radio" name="bedrooms" value={o.value} checked={o.value === 3} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
       </fieldset>
       <fieldset>
-        <legend>4. 방 크기</legend>
+        <legend>4. 침실 면적</legend>
         <span class="qg-sub">작은방</span>
         <div class="qg-opts">{choices.roomSize.map((o) => <label class="qg-opt"><input type="radio" name="roomSize" value={o.key} data-share={o.share} checked={o.key === 'standard'} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
         <span class="qg-sub">안방 비중</span>
         <div class="qg-opts">{choices.master.map((o) => <label class="qg-opt"><input type="radio" name="master" value={o.key} data-ratio={o.ratio} checked={o.key === 'standard'} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
       </fieldset>
       <fieldset>
-        <legend>5. 방 구성</legend>
+        <legend>5. 실 구성</legend>
         <div class="qg-opts">{choices.composition.map((o) => <label class="qg-opt"><input type="checkbox" name="composition" value={o.key} checked={o.default} /><b>{o.label}</b><small>{o.sub}</small></label>)}</div>
       </fieldset>
       <fieldset>
-        <legend>6. 공간구문(근사 항)</legend>
+        <legend>6. 공간구문 조건(근사 항)</legend>
         <div class="qg-opts">{SYNTAX_CHOICES.map((c) => <label class="qg-opt"><input type="checkbox" name="syntax" value={c.key} checked={c.key === 'livingCentral'} /><b>{c.title}</b><small>{PREF_EFFECTS[c.key]}</small></label>)}</div>
         <label>세기 <select id="qg-sxs"><option value="1" selected>보통(규칙 위반 없이)</option><option value="2">강하게(목표에 더 가깝게, 위반 생길 수 있음)</option></select></label>
       </fieldset>
       <fieldset>
-        <legend>7. 생활 선호</legend>
+        <legend>7. 생활 조건</legend>
         <div class="qg-opts">{LIFESTYLE_CHOICES.map((c) => <label class="qg-opt"><input type="checkbox" name="lifestyle" value={c.key} /><b>{c.title}</b><small>{PREF_EFFECTS[c.key] || ''}</small></label>)}</div>
       </fieldset>
       <fieldset>

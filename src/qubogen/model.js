@@ -29,7 +29,7 @@ export const TERMS_A = [
   { id: 'privacyDepth', label: '침실은 현관에서 멀리', rule: '공간구문 "사생활 깊이": 침실이 거실·주방보다 깊게(현관에서 멀게)', qubo: '+Σ<sub>c,c′</sub> 가까움(c, c′) · x<sub>c,침실</sub>x<sub>c′,현관</sub>', exact: false, note: '깊이(현관에서 문을 몇 번 지나나)는 경로 계산이라 이차식이 아님. 침실 칸과 현관 칸의 거리로 근사하고, 풀고 나서 실제 깊이를 계산', w: 0, pref: 'privacy', on: 2 },
 ];
 
-/** 선호를 고르면 바뀌는 무게(도면 생성 탭의 공간구문·생활 선호와 같은 선택지). */
+/** 선호를 고르면 바뀌는 무게(도면 생성 탭의 공간구문·생활 조건과 같은 선택지). */
 export const PREF_EFFECTS = {
   livingCentral: '거실 가운데 항 ×1.8, 거실이 여러 실과 닿음 항 켬(근사)',
   privacy: '침실–현관 떨어짐 ×1.7, 침실은 현관에서 멀리 항 켬(근사)',
@@ -184,7 +184,7 @@ export function weightsA(prefs = [], { weights = {}, syntaxScale = 1 } = {}) {
   const why = {};
   for (const t of TERMS_A) if (t.pref && prefs.includes(t.pref)) why[t.id] = [`${t.pref === 'livingCentral' ? '거실 중심형' : '사생활 깊이'} 선택${syntaxScale !== 1 ? ` · 세기 ×${syntaxScale}` : ''}`];
   if (prefs.includes('livingCentral')) ((W.livingMid *= 1.8), (why.livingMid = ['거실 중심형 ×1.8']));
-  if (prefs.includes('sunny')) ((W.zone *= 1.4), (W.window *= 2), (why.zone = ['햇빛 ×1.4']), (why.window = ['햇빛 ×2']));
+  if (prefs.includes('sunny')) ((W.zone *= 1.4), (W.window *= 2), (why.zone = ['채광 확보 ×1.4']), (why.window = ['채광 확보 ×2']));
   return { W, why };
 }
 

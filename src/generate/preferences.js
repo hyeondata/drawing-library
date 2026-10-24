@@ -1,4 +1,4 @@
-// 도면 생성의 공간구문·생활 선호 선택지. 모두 평가 모델의 지표·규칙(src/model/config.js FEATURES, spa.js 규칙)에 묶이고,
+// 도면 생성의 공간구문·생활 조건 선택지. 모두 평가 모델의 지표·규칙(src/model/config.js FEATURES, spa.js 규칙)에 묶이고,
 // 근거 문헌은 모델과 같은 REFERENCES id를 쓴다. score(ctx)는 0~100.
 // ctx: { unit(평가 결과 세대), item(groupKey, featureKey), rule(id), layout, noise }
 
@@ -38,8 +38,8 @@ export const SYNTAX_CHOICES = [
   },
   {
     key: 'entryNear',
-    short: '현관–거실',
-    title: '현관에서 거실 바로',
+    short: '현관–거실 연결',
+    title: '현관–거실 직접 연결',
     desc: '현관이 거실·주방·복도로 바로 열리고, 거실까지 2단계 안에 닿게 합니다(현관–중앙홀 구성).',
     metrics: ['규칙: 거실이 현관에서 2단계 이내', '규칙: 현관이 거실·주방·복도로 바로 열림'],
     refs: ['seo2007'],
@@ -50,8 +50,8 @@ export const SYNTAX_CHOICES = [
 export const LIFESTYLE_CHOICES = [
   {
     key: 'spacious',
-    short: '넓은 공간',
-    title: '나는 공간이 넓은 게 좋아',
+    short: '넓은 공용 공간',
+    title: '넓은 공용 공간',
     desc: '거실을 한 단계 넓게 잡고, 공용 공간 비중을 키우며, 실을 반듯하고 덜 길쭉하게 만듭니다.',
     metrics: ['공용/개인 면적비(높을수록)', '실 종횡비', '실 직사각형도'],
     refs: ['park2024', 'upasani2020', 'rosin1999'],
@@ -60,8 +60,8 @@ export const LIFESTYLE_CHOICES = [
   },
   {
     key: 'bath',
-    short: '화장실',
-    title: '나는 화장실이 좋아',
+    short: '화장실 2개',
+    title: '화장실 2개(공용·부부욕실)',
     desc: '화장실을 2개(공용·부부욕실)로 하고, 안방에 부부욕실을 붙이며, 침실을 거치지 않는 공용 화장실을 둡니다.',
     metrics: ['규칙: 안방에 딸린 화장실(·드레스룸)', '규칙: 침실을 거치지 않는 공용 화장실'],
     refs: ['zeng2025'],
@@ -70,8 +70,8 @@ export const LIFESTYLE_CHOICES = [
   },
   {
     key: 'quiet',
-    short: '방음',
-    title: '나는 방음이 좋아',
+    short: '침실 소음 분리',
+    title: '침실 소음 분리(방음 배치)',
     desc: '침실이 거실·주방·현관과 맞댄 벽을 줄이고(드레스룸·화장실을 완충으로), 침실을 공용 공간보다 깊게 둡니다.',
     metrics: ['소음원과 맞댄 침실 벽 비율(근사)', '공·사 깊이 차'],
     refs: ['park2024', 'ham2017'],
@@ -80,8 +80,8 @@ export const LIFESTYLE_CHOICES = [
   },
   {
     key: 'sunny',
-    short: '햇빛',
-    title: '나는 햇빛이 좋아',
+    short: '채광 확보',
+    title: '채광 확보(거실·침실 외기 접면)',
     desc: '거실·침실이 바깥이나 발코니에 닿는 둘레를 늘립니다.',
     metrics: ['거주실 외기 접면비(높을수록)', '규칙: 모든 거실·침실이 외기·발코니에 접함'],
     refs: ['ju2020', 'zeng2025'],
@@ -89,8 +89,8 @@ export const LIFESTYLE_CHOICES = [
   },
   {
     key: 'storage',
-    short: '수납',
-    title: '나는 수납이 좋아',
+    short: '수납 공간',
+    title: '수납 공간(드레스룸·다목적실)',
     desc: '드레스룸과 다목적실(팬트리·다용도실)을 넣습니다.',
     metrics: ['실 구성: 드레스룸·다목적공간'],
     refs: [],
