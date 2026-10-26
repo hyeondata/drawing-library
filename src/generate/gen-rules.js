@@ -129,9 +129,9 @@ export function rulesOf(stage, c, spec) {
       });
       const needDoor = indoor.filter((r) => !PUBLIC.has(r.type));
       const missing = needDoor.filter((r) => !doors.some((d) => d.to === r.key));
-      add(3, 'rule', '실마다 문 하나(폭 침실 0.9 · 욕실·드레스룸 0.8m): 침실·욕실은 복도 → 거실 → 현관 → 주방 쪽 순으로 먼저 맞닿은 곳, 부부욕실·드레스룸은 안방 쪽', `${lines.filter(Boolean).join(', ')}${missing.length ? ` · 문 없음: ${missing.map((r) => r.name).join(', ')}` : ''}`, !missing.length, [lit('hillier1984', '접근 그래프: 실은 문으로 이어짐'), lit('seo2007', '출입 링크와 인접 링크의 구분'), assume('우선순위(복도 → 거실 → 현관 → 주방)와 문 폭(0.9·0.8m)은 통상 치수·관행')]);
+      add(3, 'rule', '실마다 문 하나(폭 침실 0.9 · 욕실·드레스룸 0.8m): 침실·욕실은 복도 → 거실 → 현관 → 주방 쪽 순으로 먼저 맞닿은 곳, 부부욕실·드레스룸은 안방 쪽. 침실은 다른 침실이나 부속실을 거쳐 들어가게 하지 않음(공용 공간에 못 닿으면 문 없음 → 감점)', `${lines.filter(Boolean).join(', ')}${missing.length ? ` · 문 없음: ${missing.map((r) => r.name).join(', ')}` : ''}`, !missing.length, [lit('hillier1984', '접근 그래프: 실은 문으로 이어짐'), lit('seo2007', '출입 링크와 인접 링크의 구분'), assume('우선순위(복도 → 거실 → 현관 → 주방)와 문 폭(0.9·0.8m)은 통상 치수·관행')]);
       const dc = L.doorCheck || { unreachable: [], throughBedroom: [] };
-      add(4, 'eval', '문으로 이은 그래프에서 현관부터 못 가는 실, 침실을 지나야만 가는 실은 점수 J에서 15점씩 뺌', `못 가는 실 ${dc.unreachable.length}개 · 침실 통과 ${dc.throughBedroom.length}개`, !dc.unreachable.length && !dc.throughBedroom.length, [lit('hillier1984', '접근 그래프의 깊이'), lit('ham2017', '침실 깊이: 사생활 위계'), lit('park2024', '개인 공간은 공용 공간을 거쳐 닿아야 함'), assume('감점 15점은 설계 값')]);
+      add(4, 'eval', '문·개구부로 이은 그래프에서 현관부터 못 가는 실, 침실을 지나야만 가는 실은 점수 J에서 15점씩 뺌(발코니 문은 실내 통로로 치지 않음)', `못 가는 실 ${dc.unreachable.length}개 · 침실 통과 ${dc.throughBedroom.length}개`, !dc.unreachable.length && !dc.throughBedroom.length, [lit('hillier1984', '접근 그래프의 깊이'), lit('ham2017', '침실 깊이: 사생활 위계'), lit('park2024', '개인 공간은 공용 공간을 거쳐 닿아야 함'), assume('감점 15점은 설계 값')]);
       break;
     }
     case 7: {

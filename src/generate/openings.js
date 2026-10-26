@@ -82,6 +82,9 @@ export function placeOpenings(layout) {
   const openings = [];
   const links = [];
   const link = (a, b) => links.push([a.key, b.key]);
+  // 발코니 문(미닫이)은 바깥 공간으로 나가는 문이라 실내 통로로 치지 않는다. 실외기실 같은 바깥 실에 갈 때만 쓴다.
+  const outLinks = [];
+  const outLink = (a, b) => outLinks.push([a.key, b.key]);
   const neighbors = (room) =>
     rooms
       .filter((o) => o !== room)
@@ -130,8 +133,16 @@ export function placeOpenings(layout) {
       chosen = ns.filter(({ o }) => (want === 'master' ? o === master : o.type === want)).sort((a, b) => lengthOf(b.seg) - lengthOf(a.seg))[0];
       if (chosen) break;
     }
-    // 공용 공간에 닿지 않으면 침실이 아닌 이웃(없으면 아무 이웃)으로
-    if (!chosen) chosen = ns.filter(({ o }) => o.type !== '침실' && !OUTDOOR.has(o.type))[0] || ns.filter(({ o }) => !OUTDOOR.has(o.type))[0];
+    // 공용 공간에 닿지 않으면 침실이 아닌 이웃(없으면 아무 이웃)으로.
+    // 단, 침실은 다른 침실이나 안방 부속실(부부욕실·드레스룸)을 거쳐 들어가게 하지 않는다: 그런 침실은 문을 내지 않고
+    // '현관에서 갈 수 없는 실'로 남겨 점수에서 감점되게 한다(그 평면은 다듬기·후보 고르기에서 걸러진다).
+    if (!chosen) {
+      const suite = (o) => o.key === 'bathMaster' || o.key === 'dress';
+      chosen =
+        room.type === '침실'
+          ? ns.filter(({ o }) => o.type !== '침실' && !suite(o) && !OUTDOOR.has(o.type))[0]
+          : ns.filter(({ o }) => o.type !== '침실' && !OUTDOOR.has(o.type))[0] || ns.filter(({ o }) => !OUTDOOR.has(o.type))[0];
+    }
     if (chosen) addDoor(room, chosen.o, chosen.seg);
   }
 
@@ -141,7 +152,7 @@ export function placeOpenings(layout) {
       if (!['거실', '침실', '주방'].includes(o.type)) continue;
       const s = span(seg, Math.max(0.9, lengthOf(seg) * 0.75), 'center');
       if (s) openings.push({ kind: 'sliding', ...s, from: o.key, to: b.key });
-      link(o, b);
+      outLink(o, b);
     }
     for (const seg of exteriorSegments(b, rooms)) {
       if (lengthOf(seg) < 1) continue;
@@ -161,19 +172,21 @@ export function placeOpenings(layout) {
     if (s) openings.push({ kind: 'window', ...s, to: room.key });
   }
 
-  // 문 그래프로 현관에서 갈 수 있는지
-  const adj = new Map(rooms.map((r) => [r.key, []]));
-  for (const [a, b] of links) {
-    adj.get(a)?.push(b);
-    adj.get(b)?.push(a);
-  }
-  const seen = new Set();
-  if (entrance) {
-    const queue = [entrance.key];
-    seen.add(entrance.key);
+  // 문 그래프로 현관에서 갈 수 있는지: 실내 실은 문·개구부로만, 바깥 실(발코니·실외기실)은 발코니 문까지 써서
+  const walk = (pairs, start) => {
+    const adj = new Map(rooms.map((r) => [r.key, []]));
+    for (const [a, b] of pairs) {
+      adj.get(a)?.push(b);
+      adj.get(b)?.push(a);
+    }
+    const seen = new Set(start);
+    const queue = [...start];
     while (queue.length) for (const n of adj.get(queue.shift()) || []) if (!seen.has(n)) (seen.add(n), queue.push(n));
-  }
-  const unreachable = rooms.filter((r) => !seen.has(r.key)).map((r) => r.key);
+    return seen;
+  };
+  const inside = entrance ? walk(links, [entrance.key]) : new Set();
+  const withOut = entrance ? walk([...links, ...outLinks], [...inside]) : new Set();
+  const unreachable = rooms.filter((r) => (OUTDOOR.has(r.type) || r.type === '발코니' ? !withOut.has(r.key) : !inside.has(r.key))).map((r) => r.key);
   // 침실을 지나야만 갈 수 있는 실(통과 침실)
   const throughBedroom = rooms
     .filter((r) => !PUBLIC.has(r.type) && r.type !== '침실' && r.key !== 'bathMaster' && r.key !== 'dress' && !OUTDOOR.has(r.type))
