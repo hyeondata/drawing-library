@@ -192,7 +192,7 @@ function drawCards(L, P) {
         values: `E = <b>${f2(contrib.reduce((s, r) => s + r.c, 0))}</b> (벌점 P = ${tpl.q.penalty}, 변수 ${tpl.q.n}개)<div class="gen-fx-bars">${contrib
           .map((r) => `<div class="gen-fx-bar"><span>${esc(r.label)}</span><i style="--w:${(Math.abs(r.c) / m) * 100}%;background:${r.c < 0 ? 'var(--series-1)' : 'var(--series-2)'}"></i><b class="mono">${d2(r.c)}</b><small class="mono">w ${f2(r.w)} × φ ${f2(r.phi)}</small></div>`)
           .join('')}</div>`,
-        why: '배치는 에너지가 가장 낮은 해입니다. 음수(파랑) 항은 그 배치를 끌어오고, 양수(주황) 항은 밀어냅니다. 원-핫 벌점은 실마다 칸 하나·칸마다 실 하나를 지키게 하고, 그 크기는 한 변수를 뒤집어 얻는 최대 이득보다 조금 크게(작은 유효 벌점) 잡았습니다. 항 가중치 w는 실제 아파트 분포에 맞춰 다시 정한 값입니다.',
+        why: '배치는 에너지가 가장 낮은 해입니다. 음수(파랑) 항은 그 배치를 끌어오고, 양수(주황) 항은 밀어냅니다. 원-핫 벌점은 실마다 칸 하나·칸마다 실 하나를 지키게 하고, 그 크기는 한 변수를 뒤집어 얻을 수 있는 최대 이득보다 조금 크게 잡았습니다(이 도구가 정한 보수적 상한). 항 가중치 w는 실제 아파트 분포에 맞춰 다시 정한 값입니다.',
         vars: [],
         refs: ['lucas2014', 'glover2019', 'ayodele2022', 'jin2011'],
       });
