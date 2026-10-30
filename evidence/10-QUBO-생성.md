@@ -43,7 +43,7 @@
 - 같은 시간 예산(풀이기당 0.15·0.3·1초)과 같은 시드. 풀이기마다 좋은 해 최대 4개를 평면으로 풀고, 같은 횟수(30번)로 연속값을 다듬어 가장 좋은 안을 고릅니다.
 - **2단계 보고**: QUBO 에너지(최적 도달 여부)와 평면의 적합성 J·규칙 충족률을 함께 보이고, 둘의 스피어만 상관을 냅니다. QUBO 에너지는 J의 대리 지표라 에너지 최적이 곧 최고 평면은 아닙니다.
 - 화면의 한 번 실행에는 "n = 1, 통계적 비교 불가"를 적고 우승 표시를 하지 않습니다. 실행 기록(풀이기·시드·예산·에너지·점수)을 JSON으로 받을 수 있습니다.
-- 논문용 실험은 `npm run qubo:bench`: 조건 4개 × 시드 30개 × 알고리즘 9개. 시간 예산을 기계에서 평가 횟수로 보정해 고정하고(재현 가능), 최적 도달률·TTS₉₉·에너지 차·순위 점수 중앙값(IQR)·Friedman 검정·Holm 보정 Wilcoxon·에너지–점수 상관을 [`results/qubo-benchmark.md`](results/qubo-benchmark.md)에 씁니다(Dunning et al. 2018; Derrac et al. 2011; Rønnow et al. 2014).
+- 실험은 켜 둔 풀이기(SA)만 합니다: `npm run sa`(조건 4개 × 시드 20개, 시간 예산별 전역 최적 도달률·TTS₉₉와 3초 평면의 규칙 통과·J, [`results/sa-experiment.md`](results/sa-experiment.md)). 풀이기끼리 비교하는 실험은 하지 않습니다(근거: [18번 문서](18-SA-선택-근거.md)).
 
 ## QUBO 가중치
 
@@ -55,7 +55,7 @@
 
 ## 결과
 
-`npm run qubo:bench`(30시드 × 4조건 × 11알고리즘, 풀이기당 100ms를 평가 횟수로 고정, 손 가중치 + 공간구문 대리 항)의 전체 표와 검정은 [`results/qubo-benchmark.md`](results/qubo-benchmark.md)에 있습니다. 순위 점수는 적합성 J(규칙 충족·면적 부합·선호)이고, 함께 규칙 충족률을 보고합니다.
+켜 둔 풀이기(SA)의 측정값은 [`results/sa-experiment.md`](results/sa-experiment.md)에 있습니다. 다른 풀이기는 꺼 두었고 실험하지 않습니다.
 
 ## D-Wave·전역 최적해 보장 솔버 (오프라인)
 

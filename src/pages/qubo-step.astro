@@ -52,8 +52,8 @@ const steps = [
   {
     kinds: ['qubo'], id: 'weights', n: 6, title: '가중치: 손 → 공간구문 대리 항 → 선호 배수',
     goal: '항마다 얼마나 중요한지를 가중치 w<sub>t</sub>로 정합니다. 이 사이트의 "개선"은 이 가중치를 세 단계로 바꿔 온 과정입니다. 아래 표에서 항마다 단계별 값을 볼 수 있습니다.',
-    eq: 'w<sub>t</sub> = w<sub>손,t</sub> + λ · s · v<sub>t</sub>,&nbsp;&nbsp; s = ‖w<sub>손</sub>‖₁ / ‖v‖₁,&nbsp;&nbsp; 실제 계수 = w<sub>t</sub> · b<sub>t</sub>',
-    note: '① 손 가중치: 시공 가능성 규칙·문헌을 보고 정한 값(점수에 맞춰 다시 정하지 않음). ② 공간구문 대리 항: 공간구문 변수(SCI(E) 논문)를 φ로 회귀한 가중치 v를 λ·s배 해서 더합니다. ③ 선호 배수 b<sub>t</sub>: 그 선호를 고르면 해당 항에 곱합니다(안 고르면 1).',
+    eq: '실제 계수 = w<sub>손,t</sub> · b<sub>t</sub> + λ · s · v<sub>t</sub>,&nbsp;&nbsp; s = ‖w<sub>손</sub>‖₁ / ‖v‖₁',
+    note: '① 손 가중치: 시공 가능성 규칙·문헌을 보고 정한 값(점수에 맞춰 다시 정하지 않음). ② 공간구문 대리 항: 공간구문 변수(SCI(E) 논문)를 φ로 회귀한 가중치 v를 λ·s배 해서 더합니다. ③ 선호 배수 b<sub>t</sub>: 그 선호를 고르면 해당 항의 기본 가중치에 곱합니다(안 고르면 1, 대리 항에는 곱하지 않음).',
     code: show(Q, 'weightsOf', 'withSyntax'),
   },
   {

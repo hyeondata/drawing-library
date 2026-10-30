@@ -162,9 +162,10 @@ function renderWeights() {
   const f = (v, d = 2) => (Math.abs(v) < 1e-9 ? '0' : v.toFixed(d));
   const rows = TERMS.map((t) => {
     const w = q.weights[t.id] ?? 0;
-    const syn = w - (w0[t.id] ?? 0);
     const on = Boolean(t.pref && spec.prefs.includes(t.pref[0]));
     const b = on ? t.pref[1] : 1;
+    // 실제 계수 = 기본 × 배수 + 대리 항(q.weights는 대리 몫을 배수로 나눠 둔 값)
+    const syn = (w - (w0[t.id] ?? 0)) * b;
     const used = q.unit[t.id].lin.size + q.unit[t.id].quad.size > 0;
     const coef = w * b;
     const sign = coef < -1e-9 ? '보상' : coef > 1e-9 ? '감점' : '—';
@@ -172,8 +173,8 @@ function renderWeights() {
   });
   const syn = q.syntaxTerms.length ? `공간구문 대리 항: ${q.syntaxTerms.map((a) => `${esc(a.label)}(λ·s = ${a.scale.toFixed(3)})`).join(', ')}.` : '공간구문 선호를 고르지 않아 대리 항이 없습니다.';
   $('#gen-qw-table').innerHTML =
-    `<p class="note">변수 ${q.n}개(앞 띠 ${q.bands.front.rooms.length}실 × ${q.bands.front.slots}칸, 뒤 띠 ${q.bands.back.rooms.length}실 × ${q.bands.back.slots}칸), 원-핫 벌점 P = ${q.penalty}. 에너지 = Σ 실제 계수 × 항 값 + P × 원-핫 위반. 음수는 그 배치를 원함(보상), 양수는 피함(감점). ${syn}</p>` +
-    `<div class="mt-scroll"><table class="gen-table"><thead><tr><th>항</th><th>기본 가중치</th><th>+ 대리 항</th><th>선호 배수</th><th>실제 계수</th><th></th><th>근거</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` +
+    `<p class="note">변수 ${q.n}개(앞 띠 ${q.bands.front.rooms.length}실 × ${q.bands.front.slots}칸, 뒤 띠 ${q.bands.back.rooms.length}실 × ${q.bands.back.slots}칸), 원-핫 벌점 P = ${q.penalty}. 에너지 = Σ 실제 계수 × 항 값 + P × 원-핫 위반, 실제 계수 = 기본 가중치 × 선호 배수 + 대리 항. 음수는 그 배치를 원함(보상), 양수는 피함(감점). ${syn}</p>` +
+    `<div class="mt-scroll"><table class="gen-table"><thead><tr><th>항</th><th>기본 가중치</th><th>+ 대리 항</th><th>선호 배수(기본에만)</th><th>실제 계수</th><th></th><th>근거</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` +
     `<p class="note">기본 가중치는 시공 가능성 규칙과 문헌을 보고 정한 값이고 점수에 맞춰 보정하지 않았습니다(<a href="${base}method/#qubo">방법과 근거 3.3절</a>). 굵은 선호 배수는 지금 고른 선호로 켜진 것, 흐린 줄은 이 조건에 해당 실이 없어 쓰지 않는 항입니다.</p>`;
 }
 
@@ -306,7 +307,7 @@ function renderCompare() {
       <p class="note">
         가중치: ${cmp.qubo.weights === 'hand' ? '손으로 정한 값' : '직접 준 값'}. QUBO 템플릿 ${cmp.qubo.templates.length}개(앞 띠 침실 수가 다름): ${cmp.qubo.templates.map((t) => `앞 침실 ${t.k + 1}개 — 변수 ${t.n}개(앞 ${t.front.length}실×${t.front.length}칸, 뒤 ${t.back.length}실×${t.back.length}칸), 벌점 ${t.penalty}${optOf(t.k) !== null ? `, 최적 에너지 ${optOf(t.k).toFixed(2)}` : ''}`).join(' / ')}. 에너지는 같은 템플릿끼리만 비교합니다.
         풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 깊이·폭을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
-        <b>n = 1(한 번 실행), 통계적 비교 불가</b> — 어느 알고리즘이 낫다고 말할 수 없습니다(시드 30개 비교는 evidence/results/qubo-benchmark.md). 시드를 바꿔 다시 돌려 보세요. SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
+        <b>n = 1(한 번 실행)</b> — 시드를 바꿔 다시 돌려 보세요(SA의 시드 20개 측정값은 evidence/results/sa-experiment.md). SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
       </p>
       <div class="gen-scatter" id="gen-scatter"></div>
       <button type="button" class="button-ghost small" id="gen-record">실행 기록 JSON</button>

@@ -335,3 +335,20 @@ test('SA 생성: 화장실 3개 조건에서 욕실 3개를 놓고, 필수 규�
     assert.equal(x.doorIssues, 0);
   }
 });
+
+test('QUBO 실제 계수 = 기본 가중치 × 선호 배수 + 대리 항(선호 배수는 대리 항에 곱하지 않는다)', async () => {
+  const { TERMS, buildQubo, weightsOf, withSyntax } = await import('../src/generate/qubo.js');
+  const targets = { living: 0.264, kitchen: 0.139, master: 0.145, other: 0.091, bath: 0.035, entrance: 0.034, dress: 0.05, multi: 0.034 };
+  const spec = { area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true, targets, prefs: ['livingCentral', 'quiet'] };
+  const q = buildQubo(spec);
+  const base = weightsOf('hand');
+  const sx = withSyntax(base, spec.prefs).weights;
+  for (const t of TERMS) {
+    const b = t.pref && spec.prefs.includes(t.pref[0]) ? t.pref[1] : 1;
+    const want = base[t.id] * b + (sx[t.id] - base[t.id]);
+    assert.ok(Math.abs(q.weights[t.id] * b - want) < 1e-9, t.id);
+  }
+  // 소음 분리를 고르면 침실–거실 옆 계수는 고르지 않았을 때보다 커야(덜 보상) 한다.
+  const q0 = buildQubo({ ...spec, prefs: ['livingCentral'] });
+  assert.ok(q.weights.bedLiving * 2 > q0.weights.bedLiving);
+});

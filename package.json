@@ -15,9 +15,9 @@
     "check": "npm test && npm run drawings",
     "deploy": "wrangler deploy",
     "ocr": "node scripts/copy-ocr.mjs",
-    "qubo:bench": "node scripts/qubo-benchmark.mjs --seeds 30 --budget 100",
     "stats": "node scripts/build-aihub-stats.mjs",
-    "syntax": "node scripts/syntax-surrogate.mjs"
+    "syntax": "node scripts/syntax-surrogate.mjs",
+    "sa": "node scripts/sa-experiment.mjs --seeds 20"
   },
   "dependencies": {
     "@tesseract.js-data/kor": "^1.0.0",

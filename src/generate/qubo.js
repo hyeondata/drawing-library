@@ -81,7 +81,13 @@ export function frontBedCount(spec) {
 export function buildQubo(spec, { frontBeds = null, weights = 'hand', syntax = true } = {}) {
   // 공간구문 대리 항은 정해진 가중치 세트(손)에만 더한다(직접 준 가중치 객체는 그대로).
   const sx = syntax && typeof weights === 'string' ? withSyntax(weightsOf(weights), spec.prefs || []) : { weights: weightsOf(weights), added: [] };
-  const W = sx.weights;
+  // 선호 배수는 기본 가중치에만 곱한다: 실제 계수 = 기본 × 배수 + 대리 항.
+  // 항 값(unit)에 배수가 이미 들어 있으므로 대리 몫은 배수로 나눠 둔다(w × 배수 = 기본 × 배수 + 대리 항).
+  // 배수까지 대리 항에 곱하면, 대리 항이 부호를 뒤집은 항(예: 침실–거실 옆)을 그 선호(소음 분리)가 오히려 키운다.
+  const base0 = weightsOf(weights);
+  const boostOfTerm = (t) => (t.pref ? boost(spec, t.pref[0], t.pref[1]) : 1);
+  const W = { ...sx.weights };
+  if (sx.added.length) for (const t of TERMS) W[t.id] = (base0[t.id] ?? 0) + ((sx.weights[t.id] ?? 0) - (base0[t.id] ?? 0)) / boostOfTerm(t);
   const program = programOf(spec);
   const by = Object.fromEntries(program.map((r) => [r.key, r]));
   const kFront = frontBeds ?? frontBedCount(spec);
