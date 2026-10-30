@@ -5,6 +5,9 @@
  * 전체 데이터에서 아파트 평면도 고유 세대의 도달성 규칙 통과율이 94%라 벽 간격 기준(32·50px)은 그대로 두었다.
  */
 export const THRESHOLDS = {
+  // 현관 라벨 두 개가 이 거리(px) 미만이면 한 현관이 쪼개진 것(같은 세대)으로 본다. AI 허브 APT_FP 전체의 현관 쌍 거리는
+  // 0~7px(선 하나로 갈림, 약 1,990쌍)과 10~22px(벽을 사이에 둔 이웃 세대, 약 90쌍)로 나뉘고 8px에는 한 쌍도 없다.
+  entranceSplitGap: 8,
   // 실 사이 간격은 대부분 25px 이하(벽 두께). 32px 이내면 같은 벽을 공유한다고 본다.
   adjacencyGap: 32,
   // 발코니·실외기실·다목적공간과의 경계는 외벽이라 더 두껍다(실측 37~48px).
@@ -49,7 +52,7 @@ export const GATE_RULES = new Set(['program', 'reachable', 'bedroomPrivacy']);
 /**
  * 선택 규칙: 실제 아파트 평면도(APT_FP 고유 세대, evidence/results/aihub-summary.md)의 통과율이 OPTIONAL_BELOW 미만인 규칙.
  * 실제 평면도 상당수가 따르지 않으므로 모든 평면에 요구하지 않고, 그 조건을 고른 선호(화장실 2개)에서만 쓴다.
- * 지금은 안방 부속실(80.2%)뿐이다. 채광은 91.3%라 필수로 남긴다. test/model.test.js가 이 목록과 데이터가 맞는지 검사한다.
+ * 지금은 안방 부속실(79.8%)뿐이다. 채광은 90.5%라 필수로 남긴다. test/model.test.js가 이 목록과 데이터가 맞는지 검사한다.
  */
 export const OPTIONAL_BELOW = 0.9;
 export const OPTIONAL_RULES = new Set(['masterSuite']);

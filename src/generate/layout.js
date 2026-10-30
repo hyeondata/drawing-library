@@ -66,7 +66,7 @@ export function programOf(spec) {
   for (let i = 1; i < spec.bedrooms; i++) rooms.push({ key: `bed${i}`, type: '침실', name: `침실${i + 1}`, area: Math.max(MIN_AREA.bedroom, t.other * A) });
   rooms.push({ key: 'bathPublic', type: '화장실', name: spec.baths >= 2 ? '공용욕실' : '욕실', area: Math.max(MIN_AREA.bath, t.bath * A) });
   if (spec.baths >= 2) rooms.push({ key: 'bathMaster', type: '화장실', name: '부부욕실', area: Math.max(MIN_AREA.bath, t.bath * A * 0.9) });
-  // 화장실 3개: 아파트 평면도 전체에서 방 4개 세대의 31%, 방 5개 세대의 31%가 3개(src/generate/aihub-stats.js). 침실 쪽 두 번째 공용 욕실로 둔다.
+  // 화장실 3개: 아파트 평면도 전체에서 방 4개 세대의 36%, 방 5개 세대의 57%가 3개 이상(src/generate/aihub-stats.js). 침실 쪽 두 번째 공용 욕실로 둔다.
   if (spec.baths >= 3) rooms.push({ key: 'bath3', type: '화장실', name: '욕실3', area: Math.max(MIN_AREA.bath, t.bath * A * 0.9) });
   if (spec.dress) rooms.push({ key: 'dress', type: '드레스룸', name: '드레스룸', area: Math.max(MIN_AREA.dress, t.dress * A) });
   if (spec.multi) rooms.push({ key: 'multi', type: '다목적공간', name: '다목적실', area: t.multi * A });

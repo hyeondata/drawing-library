@@ -57,10 +57,12 @@ function neighborsOf(n, edges, keep) {
 }
 
 /**
- * 세대 분리. 현관마다 출발해 벽 두께를 비용으로 한 최단경로로 실을 배정한다.
+ * 세대 분리: 현관 하나 = 세대 하나. 거리가 entranceSplitGap 미만인 현관 라벨은 한 현관이 쪼개진 것으로 보고 묶는다(벽을 사이에 둔 이웃 세대 현관은 10px 이상 떨어져 있다).
+ * 현관 묶음마다 출발해 벽 두께를 비용으로 한 최단경로로 실을 배정한다.
  * 세대 경계벽은 내벽보다 두꺼워 비용이 커지므로 이웃 세대로 잘 넘어가지 않는다.
+ * 떨어진 현관은 따로 세대가 된다(도면 가장자리에 걸린 이웃 세대 조각이면 거실·침실이 없어 필수 실 규칙에서 걸린다).
  */
-function assignUnits(spaces, edges) {
+function assignUnits(spaces, edges, gap = THRESHOLDS.entranceSplitGap) {
   const isPrivate = (i) => !COMMON_TYPES.has(spaces[i].type);
   const adj = Array.from({ length: spaces.length }, () => []);
   for (const [i, j, , gap] of edges) {
@@ -79,12 +81,23 @@ function assignUnits(spaces, edges) {
     entrances = [living ?? [...priv].sort((a, b) => spaces[b].area - spaces[a].area)[0]];
     rootless = true;
   }
+  // 맞닿은 현관끼리 묶는다(union-find). 묶음의 첫 현관이 세대 기준점이다.
+  const parent = entrances.map((_, k) => k);
+  const find = (k) => (parent[k] === k ? k : (parent[k] = find(parent[k])));
+  if (!rootless)
+    for (let a = 0; a < entrances.length; a++)
+      for (let b = a + 1; b < entrances.length; b++)
+        if (polygonDistance(spaces[entrances[a]].polys, spaces[entrances[b]].polys) < gap) parent[find(b)] = find(a);
+  const groups = [...new Set(entrances.map((_, k) => find(k)))].map((g) => entrances.filter((_, k) => find(k) === g));
   const unitOf = new Array(spaces.length).fill(-1);
   const cost = new Array(spaces.length).fill(Infinity);
-  entrances.forEach((e, u) => {
-    unitOf[e] = u;
-    cost[e] = 0;
+  groups.forEach((g, u) => {
+    for (const e of g) {
+      unitOf[e] = u;
+      cost[e] = 0;
+    }
   });
+  entrances = groups.map((g) => g[0]);
   const done = new Set();
   for (;;) {
     let x = -1;
@@ -99,27 +112,7 @@ function assignUnits(spaces, edges) {
     }
   }
 
-  // 거실도 침실도 없는 조각(현관이 둘로 나뉜 경우 등)은 가장 많이 맞닿은 세대에 합친다.
-  let roots = entrances.map((e, u) => u);
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const u of roots) {
-      const members = spaces.map((s, i) => i).filter((i) => unitOf[i] === u);
-      if (members.some((i) => ['거실', '침실'].includes(spaces[i].type))) continue;
-      const contact = new Map();
-      for (const [i, j, len] of edges) {
-        const [a, b] = unitOf[i] === u ? [i, j] : [j, i];
-        if (unitOf[a] !== u || unitOf[b] === u || unitOf[b] < 0 || !isPrivate(b)) continue;
-        contact.set(unitOf[b], (contact.get(unitOf[b]) || 0) + len);
-      }
-      if (!contact.size) continue;
-      const target = [...contact.entries()].sort((p, q) => q[1] - p[1])[0][0];
-      for (const i of members) unitOf[i] = target;
-      roots = roots.filter((r) => r !== u);
-      changed = true;
-      break;
-    }
-  }
+  const roots = entrances.map((e, u) => u);
 
   // 어느 현관에서도 닿지 않는 실은 가장 가까운 세대에 넣고 '고립'으로 표시한다.
   const stranded = new Set();
@@ -142,7 +135,6 @@ function assignUnits(spaces, edges) {
   for (let i = 0; i < unitOf.length; i++) if (unitOf[i] >= 0) unitOf[i] = remap.get(unitOf[i]);
   const units = roots.map((u, k) => {
     const members = spaces.map((s, i) => i).filter((i) => unitOf[i] === k);
-    // 합쳐진 세대는 원래 현관을 기준점으로 유지한다.
     return { index: k, root: entrances[u], members };
   });
   return { units, unitOf, rootless, stranded };
@@ -356,7 +348,7 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded, T) {
   rule('publicBath', '침실을 거치지 않는 공용 화장실', 1, publicBath ? 1 : 0,
     baths.length ? (publicBath ? '있음' : '모든 화장실이 침실 안쪽') : '화장실 없음');
 
-  // 채광 가능: 모든 거실·침실이 외기나 발코니에 창을 낼 만큼(배율 1에서 81px ≈ 0.9m) 열려 있다. 아파트 평면도 전체 통과율 91%라 필수 규칙으로 둔다(OPTIONAL_RULES 참고).
+  // 채광 가능: 모든 거실·침실이 외기나 발코니에 창을 낼 만큼(배율 1에서 81px ≈ 0.9m) 열려 있다. 아파트 평면도 고유 세대 통과율 90.5%라 필수 규칙으로 둔다(OPTIONAL_RULES 참고).
   const dark = livable.filter((e) => e.ext < THRESHOLDS.windowMinLength * T.scale);
   rule('daylight', '모든 거실·침실이 외기·발코니에 접함', 1, livable.length ? 1 - dark.length / livable.length : 0,
     dark.length ? `외기에 닿지 않는 실: ${dark.map((e) => e.type).join(', ')}` : '모두 접함');
@@ -394,7 +386,7 @@ export function analyzeSPA(parsed) {
   const spaces = parsed.items.filter((it) => it.group === '공간');
   const T = scaledThresholds(drawingScale(spaces));
   const edges = buildAdjacency(spaces, T);
-  const { units, unitOf, rootless, stranded } = assignUnits(spaces, edges);
+  const { units, unitOf, rootless, stranded } = assignUnits(spaces, edges, T.entranceSplitGap);
   return {
     kind: 'SPA',
     spaces: spaces.map((s, i) => ({ id: s.id, type: s.type, area: s.area, center: s.center, polys: s.polys, unit: unitOf[i], common: COMMON_TYPES.has(s.type) })),

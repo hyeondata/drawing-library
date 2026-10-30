@@ -52,7 +52,7 @@ export const KINDS = {
     random: '없음',
     why: 'QUBO 에너지는 J의 대리(근사)라서, 마지막 판단은 원래 목표인 규칙과 조건으로 해야 하기 때문',
     analogy: '완성된 설계를 체크리스트로 검토하기',
-    basis: [data('규칙 통과율: AI 허브 아파트 평면도 고유 세대 7,912개(통과율 90% 이상은 필수, 미만은 선택 규칙)'), lit('hillier-syntax'), lit('byun-living'), lit('zeng-geom'), lit('zeng-master'), lit('jin-surrogate')],
+    basis: [data('규칙 통과율: AI 허브 아파트 평면도 고유 세대 7,970개(통과율 90% 이상은 필수, 미만은 선택 규칙)'), lit('hillier-syntax'), lit('byun-living'), lit('zeng-geom'), lit('zeng-master'), lit('jin-surrogate')],
   },
 };
 
