@@ -30,7 +30,7 @@ export const REFS = {
   lopes2010: { short: 'Lopes et al. 2010', idx: '학회', url: 'https://publications.graphics.tudelft.nl/papers/584' },
   dunning2018: { short: 'Dunning et al. 2018', idx: 'SCIE', url: 'https://doi.org/10.1287/ijoc.2017.0798' },
 };
-/** 근거 조각: lit(문헌) · law(법령) · data(데이터·평가 모델) · assume(설계 가정) */
+/** 근거 조각: lit(문헌) · law(법령) · data(AI 허브 아파트 평면도 전체 데이터) · assume(설계 가정) */
 // 문헌 근거는 원문과 대조한 항목(citations.js)의 키로만 단다. 설명·원문 문장·위치·검증 수준이 함께 따라온다.
 export const lit = (key) => {
   const c = CLAIMS[key];
@@ -38,7 +38,7 @@ export const lit = (key) => {
   return { type: 'lit', id: c.ref, key, what: c.ko };
 };
 const law = (label, what, url = '') => ({ type: 'law', label, what, url });
-export const data = (what) => ({ type: 'data', label: 'AI 허브 35세대 · 평가 모델', what });
+export const data = (what) => ({ type: 'data', label: 'AI 허브 아파트 평면도 전체', what });
 export const assume = (what) => ({ type: 'assume', label: '설계 가정', what });
 
 const f1 = (v) => Number(v).toFixed(1);
@@ -90,12 +90,12 @@ export function rulesOf(stage, c, spec) {
       if (qubo) {
         const tpl = c.algo.perTemplate?.find((t) => t.k === c.algo.template);
         add(1, 'qubo', '실마다 칸 하나, 칸마다 실 하나 — 어기면 큰 벌점 P(Σx − 1)²', tpl ? (tpl.feasible ? '풀이기 해가 모두 지킴' : '풀이기 해가 어김 → 규칙으로 복구') : '—', tpl ? tpl.feasible : null, [lit('lucas-onehot'), lit('glover-qap'), lit('ayodele-penalty')]);
-        add(2, 'qubo', '실 쌍 관계: 주방–거실·현관–거실은 맞닿으면 보상, 침실–현관은 맞닿으면 감점 (가중치는 평가 모델로 보정)', `주방–거실 ${touches(kit, liv) ? '맞닿음' : '안 닿음'} · 현관–거실 ${touches(ent, liv) ? '맞닿음' : '안 닿음'} · 침실–현관 ${bedsAtEnt.length ? `맞닿음(${bedsAtEnt.join(', ')})` : '안 닿음'}`, !bedsAtEnt.length, [lit('seo-hall97'), lit('seo-bands'), lit('byun-living'), lit('ham-depth'), lit('park-privacy'), lit('jin-surrogate'), data('가중치를 20개 조건·9,567개 배치의 평가 점수로 보정')]);
-      } else add(1, 'search', '"기존: 모델 직접 탐색" — 실 순서와 치수를 무작위로 뽑고 조금씩 바꿔 점수 J가 오르면 채택(QUBO 없음)', '이 안은 직접 탐색으로 만든 순서', null, [lit('michalek-hybrid'), lit('merrell-metropolis')]);
+        add(2, 'qubo', '실 쌍 관계: 주방–거실·현관–거실은 맞닿으면 보상, 침실–현관은 맞닿으면 감점 (가중치는 손으로 정함)', `주방–거실 ${touches(kit, liv) ? '맞닿음' : '안 닿음'} · 현관–거실 ${touches(ent, liv) ? '맞닿음' : '안 닿음'} · 침실–현관 ${bedsAtEnt.length ? `맞닿음(${bedsAtEnt.join(', ')})` : '안 닿음'}`, !bedsAtEnt.length, [lit('seo-hall97'), lit('seo-bands'), lit('byun-living'), lit('ham-depth'), lit('park-privacy'), lit('jin-surrogate'), assume('가중치는 규칙·문헌으로 손으로 정하고 점수에 맞춰 보정하지 않음')]);
+      } else add(1, 'search', '"기존: J 직접 탐색" — 실 순서와 치수를 무작위로 뽑고 조금씩 바꿔 J가 오르면 채택(QUBO 없음)', '이 안은 직접 탐색으로 만든 순서', null, [lit('michalek-hybrid'), lit('merrell-metropolis')]);
       const masterAtEnd = front.length && (front[0].key === 'master' || front.at(-1).key === 'master');
-      add(3, 'rule', '안방은 앞 띠의 끝 칸(가운데에 오면 가까운 끝으로 옮김) — 부속실을 뒤에 붙이려고', masterAtEnd ? '안방이 끝 칸' : '안방이 끝이 아님', masterAtEnd, [lit('seo-master'), lit('zeng-master'), data('평가 모델 규칙: 안방에 딸린 부속실'), assume('부속실을 뒤에 붙이기 위해 끝 칸에 둠')]);
+      add(3, 'rule', '안방은 앞 띠의 끝 칸(가운데에 오면 가까운 끝으로 옮김) — 부속실을 뒤에 붙이려고', masterAtEnd ? '안방이 끝 칸' : '안방이 끝이 아님', masterAtEnd, [lit('seo-master'), lit('zeng-master'), data('선택 규칙: 안방에 딸린 부속실(실제 아파트 통과율 78%)'), assume('부속실을 뒤에 붙이기 위해 끝 칸에 둠')]);
       const suite = ['bathMaster', 'dress'].filter((k) => by[k]);
-      if (suite.length) add(4, 'rule', '부부욕실·드레스룸은 배치 변수에서 빼고 안방 뒤에 붙임', suite.map((k) => `${name(k)} ${touches(by[k], by.master) ? '안방에 붙음' : '안방과 떨어짐'}`).join(' · '), suite.every((k) => touches(by[k], by.master)), [lit('ham-suite'), data('평가 모델 규칙: 안방에 딸린 화장실·드레스룸(맞닿은 부속실 ÷ 필요한 부속실)')]);
+      if (suite.length) add(4, 'rule', '부부욕실·드레스룸은 배치 변수에서 빼고 안방 뒤에 붙임', suite.map((k) => `${name(k)} ${touches(by[k], by.master) ? '안방에 붙음' : '안방과 떨어짐'}`).join(' · '), suite.every((k) => touches(by[k], by.master)), [lit('ham-suite'), data('선택 규칙: 안방에 딸린 화장실·드레스룸(맞닿은 부속실 ÷ 필요한 부속실, 실제 아파트 통과율 78%)')]);
       break;
     }
     case 4: {
@@ -165,13 +165,13 @@ export function rulesOf(stage, c, spec) {
     }
   }
   // 규칙마다 실제 알고리즘 이름(방식 배지보다 구체적으로)
-  const DEF = { rule: '닫힌 식·규칙', qubo: 'QUBO + 풀이기', search: '확률적 언덕 오르기', sa: '담금질(SA)', eval: '평가 모델 채점' };
+  const DEF = { rule: '닫힌 식·규칙', qubo: 'QUBO + 풀이기', search: '확률적 언덕 오르기', sa: '담금질(SA)', eval: '규칙·조건 점검' };
   const OV = [
     ['폭 W = 전용면적', '닫힌 식'],
     ['앞 띠 작은방 수', '조건식 + 후보 2개 비교(argmax)'],
     ['실마다 칸 하나', 'QUBO 원-핫 벌점'],
     ['실 쌍 관계', 'QUBO 이차 항(보상·감점)'],
-    ['"기존: 모델 직접 탐색"', '무작위 탐색 + 확률적 언덕 오르기'],
+    ['"기존: J 직접 탐색"', '무작위 탐색 + 확률적 언덕 오르기'],
     ['안방은 앞 띠의 끝', '해 복구 규칙(decode)'],
     ['부부욕실·드레스룸은 배치 변수', '부속 배치 규칙'],
     ['띠 폭을 나눌 때', '비례 배분 식'],
@@ -218,4 +218,4 @@ export function basisHtml(basis = []) {
     })
     .join('')}</div>`;
 }
-export const BASIS_LEGEND = '<div class="gr-legend"><span class="gr-cite lit lv-direct"><b>문헌</b><em class="gr-lv">원문에 있음</em></span><span class="gr-cite lit lv-adapted"><b>문헌</b><em class="gr-lv">원문 개념 → 이 도구 규칙</em></span><span class="gr-cite lit lv-unverified"><b>문헌</b><em class="gr-lv">초록만 확인</em></span><span class="gr-cite law"><b>법령</b></span><span class="gr-cite data"><b>데이터</b><small>AI 허브 35세대</small></span><span class="gr-cite assume"><b>설계 가정</b></span><span class="note">문헌 근거는 2026-10-28에 원문을 열어 한 줄씩 대조했습니다. <b>원문에 있음</b>: 적힌 내용이 원문에 있음. <b>원문 개념 → 이 도구 규칙</b>: 원문의 관찰·개념을 이 도구가 규칙으로 옮겼고 수치·식은 이 도구가 정함. <b>초록만 확인</b>: 전문을 열람하지 못함. 「원문」을 누르면 원문 문장과 쪽이 나옵니다. 설계 가정은 문헌 근거 없이 이 도구가 정한 값입니다.</span></div>';
+export const BASIS_LEGEND = '<div class="gr-legend"><span class="gr-cite lit lv-direct"><b>문헌</b><em class="gr-lv">원문에 있음</em></span><span class="gr-cite lit lv-adapted"><b>문헌</b><em class="gr-lv">원문 개념 → 이 도구 규칙</em></span><span class="gr-cite lit lv-unverified"><b>문헌</b><em class="gr-lv">초록만 확인</em></span><span class="gr-cite law"><b>법령</b></span><span class="gr-cite data"><b>데이터</b><small>AI 허브 아파트 평면도 전체</small></span><span class="gr-cite assume"><b>설계 가정</b></span><span class="note">문헌 근거는 2026-10-28에 원문을 열어 한 줄씩 대조했습니다. <b>원문에 있음</b>: 적힌 내용이 원문에 있음. <b>원문 개념 → 이 도구 규칙</b>: 원문의 관찰·개념을 이 도구가 규칙으로 옮겼고 수치·식은 이 도구가 정함. <b>초록만 확인</b>: 전문을 열람하지 못함. 「원문」을 누르면 원문 문장과 쪽이 나옵니다. 설계 가정은 문헌 근거 없이 이 도구가 정한 값입니다.</span></div>';

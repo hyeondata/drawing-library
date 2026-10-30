@@ -11,14 +11,14 @@ import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
-const { base, steps, targets, refs } = data;
+const { base, steps, byBedrooms, refs } = data;
 const $ = (s) => document.querySelector(s);
 const form = $('#gen-form');
 const HANDOFF_KEY = 'floorplan-eval:image';
 const RESULT = steps.length - 1;
 const PREF = Object.fromEntries([...data.syntax, ...data.lifestyle].map((c) => [c.key, c]));
 
-const state = { view: 'full', compare: null, gallery: [], timeline: null, timeAt: null, timeLane: 0, step: 0, reached: 0, bedroomsTouched: false, baseline: null, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
+const state = { view: 'full', compare: null, gallery: [], timeline: null, timeAt: null, timeLane: 0, step: 0, reached: 0, bedroomsTouched: false, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
 
 // ---------- 선택 읽기 ----------
 const radio = (name) => form.querySelector(`input[name="${name}"]:checked`);
@@ -36,6 +36,7 @@ function buildSpec() {
   if (life.includes('spacious')) li = Math.min(data.living.length - 1, li + 1);
   const other = Number(radio('roomSize').dataset.share);
   const ratio = Number(radio('master').dataset.ratio);
+  const targets = byBedrooms[bedrooms].targets;
   return {
     area,
     bedrooms,
@@ -63,6 +64,22 @@ function summary() {
   const parts = [labelOf(radio('area')), `거실 ${labelOf(radio('living'))}`, labelOf(radio('bedrooms')), `작은방 ${labelOf(radio('roomSize'))}`];
   const prefs = [...checks('syntax'), ...checks('lifestyle')].map((k) => PREF[k].short);
   return parts.join(' · ') + (prefs.length ? ` · ${prefs.join(', ')}` : '');
+}
+
+/** 침실 수를 바꾸면 작은방·안방 선택지를 그 침실 수 세대의 분위수로 바꾼다. */
+function updateRoomSize() {
+  const opts = byBedrooms[radio('bedrooms').value];
+  for (const [name, key] of [['roomSize', 'share'], ['master', 'ratio']]) {
+    for (const o of opts[name]) {
+      const input = form.querySelector(`input[name="${name}"][value="${o.key}"]`);
+      input.dataset[key] = o[key];
+      const label = input.closest('.gen-opt');
+      const m2 = label.querySelector('[data-share-m2]');
+      if (m2) m2.dataset.shareM2 = o[key];
+      label.querySelector('span:last-child').textContent = o.sub;
+    }
+  }
+  updateM2();
 }
 
 function updateM2() {
@@ -97,13 +114,17 @@ $('#gen-prev').addEventListener('click', () => show(Math.max(0, state.step - 1))
 document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => show(Number(b.dataset.goto))));
 form.addEventListener('submit', (e) => e.preventDefault());
 form.addEventListener('change', (e) => {
-  if (e.target.name === 'bedrooms') state.bedroomsTouched = true;
+  if (e.target.name === 'bedrooms') {
+    state.bedroomsTouched = true;
+    updateRoomSize();
+  }
   if (e.target.name === 'area') {
     updateM2();
     // 평수에 흔한 침실 수를 먼저 고른다(직접 바꾼 뒤에는 그대로 둔다).
     if (!state.bedroomsTouched) {
       const b = form.querySelector(`input[name="bedrooms"][value="${e.target.dataset.bedrooms}"]`);
       if (b) b.checked = true;
+      updateRoomSize();
     }
   }
   $('#gen-summary').textContent = summary();
@@ -112,10 +133,6 @@ form.addEventListener('change', (e) => {
 });
 
 // ---------- 생성 ----------
-async function loadBaseline() {
-  if (!state.baseline) state.baseline = await (await fetch(`${base}data/baseline.json`)).json();
-  return state.baseline;
-}
 function getWorker() {
   if (!state.worker) state.worker = new Worker(new URL('./generate-worker.js', import.meta.url), { type: 'module' });
   return state.worker;
@@ -130,20 +147,13 @@ async function run(seed = state.seed) {
   const id = ++state.runId;
   $('#gen-result').hidden = true;
   $('#gen-progress').hidden = false;
-  setProgress(0, '기준 분포를 읽는 중…');
-  let baseline;
-  try {
-    baseline = await loadBaseline();
-  } catch {
-    setProgress(0, '기준 분포를 읽지 못했습니다. 새로 고쳐 주세요.');
-    return;
-  }
+  setProgress(0, '평면을 만드는 중…');
   const w = getWorker();
   const t0 = performance.now();
   w.onmessage = (e) => {
     const m = e.data;
     if (m.id !== state.runId) return;
-    if (m.progress !== undefined) setProgress(m.progress, `평면을 만들고 평가하는 중… ${Math.round(m.progress * 100)}%`);
+    if (m.progress !== undefined) setProgress(m.progress, `평면을 만들고 고르는 중… ${Math.round(m.progress * 100)}%`);
     if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
     if (m.done) {
       state.top = m.top;
@@ -157,7 +167,7 @@ async function run(seed = state.seed) {
       renderResult();
     }
   };
-  w.postMessage({ id, spec, baseline, seed });
+  w.postMessage({ id, spec, seed });
 }
 
 // ---------- 알고리즘 비교(QUBO 풀이기) ----------
@@ -172,8 +182,7 @@ async function runCompare(algorithms, seed) {
   const id = ++state.runId;
   $('#gen-result').hidden = true;
   $('#gen-progress').hidden = false;
-  setProgress(0, '기준 분포를 읽는 중…');
-  const baseline = await loadBaseline();
+  setProgress(0, '실행 준비 중…');
   const w = getWorker();
   const t0 = performance.now();
   w.onmessage = (e) => {
@@ -193,10 +202,10 @@ async function runCompare(algorithms, seed) {
       renderResult();
     }
   };
-  w.postMessage({ type: 'compare', id, spec, baseline, seed, algorithms, budgetMs, weights: $('#gen-weights').value });
+  w.postMessage({ type: 'compare', id, spec, seed, algorithms, budgetMs, weights: $('#gen-weights').value });
 }
 
-// QUBO 에너지와 평가 점수 산점도: 풀이기가 낸 후보(템플릿별)를 평면으로 풀어 잰 점수와 그 해의 에너지.
+// QUBO 에너지와 적합성 산점도: 풀이기가 낸 후보(템플릿별)를 평면으로 풀어 잰 점수와 그 해의 에너지.
 const FAMILY = { d2ts: 'tabu', pr: 'tabu', memetic: 'tabu', tabu: 'tabu', sa: 'stoch', sqa: 'stoch', pt: 'stoch', sb: 'stoch', cpsat: 'exact', exact: 'exact' };
 const FAMILY_STYLE = {
   tabu: { color: 'var(--cat-1)', label: 'tabu 계열(D²TS·PR·Memetic·Tabu)' },
@@ -219,21 +228,21 @@ function renderScatter(cmp) {
   const panels = tpls.map((k) => {
     const pp = pts.filter((p) => p[0] === k);
     const rho = pp.length >= 4 ? spearman(pp.map((p) => p[1]), pp.map(yOf)) : null;
-    const points = pp.map((p) => ({ x: p[1], y: yOf(p), group: FAMILY[p[3]] || 'tabu', shape: FAMILY[p[3]] === 'stoch' ? 'tri' : FAMILY[p[3]] === 'exact' ? 'sq' : 'circle', ring: p[2] === bestJ, label: `${nameOf[p[3]] || p[3]} · 에너지 ${p[1].toFixed(2)} · 순위 점수 J ${p[2].toFixed(1)} · 모델 점수 ${p[4] === undefined || p[4] === null ? '–' : p[4].toFixed(1)}` }));
-    return `<figure>${scatterPanel(points, FAMILY_STYLE, { title: `템플릿: 앞 침실 ${k + 1}개 (${pp.length}점)`, yLabel: mode === 'J' ? '순위 점수 J ↑' : '평가 모델 점수 ↑', rho, optimum: cmp.qubo.optimum?.[k] ?? null })}</figure>`;
+    const points = pp.map((p) => ({ x: p[1], y: yOf(p), group: FAMILY[p[3]] || 'tabu', shape: FAMILY[p[3]] === 'stoch' ? 'tri' : FAMILY[p[3]] === 'exact' ? 'sq' : 'circle', ring: p[2] === bestJ, label: `${nameOf[p[3]] || p[3]} · 에너지 ${p[1].toFixed(2)} · 순위 점수 J ${p[2].toFixed(1)} · 규칙 충족 ${p[4] === undefined || p[4] === null ? '–' : p[4].toFixed(1)}` }));
+    return `<figure>${scatterPanel(points, FAMILY_STYLE, { title: `템플릿: 앞 침실 ${k + 1}개 (${pp.length}점)`, yLabel: mode === 'J' ? '순위 점수 J ↑' : '규칙 충족률 ↑', rho, optimum: cmp.qubo.optimum?.[k] ?? null })}</figure>`;
   });
   const legend = scatterLegend(Object.entries(FAMILY_STYLE).map(([k, v]) => ({ color: v.color, shape: k === 'stoch' ? 'tri' : k === 'exact' ? 'sq' : 'circle', label: v.label })));
   box.innerHTML = `
     <div class="gen-process-head">
-      <h4>QUBO 에너지와 평가 점수</h4>
+      <h4>QUBO 에너지와 적합성</h4>
       <div class="seg" role="group" id="sc-mode">
         <button type="button" data-v="J" aria-pressed="${mode === 'J'}">순위 점수 J</button>
-        <button type="button" data-v="model" aria-pressed="${mode === 'model'}">평가 모델 점수</button>
+        <button type="button" data-v="model" aria-pressed="${mode === 'model'}">규칙 충족률</button>
       </div>
     </div>
     <div class="sc-panels">${panels.join('')}</div>
     ${legend}
-    <p class="note">점 하나 = 풀이기가 낸 좋은 해 하나를 평면으로 풀고(연속값 ${'30'}번 다듬음) 잰 점수입니다. 가로는 그 해의 QUBO 에너지(왼쪽일수록 낮음), 세로는 점수(위일수록 좋음)입니다. QUBO가 평가 모델을 잘 대리한다면 점이 왼쪽 위에서 오른쪽 아래로 놓이고 스피어만 ρ가 음수가 됩니다. 점선은 그 템플릿의 최적 에너지, 굵은 테두리는 이번 실행에서 순위 점수가 가장 높은 안입니다. 에너지는 같은 템플릿끼리만 비교할 수 있어 템플릿별로 나눠 그렸습니다. 풀이기가 낸 해는 대부분 저에너지라 범위가 좁아 상관이 약하게 나오기 쉽습니다(전체 배치에서 잰 상관은 '방법과 근거' 4절).</p>`;
+    <p class="note">점 하나 = 풀이기가 낸 좋은 해 하나를 평면으로 풀고(연속값 ${'30'}번 다듬음) 잰 점수입니다. 가로는 그 해의 QUBO 에너지(왼쪽일수록 낮음), 세로는 점수(위일수록 좋음)입니다. QUBO가 J를 잘 대리한다면 점이 왼쪽 위에서 오른쪽 아래로 놓이고 스피어만 ρ가 음수가 됩니다. 점선은 그 템플릿의 최적 에너지, 굵은 테두리는 이번 실행에서 순위 점수가 가장 높은 안입니다. 에너지는 같은 템플릿끼리만 비교할 수 있어 템플릿별로 나눠 그렸습니다. 풀이기가 낸 해는 대부분 저에너지라 범위가 좁아 상관이 약하게 나오기 쉽습니다(전체 배치에서 잰 상관은 '방법과 근거' 4절).</p>`;
   box.querySelectorAll('#sc-mode button').forEach((b) =>
     b.addEventListener('click', () => {
       state.scMode = b.dataset.v;
@@ -272,7 +281,7 @@ function renderCompare() {
         <tbody>${rows}</tbody>
       </table>
       <p class="note">
-        가중치: ${cmp.qubo.weights === 'hand' ? '손으로 정한 값' : '평가 모델로 보정한 값'}. QUBO 템플릿 ${cmp.qubo.templates.length}개(앞 띠 침실 수가 다름): ${cmp.qubo.templates.map((t) => `앞 침실 ${t.k + 1}개 — 변수 ${t.n}개(앞 ${t.front.length}실×${t.front.length}칸, 뒤 ${t.back.length}실×${t.back.length}칸), 벌점 ${t.penalty}${optOf(t.k) !== null ? `, 최적 에너지 ${optOf(t.k).toFixed(2)}` : ''}`).join(' / ')}. 에너지는 같은 템플릿끼리만 비교합니다.
+        가중치: ${cmp.qubo.weights === 'hand' ? '손으로 정한 값' : '직접 준 값'}. QUBO 템플릿 ${cmp.qubo.templates.length}개(앞 띠 침실 수가 다름): ${cmp.qubo.templates.map((t) => `앞 침실 ${t.k + 1}개 — 변수 ${t.n}개(앞 ${t.front.length}실×${t.front.length}칸, 뒤 ${t.back.length}실×${t.back.length}칸), 벌점 ${t.penalty}${optOf(t.k) !== null ? `, 최적 에너지 ${optOf(t.k).toFixed(2)}` : ''}`).join(' / ')}. 에너지는 같은 템플릿끼리만 비교합니다.
         풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 깊이·폭을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
         <b>n = 1(한 번 실행), 통계적 비교 불가</b> — 어느 알고리즘이 낫다고 말할 수 없습니다(시드 30개 비교는 evidence/results/qubo-benchmark.md). 시드를 바꿔 다시 돌려 보세요. SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
       </p>

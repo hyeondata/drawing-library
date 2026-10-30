@@ -211,7 +211,7 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded, T) {
   const genoValues = GENOTYPE_ORDER.map((t) => meanInteg(t));
   const genoComplete = genoValues.every((v) => v !== null);
   const genotypeTau = genoComplete ? kendallTauB(genoValues, GENOTYPE_ORDER.map((t, k) => GENOTYPE_ORDER.length - k)) : null;
-  // 유전형 프로필: 5유형 통합도를 평면 안에서 표준화한 벡터. 기준 분포의 중앙 벡터와의 거리(연속 지표)를 채점 단계에서 구한다.
+  // 유전형 프로필: 5유형 통합도를 평면 안에서 표준화한 벡터. (이전 판의 유전형 거리 지표용, 지금은 참고값)
   let genotypeProfile = null;
   if (genoComplete) {
     const m = mean(genoValues);
@@ -268,7 +268,7 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded, T) {
   const features = {
     nodeCount: functional.length,
     bedroomCount: bedNodes.length,
-    // 화면 참고용(채점 제외): v0.1 지표
+    // 화면 참고용: v0.1 지표
     livingDepth: livingNodes.length ? Math.min(...livingNodes.map((l) => depth[l])) : null,
     ringiness: ringiness(members.length, localEdges.length),
     // 공간구문
@@ -356,7 +356,7 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded, T) {
   rule('publicBath', '침실을 거치지 않는 공용 화장실', 1, publicBath ? 1 : 0,
     baths.length ? (publicBath ? '있음' : '모든 화장실이 침실 안쪽') : '화장실 없음');
 
-  // 채광 가능: 모든 거실·침실이 외기나 발코니에 창을 낼 만큼(배율 1에서 81px ≈ 0.9m) 열려 있다. 표본 35세대 모두 통과해 분포 지표 대신 규칙으로 둔다.
+  // 채광 가능: 모든 거실·침실이 외기나 발코니에 창을 낼 만큼(배율 1에서 81px ≈ 0.9m) 열려 있다. 아파트 평면도 전체 통과율 79%라 선택 규칙(OPTIONAL_RULES)이다.
   const dark = livable.filter((e) => e.ext < THRESHOLDS.windowMinLength * T.scale);
   rule('daylight', '모든 거실·침실이 외기·발코니에 접함', 1, livable.length ? 1 - dark.length / livable.length : 0,
     dark.length ? `외기에 닿지 않는 실: ${dark.map((e) => e.type).join(', ')}` : '모두 접함');

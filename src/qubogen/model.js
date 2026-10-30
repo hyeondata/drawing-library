@@ -612,7 +612,7 @@ export function planP(G, assign, outCols = []) {
   return { P: { nx, ny: ny + stripRows, sx: cell, sy: cell, rooms: prs }, assign: full, names: Object.fromEntries(rooms.map((r) => [r.k, r.name]).concat([[balK, '발코니'], [ouK, '실외기실']])) };
 }
 
-/** 공간구문(평가 모델·자유형과 같은 정의): 맞닿은 길이 0.6m 이상인 실을 잇는 그래프에서 통합도·깊이. */
+/** 공간구문(분석기·자유형과 같은 정의): 맞닿은 길이 0.6m 이상인 실을 잇는 그래프에서 통합도·깊이. */
 export function syntaxGrid(G, assign) {
   const { nx, ny, rooms, cell } = G;
   const S = {};

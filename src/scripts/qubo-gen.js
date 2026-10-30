@@ -27,9 +27,11 @@ function readSpec() {
   const life = checks('lifestyle');
   let li = data.living.findIndex((o) => o.key === radio('living').value);
   if (life.includes('spacious')) li = Math.min(data.living.length - 1, li + 1);
-  const other = Number(radio('roomSize').dataset.share);
-  const ratio = Number(radio('master').dataset.ratio);
-  const t = data.targets;
+  // 작은방·안방·나머지 실 목표는 고른 침실 수 세대의 분위수(도면 생성 탭과 같음)
+  const opt = data.byBedrooms[bedrooms];
+  const other = opt.roomSize.find((o) => o.key === radio('roomSize').value).share;
+  const ratio = opt.master.find((o) => o.key === radio('master').value).ratio;
+  const t = opt.targets;
   return {
     area,
     bedrooms,
@@ -236,7 +238,7 @@ function renderSyntax(c) {
     ${row('유전형 순서 τ', sx.genotypeTau, 0.5, 'livingCentral', 'Hillier 외 1987 (1이면 거실 > 주방 > 침실 순 통합)')}
     ${row('공·사 깊이 차', sx.privacyDepthGap, sx.goal.gap, 'privacy', 'Ham & Lee 2017, Park 외 2024 (침실이 거실·주방보다 깊게)')}
     ${row('주방/침실 통합도 비', sx.kitchenBedroomRatio, sx.goal.kbr, 'kitchenLink', 'Byun & Choi 2016 범위 하한 1.04')}
-  </tbody></table></div><p class="note">평가 모델·자유형 탭과 같은 정의(맞닿은 길이 0.6m 이상인 실을 잇는 그래프에서 통합도 = 1/RRA, 깊이 = 현관에서 몇 번 건너나)로 풀고 나서 계산한 값입니다. QUBO에는 이 값 자체가 아니라 근사 항(거실이 여러 실과 닿음, 침실과 현관의 거리)만 들어 있어 목표에 못 미칠 수 있습니다. "강하게"를 고르면 더 가까워지지만 다른 규칙 위반이 생길 수 있습니다.</p>`;
+  </tbody></table></div><p class="note">분석기·자유형 탭과 같은 정의(맞닿은 길이 0.6m 이상인 실을 잇는 그래프에서 통합도 = 1/RRA, 깊이 = 현관에서 몇 번 건너나)로 풀고 나서 계산한 값입니다. QUBO에는 이 값 자체가 아니라 근사 항(거실이 여러 실과 닿음, 침실과 현관의 거리)만 들어 있어 목표에 못 미칠 수 있습니다. "강하게"를 고르면 더 가까워지지만 다른 규칙 위반이 생길 수 있습니다.</p>`;
 }
 
 function renderTrace() {

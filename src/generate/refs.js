@@ -1,4 +1,4 @@
-// 도면 생성 화면의 '식과 변수'에서 근거로 보여 주는 문헌. 평가 모델 문헌(REFERENCES)에 생성·QUBO 문헌을 더한다.
+// 도면 생성 화면의 '식과 변수'에서 근거로 보여 주는 문헌. 분석 문헌(REFERENCES)에 생성·QUBO 문헌을 더한다.
 // 전체 서지와 Crossref 대조는 evidence/07-참고-문헌.md(20~52번).
 import { REFERENCES } from '../model/config.js';
 

@@ -7,22 +7,22 @@ import { badges } from '../generate/pipeline.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { SYNTAX } from '../generate/syntax-weights.js';
-import { CALIBRATED } from '../generate/qubo-weights.js';
+import { buildChoices } from '../generate/choices.js';
 import { defaultParams } from '../generate/compare.js';
 import { buildLayout, MIN_SIDE } from '../generate/layout.js';
 import { optimize } from '../generate/optimize.js';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const shapes = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'shapes.json'), 'utf8'));
-const cv = CALIBRATED.meta.cv;
+const ch = buildChoices();
+const b3 = ch.byBedrooms[3];
 
 // ---- 방 크기 예시: 같은 조건에서 깊이 D만 바꿔 실제 코드로 계산 ----
-const exSpec = { area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true, targets: { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877, bath: 0.032, entrance: 0.0389, dress: 0.0499, multi: 0.0303 }, prefs: [] };
+const exSpec = { area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true, targets: { living: ch.living[1].share, ...b3.targets, other: b3.roomSize[1].share, master: b3.roomSize[1].share * b3.master[1].ratio }, prefs: [] };
 const exP = defaultParams(exSpec);
 const exA = buildLayout(exSpec, { ...exP, depth: 7.1 });
 const exB = buildLayout(exSpec, { ...exP, depth: 8.0 });
-const baselineH = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'baseline.json'), 'utf8'));
-const opt = optimize(exSpec, { baseline: baselineH, seed: 1, random: 200, refine: 200, count: 1 });
+const opt = optimize(exSpec, { seed: 1, random: 200, refine: 200, count: 1 });
 const exC = (opt.top || opt)[0].layout;
 const minOf = (r) => (r.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[r.type]);
 const cell = (r) => {
@@ -78,7 +78,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
 
     <section id="kinds" class="mt-sec">
       <h2>0. 무엇이 규칙이고, 무엇이 최적화인가</h2>
-      <p><b>도면 생성 탭에서 QUBO가 정하는 것은 "방 순서"(어느 실이 띠의 몇 번째 칸에 가나) 하나뿐입니다.</b> (방 크기·모양과 문·창까지 모두 QUBO로 만드는 방식은 따로 <a href={`${base}qubo-gen/`}>QUBO 도면 생성</a> 탭에 있습니다.) 실 목록·면적, 방 폭 계산, 복도·부속실, 문·창·설비는 정해진 규칙(식)으로 만들고, 깊이·비율 같은 치수는 평가 점수를 보며 조금씩 바꾸는 탐색으로 정합니다. 자유형은 QUBO를 쓰지 않고 담금질로 칸을 나눕니다. 아래 표의 배지는 이 사이트의 모든 탭에서 같은 뜻으로 씁니다.</p>
+      <p><b>도면 생성 탭에서 QUBO가 정하는 것은 "방 순서"(어느 실이 띠의 몇 번째 칸에 가나) 하나뿐입니다.</b> (방 크기·모양과 문·창까지 모두 QUBO로 만드는 방식은 따로 <a href={`${base}qubo-gen/`}>QUBO 도면 생성</a> 탭에 있습니다.) 실 목록·면적, 방 폭 계산, 복도·부속실, 문·창·설비는 정해진 규칙(식)으로 만들고, 깊이·비율 같은 치수는 적합성 J를 보며 조금씩 바꾸는 탐색으로 정합니다. 자유형은 QUBO를 쓰지 않고 담금질로 칸을 나눕니다. 아래 표의 배지는 이 사이트의 모든 탭에서 같은 뜻으로 씁니다.</p>
       <Pipeline />
     </section>
 
@@ -92,9 +92,9 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
             <tr><td>평면의 틀</td><td>판상형 문법: 앞 띠(거실·침실) + 뒤 띠(주방·현관·욕실)</td><td>기준 세대의 외곽(또는 바꾼 외곽)을 0.3m 칸으로 나눔</td></tr>
             <tr><td>실 모양</td><td>직사각형</td><td>칸 묶음 → 직사각형·ㄱ자·ㄷ자</td></tr>
             <tr><td>무엇을 최적화하나</td><td>실 배치(어느 실이 어느 칸에) → QUBO 또는 직접 탐색, 치수 → 다듬기</td><td>칸을 어느 실에 줄지 → 에너지를 담금질로 줄임</td></tr>
-            <tr><td>최적화 방법</td><td>풀이기 11종 중 선택(tabu 계열·SA·PT·SQA·SB·분기한정·열거) 또는 모델 직접 탐색</td><td>제약 성장으로 시작 → 담금질(벽 밀기 이동)</td></tr>
+            <tr><td>최적화 방법</td><td>풀이기 11종 중 선택(tabu 계열·SA·PT·SQA·SB·분기한정·열거) 또는 J 직접 탐색</td><td>제약 성장으로 시작 → 담금질(벽 밀기 이동)</td></tr>
             <tr><td>공간구문 반영</td><td>QUBO 대리 항(SCI(E) 변수를 회귀로 근사)</td><td>에너지에서 직접 계산(근사 없음)</td></tr>
-            <tr><td>마지막 선택</td><td>목적함수 J(평가 모델 45% · 면적 25% · 선호 30%)</td><td>에너지가 가장 낮은 안</td></tr>
+            <tr><td>마지막 선택</td><td>목적함수 J(규칙 충족 45% · 면적 25% · 선호 30%)</td><td>에너지가 가장 낮은 안</td></tr>
             <tr><td>계산 시간</td><td>후보 생성 약 1~3초(풀이기당 0.1~1초)</td><td>후보 하나 약 2~3초(이동 3만 번)</td></tr>
           </tbody>
         </table>
@@ -116,7 +116,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
       <div class="hw-step">
         <h3>① 조건 고르기 → 목표 정하기 <Fragment set:html={badges(['rule'])} /></h3>
         <p>평수, 거실 크기, 침실 수, 작은방 크기·안방 비중, 넣을 실(드레스룸·다목적실·발코니 등), 공간구문 선호(거실 중심형·사생활·대면형 주방), 생활 조건을 차례로 고릅니다.</p>
-        <p><b>선택지는 실제 데이터에서 나옵니다.</b> 거실 크기 선택지는 AI 허브 라벨의 실제 세대(35세대)에서 잰 "전용면적 대비 거실 면적비"의 분위수(하위 25%·중앙값·상위 25%·10%)이고, 작은방·안방도 같은 방식입니다. 그래서 고른 값이 실제 아파트에서 흔한 범위 안에 있습니다.</p>
+        <p><b>선택지는 실제 데이터에서 나옵니다.</b> 거실 크기 선택지는 AI 허브 SPA 라벨 전체({ch.source.files.toLocaleString()}건)의 아파트 평면도(APT_FP) {ch.source.units.toLocaleString()}세대에서 잰 "전용면적 대비 거실 면적비"의 분위수(하위 25%·중앙값·상위 25%·10%)이고, 작은방·안방·주방은 고른 침실 수의 세대만으로 같은 방식으로 냅니다. 그래서 고른 값이 실제 아파트에서 흔한 범위 안에 있습니다.</p>
       </div>
 
       <div class="hw-step">
@@ -126,7 +126,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
           <li><b>QUBO 경로</b>: "실 r이 칸 s에 간다"를 0/1 변수로 두고, 좋은 이웃 관계(주방–거실 맞닿음 등)는 보상, 나쁜 관계(침실–현관)는 감점하는 에너지를 만듭니다. "실마다 칸 하나, 칸마다 실 하나"는 벌점으로 넣습니다 <Fragment set:html={cite('lucas2014')} />. 벌점은 지켜야 할 최소 크기로 정합니다 <Fragment set:html={cite('ayodele2022')} />. 이 에너지를 풀이기 11종 중 고른 것으로 풉니다(양자 어닐러 D-Wave에 그대로 보낼 수 있는 형식).</li>
           <li><b>직접 탐색 경로</b>: 평면을 무작위로 400개 만들고 좋은 4개에서 조금씩 바꿔 400번 더 찾습니다 <Fragment set:html={cite('michalek2002')} />.</li>
         </ul>
-        <p><b>QUBO 가중치는 데이터로 맞췄습니다.</b> 처음엔 문헌을 보고 손으로 정했는데, 에너지가 가장 낮은 배치가 꼭 좋은 평면은 아니었습니다. 조건 20개·배치 9,567개에서 평가 점수에 맞게 다시 정했더니 에너지–점수 상관이 {cv.hand.rho.toFixed(2)} → {cv.calibrated.rho.toFixed(2)}, 에너지 최소 배치의 점수 백분위가 {(cv.hand.topPct * 100).toFixed(0)}% → {(cv.calibrated.topPct * 100).toFixed(0)}%로 좋아졌습니다(조건을 빼고 맞춘 교차검증) <Fragment set:html={cite('jin2011')} />.</p>
+        <p><b>QUBO 가중치는 규칙과 문헌으로 정했습니다.</b> 점수에 맞춰 다시 정하지 않습니다. 점수에 맞추면 생성기가 그 점수를 목표로 삼아, 만든 자로 다시 재는 순환이 생기기 때문입니다. 공간구문 변수만 대리 항으로 따로 더합니다 <Fragment set:html={cite('jin2011')} />.</p>
         <p><b>공간구문 선호는 대리 항으로 넣습니다.</b> 통합도·깊이는 그래프 전체를 따라가는 값이라 QUBO 식에 그대로 못 넣습니다. 그래서 SCI(E) 논문의 변수 — 거실/침실 통합도 비 <Fragment set:html={cite('byun2016')} />, 유전형 순서 <Fragment set:html={cite('hillier1987')} />, 공·사 깊이 차 <Fragment set:html={cite('ham2017')} /> — 를 데이터에서 정확히 계산해 QUBO 항으로 회귀했습니다. 예: 거실/침실 비의 근사 정확도 ρ = {SYNTAX.livingBedroomRatio.cv['0.5'].rho.toFixed(2)}, 거실 중심형을 고르면 에너지 최소 배치의 이 값 백분위가 {Math.round(SYNTAX.livingBedroomRatio.cv['0'].varPct * 100)}% → {Math.round(SYNTAX.livingBedroomRatio.cv['0.5'].varPct * 100)}%로 오릅니다.</p>
       </div>
 
@@ -137,7 +137,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
 
       <div class="hw-step">
         <h3>④ 고르기와 보여 주기 <Fragment set:html={badges(['eval'])} /></h3>
-        <p>후보마다 목적함수 J = 0.45·평가 모델 점수 + 0.25·목표 면적 부합 + 0.30·선호 점수 − 감점(무효 40, 좁은 실·동선 문제 15)을 계산해 배치가 서로 다른 상위 3안을 보여 줍니다. 평가 모델은 실제 아파트 35세대 분포와 얼마나 닮았는지를 공간구문·면적·형태·정합성으로 잽니다 <Fragment set:html={cite('byun2016')} /> <Fragment set:html={cite('park2024')} />.</p>
+        <p>후보마다 목적함수 J = 0.45·규칙 충족률 + 0.25·목표 면적 부합 + 0.30·선호 점수 − 감점(필수 규칙 위반 40, 좁은 실·동선 문제 15)을 계산해 배치가 서로 다른 상위 3안을 보여 줍니다. 규칙은 필수 실, 현관에서의 도달, 침실 비통과, 거실 중심, 주방–거실 맞닿음 같은 시공 가능성 조건이고, 실제 도면과 닮은 정도로 채점하지 않습니다 <Fragment set:html={cite('byun2016')} /> <Fragment set:html={cite('park2024')} />. 선호의 목표 범위는 실제 아파트 평면도 분포(하위 10% ~ 상위 10%)로 정합니다.</p>
         <p>결과 화면은 생성 과정 8단계, 계산 시간에 따른 변화, 식과 변수(영향도), <b>평면 진단</b>(국민주택규모·베이·맞통풍·동선 깊이·채광·환기·요청한 연결·공간구문·실제 방위와 동지 일조), 후보 비교, QUBO 에너지–점수 산점도를 보여 줍니다.</p>
       </div>
     </section>
@@ -159,7 +159,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
       <ol class="mt-steps">
         <li><b>세대 폭</b>: W = 전용면적 ÷ D</li>
         <li><b>띠 깊이</b>: 앞 띠 = f × D, 뒤 띠 = D − f × D</li>
-        <li><b>원하는 폭</b>: d<sub>i</sub> = 목표 면적<sub>i</sub> ÷ 그 띠의 깊이. 목표 면적은 고른 선택지(실제 아파트 35세대의 면적비 분위수) × 전용면적</li>
+        <li><b>원하는 폭</b>: d<sub>i</sub> = 목표 면적<sub>i</sub> ÷ 그 띠의 깊이. 목표 면적은 고른 선택지(아파트 평면도 전체의 면적비 분위수) × 전용면적</li>
         <li><b>실제 폭</b>: w<sub>i</sub> = m<sub>i</sub> + (W − Σm) × max(0, d<sub>i</sub> − m<sub>i</sub>) ÷ Σ max(0, d<sub>j</sub> − m<sub>j</sub>). m<sub>i</sub>는 최소 폭(욕실 1.5, 현관 1.2, 주방 2.2, 침실 2.4, 안방 3.0, 거실 3.6m). <b>띠 폭이 최소 폭의 합보다 넓으면</b> 최소 폭을 먼저 주고 남는 폭만 비례로 나누므로 어떤 실도 최소 폭 아래로 내려가지 않습니다. <b>띠 폭이 모자라면</b>(한 띠에 실이 많은데 깊이가 깊어 세대 폭이 좁을 때) 모든 실을 최소 폭에 비례해 줄일 수밖에 없고, 이때는 미달한 실마다 '좁은 실' 감점(−15점)을 줘서 최적화가 그런 변수 조합을 피하게 하고, 결과 화면에도 경고를 띄웁니다.</li>
         <li><b>실 크기</b>: 가로 = w<sub>i</sub>, 세로 = 띠 깊이(안방은 × g, 남는 뒤쪽은 복도·부속실)</li>
       </ol>
@@ -194,7 +194,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
 
       <div class="hw-step">
         <h3>① 세대 고르기 → 외곽 정하기 <Fragment set:html={badges(['rule'])} /></h3>
-        <p>AI 허브 Sample 20장을 평가 모델로 세대별로 나누고, 면적이 외접 사각형의 85% 미만인 실(ㄱ자 거실 등)이 있는 세대 {shapes.length}개를 골라 두었습니다. 한 세대를 고르면 그 세대의 <b>실 구성·면적 비율·실 사이 연결</b>을 물려받습니다.</p>
+        <p>AI 허브 아파트 평면도(APT_FP) 전체를 분석기로 세대별로 나누고, 면적이 외접 사각형의 85% 미만인 실(ㄱ자 거실 등)이 있는 세대 가운데 원본 배치가 현관에서 모든 실로 이어지는 세대 중 침실 수(2~5개)마다 비정형 실이 많은 세대를 골라 {shapes.length}개를 두었습니다. 한 세대를 고르면 그 세대의 <b>실 구성·면적 비율·실 사이 연결</b>을 물려받습니다.</p>
         <p>외곽은 원본 그대로, 원본을 회전·뒤집기·늘이기, 템플릿(직사각형·ㄱ자·ㄷ자·凸자·엇갈림), 직접 그리기 중에서 정합니다. 발코니는 고른 면(앞·뒤·왼쪽·오른쪽)의 바깥 외벽을 따라 1.5m로 둡니다.</p>
       </div>
 
@@ -207,7 +207,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
         <h3>③ 다듬기: 담금질로 에너지 줄이기 <Fragment set:html={badges(['sa'])} /></h3>
         <p>에너지는 "고쳐야 할 점의 합"입니다: 목표 면적과의 차이, 쓸데없이 구불구불함, 꼭짓점이 너무 많음, 가구를 못 놓을 만큼 좁은 부분, 원본에서 이어졌던 실이 떨어짐, 거실·침실에 창이 없음, <b>현관에서 문으로 갈 수 없는 실</b>, 침실을 지나야 들어가는 실, (고르면) 공간구문 목표 미달. 담금질 <Fragment set:html={cite('kirk1983')} /> <Fragment set:html={cite('merrell2010')} />은 이 합을 줄이는 쪽으로 칸을 옮기되, 처음에는 나빠지는 이동도 가끔 받아들여 막다른 배치에서 빠져나옵니다.</p>
         <p><b>"벽 밀기"를 주 이동으로 씁니다.</b> 칸 하나씩 옮기면 거의 매번 꼭짓점이 늘어 에너지가 오릅니다(실측: 가능한 이동 282개 중 좋아지는 것 10개). 그래서 두 실이 맞닿은 벽 한 줄을 통째로 한 칸 미는 이동을 80% 씁니다. 실이 둘로 쪼개지는 이동은 하지 않습니다. 이 변경으로 에너지가 82 → 16으로 줄었습니다.</p>
-        <p><b>공간구문은 직접 계산합니다.</b> 자유형은 QUBO가 아니라서 매 이동마다 평가 모델과 같은 정의로 통합도·깊이를 계산해 문헌 목표(거실/침실 비 1.9, 공·사 깊이 차 1.5)에 못 미친 만큼 벌점을 줍니다.</p>
+        <p><b>공간구문은 직접 계산합니다.</b> 자유형은 QUBO가 아니라서 매 이동마다 분석기와 같은 정의로 통합도·깊이를 계산해 문헌 목표(거실/침실 비 1.9, 공·사 깊이 차 1.5)에 못 미친 만큼 벌점을 줍니다.</p>
       </div>
 
       <div class="hw-step">
@@ -219,7 +219,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
     <section id="common" class="mt-sec">
       <h2>5. 두 방식이 같이 쓰는 것</h2>
       <ul>
-        <li><b>공간구문 정의</b>: 실 = 노드, 맞닿음 = 링크, 덕트 제외, 현관에 외부 노드, 통합도 = 1/RRA <Fragment set:html={cite('byun2016')} />. 평가 모델의 계산 함수를 그대로 씁니다.</li>
+        <li><b>공간구문 정의</b>: 실 = 노드, 맞닿음 = 링크, 덕트 제외, 현관에 외부 노드, 통합도 = 1/RRA <Fragment set:html={cite('byun2016')} />. 분석기(spa.js·syntax.js)의 계산 함수를 그대로 씁니다.</li>
         <li><b>방위와 동지 일조</b>: 앞쪽(발코니 쪽) 방위와 위도를 넣으면 창마다 향을 정하고, 동지 08~16시 태양 위치로 해 드는 시간을 계산해 판례 기준(총 4시간 또는 연속 2시간)과 비교합니다. 이웃 동 그림자가 없는 최대치입니다.</li>
         <li><b>요청한 연결 겹쳐 보기</b>: 요청(규칙·선호 또는 원본 세대)의 연결을 결과 평면 위에 충족·문 없음·빠짐·어김으로 그립니다 <Fragment set:html={cite('househgan')} />.</li>
         <li><b>AI 허브 형식 내보내기</b>: Sample과 같은 23개 범주, COCO 형식 JSON.</li>
@@ -232,11 +232,10 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
         <table class="gen-table hw-table">
           <thead><tr><th>무엇을</th><th>어떻게</th><th>결과</th></tr></thead>
           <tbody>
-            <tr><td>QUBO 풀이기 비교</td><td>조건 4개 × 시드 30개 × 알고리즘 11개, 같은 예산(평가 횟수로 고정) <Fragment set:html={cite('dunning2018')} /></td><td>tabu 계열·분기한정·열거는 매번 전역 최적해, SA·PT·SQA·SB는 32~53%. 풀이기보다 QUBO의 항과 가중치가 평면 품질을 좌우(공간구문 대리 항을 켜면 이 조건들에서 전역 최적해의 평면 점수가 약 2.5점 낮아짐)</td></tr>
+            <tr><td>QUBO 풀이기 비교</td><td>조건 4개 × 시드 30개 × 알고리즘 11개, 같은 예산(평가 횟수로 고정) <Fragment set:html={cite('dunning2018')} /></td><td>풀이기별 전역 최적 도달률과 J 중앙값: evidence/results/qubo-benchmark.md(손 가중치). 풀이기보다 QUBO의 항과 가중치가 평면을 좌우</td></tr>
             <tr><td>정답 교차 확인</td><td>내보낸 QUBO를 Python에서 D-Wave SA·Tabu와 OR-Tools CP-SAT로 풂</td><td>브라우저 전역 최적해와 같은 에너지</td></tr>
-            <tr><td>가중치 보정</td><td>조건 20개·배치 9,567개, 조건 단위 5겹 교차검증</td><td>에너지–점수 ρ {cv.hand.rho.toFixed(2)} → {cv.calibrated.rho.toFixed(2)}, 최소 배치 백분위 {(cv.hand.topPct * 100).toFixed(0)}% → {(cv.calibrated.topPct * 100).toFixed(0)}%</td></tr>
+            <tr><td>규칙의 근거</td><td>AI 허브 아파트 평면도 {ch.source.units.toLocaleString()}세대에 같은 분석기를 적용</td><td>필수 규칙 통과율 97~100%라 그대로 요구, 채광 79%·안방 부속실 78%라 선택 규칙으로 분리</td></tr>
             <tr><td>공간구문 대리 항</td><td>같은 데이터, 조건 단위 교차검증</td><td>근사 ρ: {Object.values(SYNTAX).map((v) => `${v.label} ${v.cv['0.5'].rho.toFixed(2)}`).join(', ')}</td></tr>
-            <tr><td>자유형 문 동선</td><td>세대 32개 × 시드 2(64안)</td><td>끊긴 안 33 → 6(접근 항·문 배치 순서 수정 뒤)</td></tr>
             <tr><td>자유형 면적·모양</td><td>자동 테스트</td><td>고른 면적 ±3%, 실은 항상 한 덩어리, 다각형 면적 = 칸 면적, 바깥 구멍 없음, 현관은 바깥에 닿음</td></tr>
             <tr><td>자유형 공간구문</td><td>세대 6개 × 시드 2</td><td>거실 중심형: 거실/침실 비 1.65 → 1.96. 사생활: 깊이 차 0.54 → 0.66(강하게 0.74)</td></tr>
             <tr><td>일조 계산</td><td>자동 테스트</td><td>서울 동지 정오 해 고도 29.0°(= 90 − 37.57 − 23.44), 남향 창 8시간·북향 0시간</td></tr>
@@ -249,9 +248,9 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
     <section id="limits" class="mt-sec">
       <h2>7. 한계</h2>
       <ul>
-        <li><b>선행 연구</b>: 주거 평면을 QUBO로 정식화한 동료 심사 논문은 찾지 못했습니다(가장 가까운 것은 공장 배치). QUBO 항과 가중치는 설계 가정이며, 데이터로 보정한 뒤에도 순위 점수는 기존 직접 탐색이 조금 앞섭니다.</li>
+        <li><b>선행 연구</b>: 주거 평면을 QUBO로 정식화한 동료 심사 논문은 찾지 못했습니다(가장 가까운 것은 공장 배치). QUBO 항과 가중치는 설계 가정입니다(점수에 맞춰 보정하지 않음).</li>
         <li><b>양자 결과 아님</b>: SA·SQA는 D-Wave QPU 실행 전의 임시 대체입니다.</li>
-        <li><b>그래프 규약</b>: 공간구문은 원래 문으로 이어진 그래프에서 정의하지만, 평가 모델은 벽을 맞댄 그래프를 씁니다(근거 문서 02).</li>
+        <li><b>그래프 규약</b>: 공간구문은 원래 문으로 이어진 그래프에서 정의하지만, 분석기는 벽을 맞댄 그래프를 씁니다(근거 문서 02).</li>
         <li><b>자유형</b>: 벽 두께 없이 칸 경계를 벽으로 그립니다. 사선 외벽은 계단으로 근사합니다. 사생활 조건의 효과는 작습니다(기준 세대의 현관 위치와 연결이 고정).</li>
         <li><b>일조</b>: 이웃 동·처마 그림자를 넣지 않은 최대치입니다.</li>
         <li><b>범위</b>: 실 배치·크기(중심선·안목)·문·창·설비 위치까지 만드는 평면 배치 생성입니다. 구조(내력벽·기둥), 실별 상세 치수선, 창호 규격, 단면·입면, CAD(DXF) 출력은 없습니다. 안목 치수는 벽 두께를 일정하게 둔 계산값입니다.</li>

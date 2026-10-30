@@ -163,14 +163,12 @@ $('#ez-run').addEventListener('click', () => {
 });
 
 // ---- 7. 케이크 자르기 ----
-let baselineCache = null;
 let cakeToken = 0;
 async function drawCake() {
   const token = ++cakeToken;
-  baselineCache ||= await (await fetch(`${base}data/baseline.json`)).json();
   if (token !== cakeToken) return;
   const d = decode(q, encode(q, state.f, state.b));
-  const best = realize(spec, d, baselineCache, rng(1), 30);
+  const best = realize(spec, d, rng(1), 30);
   const trace = [];
   const layout = buildLayout(spec, { ...structuredClone(best.params), trace });
   const fr = trace.find((t) => t.band === 'front');

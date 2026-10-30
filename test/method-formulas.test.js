@@ -18,7 +18,7 @@ function pageObjective(spec, q, x) {
     const i = q.vars.findIndex((v) => v.room === room && v.band === band && v.slot === s);
     return i < 0 ? 0 : x[i];
   };
-  const W = withSyntax(weightsOf('calibrated'), spec.prefs).weights; // 4.1절
+  const W = withSyntax(weightsOf('hand'), spec.prefs).weights; // 4.1절
   const w = (id) => {
     const t = TERMS.find((d) => d.id === id);
     return (W[id] ?? 0) * (t.pref && spec.prefs.includes(t.pref[0]) ? t.pref[1] : 1);

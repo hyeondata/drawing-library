@@ -1,7 +1,7 @@
 // QUBO 따라가기: 입력을 고르면 실제 생성 코드로 QUBO를 만들고, 단계마다 숫자와 '확인'(따로 계산한 값 = 코드의 값)을 보여 준다.
 import { programOf, MIN_AREA, buildLayout, rng } from '../generate/layout.js';
 import { buildQubo, TERMS, weightsOf, withSyntax, frontBedCount, energy, features, decode, encode } from '../generate/qubo.js';
-import { CALIBRATED } from '../generate/qubo-weights.js';
+import { buildChoices } from '../generate/choices.js';
 import { SYNTAX, SYNTAX_LAMBDA } from '../generate/syntax-weights.js';
 import { runSolver } from '../generate/solvers.js';
 import { defaultParams, realize } from '../generate/compare.js';
@@ -21,8 +21,13 @@ const live = (id, html) => {
 };
 const table = (head, rows, cls = '') => `<div class="mt-scroll"><table class="gen-table qs-tbl ${cls}"><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 
-// 기준 세대 평균 면적 비율(실험·보정 스크립트와 같은 값)
-const TARGETS = { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877, bath: 0.032, entrance: 0.0389, dress: 0.0499, multi: 0.0303 };
+// 목표 면적비: 도면 생성 화면의 기본값(AI 허브 아파트 평면도 전체, 고른 침실 수 세대의 중앙값)
+const CH = buildChoices();
+const targetsOf = (bedrooms) => {
+  const o = CH.byBedrooms[bedrooms] || CH.byBedrooms[3];
+  const other = o.roomSize[1].share;
+  return { living: CH.living[1].share, ...o.targets, other, master: bedrooms > 1 ? other * o.master[1].ratio : other * 1.6 };
+};
 const PREF = Object.fromEntries(ALL_CHOICES.map((c) => [c.key, c]));
 const RULE = {
   kitchenLiving: ['vertical', '거실(앞) × 주방(뒤)'],
@@ -48,8 +53,6 @@ const RULE = {
 };
 
 let S = null; // 현재 상태(입력·QUBO·디버거 배치)
-let baselineCache = null;
-const baseline = async () => (baselineCache ||= await (await fetch(`${base}data/baseline.json`)).json());
 
 function readInput() {
   const prefs = [...document.querySelectorAll('input[name="qs-pref"]:checked')].map((e) => e.value);
@@ -61,7 +64,7 @@ function readInput() {
     multi: $('#qs-multi').checked,
     outdoorUnit: false,
     balcony: true,
-    targets: TARGETS,
+    targets: targetsOf(Number($('#qs-bed').value)),
     prefs,
   };
   return { spec, wset: $('#qs-wset').value, sx: $('#qs-sx').checked, lambda: Number($('#qs-lambda').value) };
@@ -116,12 +119,12 @@ function recompute() {
   }
   const ex = runSolver('exact', q, { seed: 1, budgetMs: 20000 });
   S = { inp, k, kAuto, tpls, q, W0, sx, nameOf, vname, obj, parts, ex, x: Uint8Array.from(ex.samples[0].x), opt: ex.samples[0].e };
-  // 실제 생성기와 같은 QUBO인가(보정 + 기본 λ일 때)
-  if (inp.wset === 'calibrated' && inp.sx && Math.abs(inp.lambda - SYNTAX_LAMBDA) < 1e-9) {
+  // 실제 생성기와 같은 QUBO인가(손 가중치 + 기본 λ일 때)
+  if (inp.wset === 'hand' && inp.sx && Math.abs(inp.lambda - SYNTAX_LAMBDA) < 1e-9) {
     const g = buildQubo(inp.spec, { frontBeds: k });
     const same = g.n === q.n && g.penalty === q.penalty && g.diag.every((v, i) => Math.abs(v - q.diag[i]) < 1e-9) && g.M.every((v, i) => Math.abs(v - q.M[i]) < 1e-9);
     $('#qs-same').innerHTML = same ? '<span class="good-text">✓ 지금 설정은 "도면 생성" 탭이 실제로 만드는 QUBO와 계수까지 똑같습니다.</span>' : '<span class="error-text">✗ 실제 생성기의 QUBO와 다릅니다.</span>';
-  } else $('#qs-same').innerHTML = `지금 설정은 실제 생성기의 기본값(보정 가중치 + 공간구문 대리 항 λ = ${SYNTAX_LAMBDA})과 다릅니다. 비교·학습용입니다.`;
+  } else $('#qs-same').innerHTML = `지금 설정은 실제 생성기의 기본값(손 가중치 + 공간구문 대리 항 λ = ${SYNTAX_LAMBDA})과 다릅니다. 비교·학습용입니다.`;
   renderAll();
 }
 
@@ -274,7 +277,6 @@ function stepTerms() {
 function stepWeights() {
   const { spec } = S.inp;
   const hand = weightsOf('hand');
-  const cal = CALIBRATED.weights;
   const W0 = S.W0;
   const l1 = (o) => Object.values(o).reduce((s, x) => s + Math.abs(x || 0), 0);
   const addedRows = S.sx.added.map((a) => {
@@ -286,14 +288,14 @@ function stepWeights() {
     const b = boostOf(t, spec);
     const w = S.q.weights[t.id] ?? 0;
     const sy = syn(t.id);
-    return [esc(t.label), f(hand[t.id], 2), f(cal[t.id], 2), sy ? sg(sy, 3) : '—', f(w, 3), b === 1 ? '1' : `<b>${b}</b>(${esc(PREF[t.pref[0]]?.short ?? t.pref[0])})`, `<b>${f(w * b, 3)}</b>`];
+    return [esc(t.label), f(hand[t.id], 2), sy ? sg(sy, 3) : '—', f(w, 3), b === 1 ? '1' : `<b>${b}</b>(${esc(PREF[t.pref[0]]?.short ?? t.pref[0])})`, `<b>${f(w * b, 3)}</b>`];
   });
   const okW = TERMS.every((t) => Math.abs((S.q.weights[t.id] ?? 0) - ((W0[t.id] ?? 0) + syn(t.id))) < 1e-9);
   live(
     'weights',
-    `<p>지금 기준 가중치: <b>${S.inp.wset === 'calibrated' ? '보정' : '손'}</b>${S.inp.sx ? `, 공간구문 대리 항 λ = ${f(S.inp.lambda)}` : ', 공간구문 대리 항 끔'}.</p>` +
+    `<p>지금 기준 가중치: <b>손</b>${S.inp.sx ? `, 공간구문 대리 항 λ = ${f(S.inp.lambda)}` : ', 공간구문 대리 항 끔'}.</p>` +
       (S.sx.added.length ? `<p>더해진 대리 항:</p><ul class="qs-ol">${addedRows.join('')}</ul>` : `<p class="note">공간구문 선호(거실 중심·사생활 깊이·주방–거실 연계)를 고르면 여기에 대리 항이 더해집니다.</p>`) +
-      table(['항', '① 손', '② 보정', '③ + 대리 항 λ·s·v', 'w (기준 + 대리)', '× 선호 배수 b', '= 실제 계수'], rows) +
+      table(['항', '① 손', '② + 대리 항 λ·s·v', 'w (기준 + 대리)', '× 선호 배수 b', '= 실제 계수'], rows) +
       ok(okW, 'w = 기준 가중치 + Σ λ·s·v (모든 항) = QUBO가 쓴 가중치'),
   );
 }
@@ -616,11 +618,11 @@ function allocHtml(trace) {
     .join('');
 }
 function jLine(spec, sc) {
-  if (!sc) return '평가 실패';
+  if (!sc) return '분석 실패';
   const hasPref = spec.prefs.length > 0;
   const wm = hasPref ? 0.45 : 0.45 / 0.7;
   const wf = hasPref ? 0.25 : 0.25 / 0.7;
-  return `J = ${f(wm, 3)} × ${f(sc.model, 1)}(모델) + ${f(wf, 3)} × ${f(sc.fit, 1)}(면적 부합)${hasPref ? ` + 0.30 × ${f(sc.prefScore, 1)}(선호)` : ''}${sc.unit?.validity?.valid === false ? ' − 40' : ''}${sc.narrow ? ` − 15 × ${sc.narrow}(좁은 실)` : ''}${sc.doorIssues ? ` − 15 × ${sc.doorIssues}(문 동선)` : ''} = <b>${f(sc.objective, 1)}</b>`;
+  return `J = ${f(wm, 3)} × ${f(sc.rules, 1)}(규칙 충족) + ${f(wf, 3)} × ${f(sc.fit, 1)}(면적 부합)${hasPref ? ` + 0.30 × ${f(sc.prefScore, 1)}(선호)` : ''}${sc.unit?.validity?.valid === false ? ' − 40' : ''}${sc.narrow ? ` − 15 × ${sc.narrow}(좁은 실)` : ''}${sc.doorIssues ? ` − 15 × ${sc.doorIssues}(문 동선)` : ''} = <b>${f(sc.objective, 1)}</b>`;
 }
 let planToken = 0;
 async function stepPlan() {
@@ -628,15 +630,14 @@ async function stepPlan() {
   const q = S.q;
   const d = decode(q, S.x);
   const spec = S.inp.spec;
-  const bl = await baseline();
   if (token !== planToken) return;
   // (가) 기본 치수 한 번
   const p0 = { ...defaultParams(spec), frontOrder: d.front, backOrder: d.back };
   const tr0 = [];
   const lay0 = buildLayout(spec, { ...structuredClone(p0), trace: tr0 });
-  const sc0 = scoreLayout(spec, lay0, bl);
+  const sc0 = scoreLayout(spec, lay0);
   // (나) 실제 생성기와 같은 다듬기 30번(깊이 D·앞 띠 비율 f·작은방 폭 w·안방 깊이 g·면적 배수를 하나씩 조금 바꾸고 J가 오르면 채택)
-  const best = realize(spec, d, bl, rng(1), 30);
+  const best = realize(spec, d, rng(1), 30);
   const tr1 = [];
   const lay1 = buildLayout(spec, { ...structuredClone(best.params), trace: tr1 });
   const P = (p) => [f(p.depth), f(p.frontShare), f(p.bedWidth), f(p.masterDepth)];
@@ -651,9 +652,9 @@ async function stepPlan() {
      <div class="qs-two"><figure>${layoutSvg(lay0, { mode: 'space' })}<figcaption>(가) 기본값 — J ${f(sc0?.objective, 1)}</figcaption></figure><figure>${layoutSvg(lay1, { mode: 'space' })}<figcaption>(나) 다듬기 뒤 — J ${f(best.objective, 1)}</figcaption></figure></div>
      <details open><summary><b>(가) 기본값의 방 폭 계산</b></summary>${allocHtml(tr0)}<div class="mt-eq">${jLine(spec, sc0)}</div></details>
      <details open><summary><b>(나) 다듬기 뒤의 방 폭 계산</b></summary>${allocHtml(tr1)}<div class="mt-eq">${jLine(spec, best)}</div></details>
-     <p class="note">면적 부합 = max(0, 100 − 250 × 실별 상대 오차 평균). 모델 점수 = 실제 아파트 35세대 분포와의 근접도(평가 모델).</p>` +
+     <p class="note">면적 부합 = max(0, 100 − 250 × 실별 상대 오차 평균). 규칙 충족 = 시공 가능성 규칙(선택 규칙 제외)의 가중 충족률.</p>` +
       ok(Math.abs(lay1.W * lay1.D - spec.area) < 1e-6 && Math.abs(lay0.W * lay0.D - spec.area) < 1e-6, `두 평면 모두 W × D = 전용면적 ${spec.area}㎡`) +
-      ok(Math.abs(scoreLayout(spec, lay1, bl).objective - best.objective) < 1e-9, '다듬은 매개변수로 다시 만든 평면의 J = realize()가 돌려준 J'),
+      ok(Math.abs(scoreLayout(spec, lay1).objective - best.objective) < 1e-9, '다듬은 매개변수로 다시 만든 평면의 J = realize()가 돌려준 J'),
   );
 }
 
@@ -664,10 +665,8 @@ async function stepImprove() {
   const inp = S.inp;
   const sets = [
     ['① 손 가중치', { ...inp, wset: 'hand', sx: false }],
-    ['② 보정 가중치', { ...inp, wset: 'calibrated', sx: false }],
-    [`③ 보정 + 공간구문 대리 항(λ = ${f(inp.lambda)})`, { ...inp, wset: 'calibrated', sx: true }],
+    [`② 손 + 공간구문 대리 항(λ = ${f(inp.lambda)})`, { ...inp, wset: 'hand', sx: true }],
   ];
-  const bl = await baseline();
   const rows = [];
   for (const [label, cfg] of sets) {
     let best = null;
@@ -675,7 +674,7 @@ async function stepImprove() {
       const { q } = build(cfg, k);
       const ex = runSolver('exact', q, { seed: 1, budgetMs: 20000 });
       const d = decode(q, ex.samples[0].x);
-      const sc = realize(inp.spec, d, bl, rng(1), 30); // 도면 생성과 같은 다듬기 30번
+      const sc = realize(inp.spec, d, rng(1), 30); // 도면 생성과 같은 다듬기 30번
       if (sc && (!best || sc.objective > best.sc.objective)) best = { k, e: ex.samples[0].e, d, sc, layout: sc.layout };
     }
     rows.push({ label, ...best });
@@ -685,11 +684,11 @@ async function stepImprove() {
   live(
     'improve',
     table(
-      ['가중치', '템플릿', '전역 최적해 E*', '앞 띠', '뒤 띠', '모델 점수', '순위 점수 J'],
-      rows.map((r) => [r.label, `k = ${r.k}`, f(r.e, 3), r.d.front.map((k) => S.nameOf[k]).join(' → '), r.d.back.map((k) => S.nameOf[k]).join(' → '), f(r.sc.model, 1), `<b>${f(r.sc.objective, 1)}</b>`]),
+      ['가중치', '템플릿', '전역 최적해 E*', '앞 띠', '뒤 띠', '규칙 충족', '순위 점수 J'],
+      rows.map((r) => [r.label, `k = ${r.k}`, f(r.e, 3), r.d.front.map((k) => S.nameOf[k]).join(' → '), r.d.back.map((k) => S.nameOf[k]).join(' → '), f(r.sc.rules, 1), `<b>${f(r.sc.objective, 1)}</b>`]),
     ) +
       `<div class="qs-three">${rows.map((r) => `<figure>${layoutSvg(r.layout, { mode: 'space' })}<figcaption>${esc(r.label)}</figcaption></figure>`).join('')}</div>` +
-      `<p class="note">순서마다 도면 생성과 같은 다듬기 30번을 한 뒤 채점했습니다(실제 생성기는 여기에 동점·근접 해 여러 개를 재순위합니다). 에너지는 가중치 세트마다 척도가 달라 서로 비교하지 않습니다.${same ? ' 공간구문 선호를 고르지 않아 ②와 ③은 같습니다.' : ''}</p>`,
+      `<p class="note">순서마다 도면 생성과 같은 다듬기 30번을 한 뒤 J를 쟀습니다(실제 생성기는 여기에 동점·근접 해 여러 개를 재순위합니다). 에너지는 가중치 세트마다 척도가 달라 서로 비교하지 않습니다.${same ? ' 공간구문 선호를 고르지 않아 ①과 ②는 같습니다.' : ''}</p>`,
   );
 }
 

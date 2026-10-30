@@ -28,7 +28,7 @@ function flip(q, x, d, i) {
 }
 const randomX = (n, r) => Uint8Array.from({ length: n }, () => (r() < 0.5 ? 1 : 0));
 
-/** 서로 다른 좋은 해를 모은다(디코딩해 평가 모델로 채점할 후보). */
+/** 서로 다른 좋은 해를 모은다(디코딩해 적합성 J로 고를 후보). */
 class Pool {
   constructor(size = 6) {
     this.size = size;

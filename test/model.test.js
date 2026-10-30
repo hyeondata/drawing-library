@@ -3,14 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { GATE_CAP } from '../src/model/config.js';
-import { analyze, closenessScore, detectKind, ecdf, evaluate, percentileScore, qnScale, robustStats } from '../src/model/index.js';
+import { analyze, detectKind, failedGates, ruleRate } from '../src/model/index.js';
 import { minAreaRect } from '../src/model/geometry.js';
 import { diamondValue, kendallTauB, nodeMetrics } from '../src/model/syntax.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (p) => JSON.parse(fs.readFileSync(path.join(root, p), 'utf8'));
-const baseline = readJson('public/data/baseline.json');
 
 // ---- 합성 도면 도우미 ----
 const NAMES = ['공간_현관', '공간_거실', '공간_주방', '공간_침실', '공간_화장실', '구조_벽체', '구조_출입문', '구조_창호', '객체_변기', '객체_세면대', '객체_싱크대', '객체_가스레인지', '객체_욕조'];
@@ -98,12 +96,6 @@ test('Kendall τ_b: 같은 순서 1, 뒤집힌 순서 -1, 동점 보정', () => 
   assert.ok(t > 0.8 && t < 1);
 });
 
-test('방향이 정해진 지표는 유리한 쪽으로 벗어나도 감점하지 않는다', () => {
-  assert.equal(closenessScore(2, 'higher'), 100);
-  assert.ok(closenessScore(-1.5, 'higher') < 60);
-  assert.equal(closenessScore(1.5), 50);
-});
-
 test('공간구문 그래프는 작은 기타(덕트)를 빼고 외부 노드를 붙인다', () => {
   const duct = { name: '공간_기타', x: 0, y: 230, w: 40, h: 40 }; // 1,600px² < 축척 보정한 ductMaxArea, 화장실과 맞닿음
   const names = [...NAMES, '공간_기타'];
@@ -118,33 +110,6 @@ test('공간구문 그래프는 작은 기타(덕트)를 빼고 외부 노드를
   assert.equal(u.rules.find((r) => r.id === 'livingCentral').pass, true);
   assert.ok(u.features.genotypeTau > 0);
   assert.ok(u.features.livingBedroomRatio > 1);
-});
-
-test('관문 규칙을 어기면 총점이 상한에 묶인다', () => {
-  const plan = [...goodPlan, rect('공간_침실', 645, 165, 150, 135)]; // 침실 통과 동선
-  const r = evaluate(coco(plan), { baseline, kind: 'SPA' });
-  assert.ok(r.units[0].failedGates.length > 0);
-  assert.ok(r.units[0].score <= GATE_CAP);
-});
-
-test('Qn 척도: 한 값으로 모이면 0, 정규 표본에서는 표준편차에 가깝다', () => {
-  assert.equal(robustStats([1, 1, 1, 1]).scale, 0);
-  // 표준정규 분위수 50개로 만든 표본: Qn ≈ 1
-  const z = Array.from({ length: 50 }, (_, i) => {
-    const p = (i + 0.5) / 50;
-    // Acklam 근사 대신 간단한 로지스틱 근사(충분히 정확)
-    return Math.log(p / (1 - p)) / 1.702;
-  }).sort((a, b) => a - b);
-  const q = qnScale(z);
-  assert.ok(q > 0.85 && q < 1.15, `Qn=${q}`);
-});
-
-test('백분위 점수: 중앙은 100, 양끝은 0에 가깝고, 단측은 유리한 쪽을 감점하지 않는다', () => {
-  const sorted = [0, 0.2, 0.4, 0.6, 0.8, 1];
-  assert.equal(percentileScore(ecdf(0.5, sorted), undefined), 100);
-  assert.ok(percentileScore(ecdf(-1, sorted), undefined) === 0);
-  assert.equal(percentileScore(ecdf(1, sorted), 'higher'), 100);
-  assert.ok(percentileScore(ecdf(0, sorted), 'higher') < 20);
 });
 
 test('회전 최소 외접 사각형은 도면이 기울어도 같은 직사각형도를 준다', () => {
@@ -168,38 +133,33 @@ test('축척 보정: 도면을 2배로 그려도 지표와 규칙 판정이 같�
   // 외기 접면은 벽 간격 기준(고정 px)을 써서 축척 불변이 아니다(문서의 한계 참고). 여기서는 검사하지 않는다.
 });
 
-test('관문 결과는 점수와 별도로 유효성으로 출력되고, 상한은 끌 수 있다', () => {
-  const plan = [...goodPlan, rect('공간_침실', 645, 165, 150, 135)];
-  const r = evaluate(coco(plan), { baseline, kind: 'SPA', options: { gateCap: null } });
-  assert.equal(r.units[0].validity.valid, false);
-  assert.equal(r.units[0].capped, false);
-});
-
-test('평가 시 자기 자신은 기준 분포에서 빠진다', () => {
-  const id = baseline.entries.SPA[0].drawing;
-  const label = readJson(`public/data/labels/${id}.json`);
-  const own = baseline.entries.SPA.filter((e) => e.drawing === id).length;
-  const r = evaluate(label, { baseline, drawingId: id });
-  assert.equal(r.baselineSize, baseline.entries.SPA.length - own);
-  assert.equal(detectKind(label), 'SPA');
-});
-
-test('실제 샘플에서 거실을 지우면 점수가 떨어진다', () => {
+test('실제 샘플에서 거실을 지우면 필수 규칙에 걸리고 규칙 충족률이 떨어진다', () => {
   const id = 'APT_FP_SPA_001168733';
   const label = readJson(`public/data/labels/${id}.json`);
   const livingId = label.categories.find((c) => c.name === '공간_거실').id;
   const broken = { ...label, annotations: label.annotations.filter((a) => a.category_id !== livingId) };
-  const before = evaluate(label, { baseline, drawingId: id }).score;
-  const after = evaluate(broken, { baseline, drawingId: id }).score;
-  assert.ok(after < before - 10, `거실 삭제 전 ${before.toFixed(1)}, 후 ${after.toFixed(1)}`);
+  const before = analyze(label, 'SPA').units[0];
+  const after = analyze(broken, 'SPA').units[0];
+  assert.equal(failedGates(before.rules).length, 0);
+  assert.ok(failedGates(after.rules).length > 0);
+  assert.ok(ruleRate(after.rules) < ruleRate(before.rules));
 });
 
-test('모든 샘플을 오류 없이 평가하고 점수는 0~100이다', () => {
-  for (const kind of ['SPA', 'STR', 'OBJ']) {
-    for (const id of new Set(baseline.entries[kind].map((e) => e.drawing))) {
-      const r = evaluate(readJson(`public/data/labels/${id}.json`), { baseline, drawingId: id });
-      assert.ok(r.score >= 0 && r.score <= 100, `${id}: ${r.score}`);
-    }
+test('선택 규칙(채광·안방 부속실)은 규칙 충족률에 들어가지 않는다', () => {
+  const rules = [
+    { id: 'program', weight: 2, ratio: 1 },
+    { id: 'daylight', weight: 1, ratio: 0 },
+    { id: 'masterSuite', weight: 1, ratio: 0 },
+  ];
+  assert.equal(ruleRate(rules), 100);
+});
+
+test('모든 샘플 라벨을 오류 없이 분석한다', () => {
+  for (const f of fs.readdirSync(path.join(root, 'public/data/labels'))) {
+    const kind = f.split('_')[2];
+    if (kind === 'OCR') continue;
+    const a = analyze(readJson(`public/data/labels/${f}`), kind);
+    for (const u of a.units) assert.ok(ruleRate(u.rules) >= 0 && ruleRate(u.rules) <= 100, f);
   }
 });
 
@@ -236,10 +196,9 @@ test('이미지에서 실 영역을 찾아 지정하면 같은 모델로 평가�
   assert.equal(rooms.length, 8);
   const label = toCoco(rooms, W, H);
   assert.equal(label.images[0].width, 4963);
-  const r = evaluate(label, { baseline, kind: 'SPA' });
+  const r = analyze(label, 'SPA');
   assert.equal(r.units.length, 1);
-  assert.equal(r.units[0].validity.valid, true, r.units[0].validity.failed.join(','));
-  assert.ok(r.score > 0 && r.score <= 100);
+  assert.deepEqual(failedGates(r.units[0].rules), []);
 });
 
 test('실 이름 글자: 오인식을 자모 유사도로 맞추고 설명문은 버린다', async () => {
@@ -275,26 +234,24 @@ test('실 이름 글자: 오인식을 자모 유사도로 맞추고 설명문은
 test('도면 생성: 84㎡ 방 3개는 유효하고 규칙을 모두 통과하며 면적을 채운다', async () => {
   const { optimize, MIN_SIDE } = await import('../src/generate/optimize.js');
   const { buildChoices } = await import('../src/generate/choices.js');
-  const dir = path.join(root, 'public/data/labels');
-  const files = fs.readdirSync(dir);
-  const choices = buildChoices({
-    spaLabels: files.filter((f) => f.includes('_SPA_')).map((f) => ({ id: f, label: readJson(`public/data/labels/${f}`) })),
-    ocrLabels: files.filter((f) => f.includes('_OCR_')).map((f) => readJson(`public/data/labels/${f}`)),
-  });
-  assert.equal(choices.source.units, 35);
+  const { AIHUB } = await import('../src/generate/aihub-stats.js');
+  const choices = buildChoices();
+  assert.equal(choices.source.units, AIHUB.source.aptUnique);
   assert.ok(choices.living[0].share < choices.living[3].share);
-  const t = choices.targets;
-  const other = choices.roomSize[1].share;
+  // 방이 많을수록 작은방 면적비가 작다(침실 수별 분위수)
+  assert.ok(choices.byBedrooms[2].roomSize[1].share > choices.byBedrooms[4].roomSize[1].share);
+  const t = choices.byBedrooms[3].targets;
+  const other = choices.byBedrooms[3].roomSize[1].share;
   const spec = {
     area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true,
     targets: { living: choices.living[1].share, kitchen: t.kitchen, master: other * choices.master[1].ratio, other, bath: t.bath, entrance: t.entrance, dress: t.dress, multi: t.multi },
     prefs: ['livingCentral', 'bath'],
   };
-  const top = optimize(spec, { baseline: readJson('public/data/baseline.json'), seed: 1 });
+  const top = optimize(spec, { seed: 1 });
   assert.equal(top.length, 3);
   const best = top[0];
   assert.ok(best.unit.validity.valid);
-  assert.ok(best.unit.groups.rules.items.every((r) => r.pass), best.unit.groups.rules.items.filter((r) => !r.pass).map((r) => r.id).join());
+  assert.ok(best.unit.rules.every((r) => r.pass), best.unit.rules.filter((r) => !r.pass).map((r) => r.id).join());
   assert.equal(best.narrow, 0);
   const inner = best.layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실');
   const area = inner.reduce((s, r) => s + r.w * r.h, 0);
@@ -313,7 +270,7 @@ test('도면 생성: 84㎡ 방 3개는 유효하고 규칙을 모두 통과하�
     const room = best.layout.rooms.find((r) => r.key === f.room);
     assert.ok(f.x >= room.x - 1e-6 && f.y >= room.y - 1e-6 && f.x + f.w <= room.x + room.w + 1e-6 && f.y + f.h <= room.y + room.h + 1e-6, `${f.type} 밖으로 나감`);
   }
-  // AI 허브 Sample과 같은 형식(23개 범주, SPA·STR·OBJ)으로 내보내고 각자의 평가 모델로 채점된다.
+  // AI 허브 Sample과 같은 형식(23개 범주, SPA·STR·OBJ)으로 내보내고 각자의 분석기로 규칙을 모두 통과한다.
   const { toAihubSPA, toAihubSTR, toAihubOBJ, AIHUB_CATEGORIES } = await import('../src/generate/aihub.js');
   const sample = readJson('public/data/labels/APT_FP_SPA_000310275.json');
   assert.deepEqual(AIHUB_CATEGORIES, sample.categories);
@@ -322,8 +279,8 @@ test('도면 생성: 84㎡ 방 3개는 유효하고 규칙을 모두 통과하�
     assert.deepEqual(Object.keys(lab), Object.keys(sample));
     assert.equal(lab.images[0].file_name, `APT_FP_${kind}_908431001.PNG`);
     assert.equal(detectKind(lab), kind);
-    const r = evaluate(lab, { baseline: readJson('public/data/baseline.json') });
-    assert.ok(r.valid, `${kind} 유효`);
+    const r = analyze(lab, kind);
+    assert.ok(r.units.every((u) => u.rules.every((x) => x.pass)), `${kind}: ${r.units.flatMap((u) => u.rules.filter((x) => !x.pass).map((x) => x.id)).join()}`);
   }
   assert.ok(toAihubSTR(best.layout).annotations.some((a) => a.attributes['구조_벽체'] === '철근콘크리트벽'));
 });
