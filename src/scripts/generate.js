@@ -199,6 +199,9 @@ const selectedAlgos = () => [...document.querySelectorAll('input[name="algo"]:ch
 async function runCompare(algorithms, seed) {
   const spec = buildSpec();
   const budgetMs = Number($('#gen-budget').value);
+  // 멈춤 조건: 같은 최저 에너지를 N번 다시 찾으면 멈춤, 'full'이면 최대 시간까지 계속
+  const stopSel = $('#gen-stop').value;
+  const stopHits = stopSel === 'full' ? null : Number(stopSel);
   state.spec = spec;
   state.seed = seed;
   const id = ++state.runId;
@@ -210,7 +213,11 @@ async function runCompare(algorithms, seed) {
   w.onmessage = (e) => {
     const m = e.data;
     if (m.id !== state.runId) return;
-    if (m.progress !== undefined) setProgress(m.progress, `${ALGO_NAME[m.key] || ''} 실행 중… (${Math.min(algorithms.length, Math.round(m.progress * algorithms.length) + 1)}/${algorithms.length})`);
+    if (m.progress !== undefined) {
+      const i = m.info;
+      const name = ALGO_NAME[m.key] || 'SA';
+      setProgress(m.progress, i ? `${name} 탐색 중… ${(i.ms / 1000).toFixed(1)}초 / 최대 ${(budgetMs / 1000).toFixed(0)}초${i.e !== null && i.e !== undefined ? ` · 지금까지 최저 에너지 ${i.e.toFixed(2)}` : ''}${stopHits ? ` · 같은 최저를 ${stopHits}번 다시 찾으면 멈춤` : ''}` : `${name} 해를 평면으로 풀고 다듬는 중…`);
+    }
     if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
     if (m.done) {
       state.compare = { ...m.compare, budgetMs, seed };
@@ -226,7 +233,7 @@ async function runCompare(algorithms, seed) {
       renderResult();
     }
   };
-  w.postMessage({ type: 'compare', id, spec, seed, algorithms, budgetMs, weights: WEIGHTS });
+  w.postMessage({ type: 'compare', id, spec, seed, algorithms, budgetMs, stopHits, weights: WEIGHTS });
 }
 
 // QUBO 에너지와 적합성 산점도: 풀이기가 낸 후보(템플릿별)를 평면으로 풀어 잰 점수와 그 해의 에너지.

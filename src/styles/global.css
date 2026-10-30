@@ -1884,7 +1884,8 @@ table.plain td.num {
   height: 100%;
   border-radius: 999px;
   background: var(--accent);
-  transition: width 0.2s;
+  /* 진행 신호(0.12초 간격) 사이를 매끄럽게 잇는다 */
+  transition: width 0.25s linear;
 }
 .gen-tabs {
   justify-self: start;

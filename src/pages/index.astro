@@ -13,7 +13,8 @@ import { show, showSeg } from '../lib/source.js';
 // 생성 알고리즘은 SA만 켠다(근거: evidence/18-SA-선택-근거.md). 다른 풀이기는 코드와 비교 실험에만 남긴다.
 // 시간 선택지 옆의 전역 최적 도달률: evidence/results/sa-experiment.json(손으로 옮겨 적지 않음)
 const SAX = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'evidence', 'results', 'sa-experiment.json'), 'utf8'));
-const hitAt = (ms) => Math.round(100 * (SAX.budget.find((r) => r.budgetMs === ms)?.p ?? NaN));
+const stopOf = (k) => SAX.stop.find((r) => r.stopHits === k);
+const stopLabel = (k) => { const r = stopOf(k); return r ? `최적 ${Math.round(r.p * 100)}%, 보통 ${(r.ms.p50 / 1000).toFixed(1)}초` : ''; };
 const algos = SOLVERS.filter((s) => ACTIVE.includes(s.key)).map((s) => ({ key: s.key, name: s.name, family: s.family, cite: s.cite }));
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -199,11 +200,17 @@ const steps = [
               ))}
             </div>
             <div class="gen-algo-actions">
-              <label class="gen-inline">풀이기당 시간
+              <label class="gen-inline">최대 시간
                 <select id="gen-budget">
-                  <option value="300">0.3초(최적 도달 {hitAt(300)}%)</option>
-                  <option value="1000">1초({hitAt(1000)}%)</option>
-                  <option value="3000" selected>3초({hitAt(3000)}%, 기본)</option>
+                  <option value="3000">3초</option>
+                  <option value="10000">10초</option>
+                  <option value="30000" selected>30초(기본)</option>
+                </select>
+              </label>
+              <label class="gen-inline">멈춤 조건
+                <select id="gen-stop">
+                  {SAX.stop.map((r) => <option value={r.stopHits} selected={r.stopHits === SAX.defaultStop}>같은 최저를 {r.stopHits}번 다시 찾으면({stopLabel(r.stopHits)}){r.stopHits === SAX.defaultStop ? ', 기본' : ''}</option>)}
+                  <option value="full">끝까지(최대 시간까지 계속)</option>
                 </select>
               </label>
               <label class="gen-inline">시드 <input type="number" id="gen-seed" value="1" min="1" max="9999" /></label>
@@ -211,7 +218,7 @@ const steps = [
               <button type="button" class="button-ghost small" id="gen-qubo">QUBO 내보내기(D-Wave·Gurobi용)</button>
             </div>
             <p class="note">
-              <b>풀이기당 시간</b>은 SA가 QUBO를 푸는 데 쓰는 시간 한도입니다(해를 평면으로 풀고 고르는 시간은 따로 듭니다). SA는 확률적이라 시간을 늘리면 전역 최적에 닿는 비율이 오릅니다(측정값: evidence/results/sa-experiment.md).
+              <b>최대 시간</b>은 SA가 QUBO를 푸는 데 쓸 수 있는 한도이고, <b>멈춤 조건</b>은 그 전에 끝내는 규칙입니다. SA는 무작위 시작에서 여러 번 다시 풀며(재시작), 지금까지 찾은 가장 낮은 에너지를 정한 횟수만큼 다시 찾으면 더 낮은 해가 없다고 보고 멈춥니다. "끝까지"는 최대 시간을 다 씁니다. 해를 평면으로 풀고 고르는 시간은 따로 듭니다(측정값: evidence/results/sa-experiment.md, 최대 {SAX.maxMs / 1000}초 기준).
               평면 품질은 풀이 시간보다 아래 QUBO 가중치(J와 얼마나 맞는가)가 좌우합니다.
             </p>
             <details class="pl-what gen-qw" id="gen-qw" open>

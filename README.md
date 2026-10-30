@@ -53,7 +53,7 @@ npm run sa                                # 켜 둔 풀이기(SA)만 실험: 시
 ## 도면 생성
 
 - **생성·선택**: 판상형 배치 문법(`src/generate/layout.js`)으로 평면을 만들고 적합성 J = 0.45·규칙 충족률 + 0.25·목표 면적 부합 + 0.30·선호 − 감점(필수 규칙 위반 40, 좁은 실·문 동선 문제 15)으로 고릅니다(`src/generate/optimize.js` `scoreLayout`).
-- **풀이기는 SA 하나**: 실 배치를 QUBO(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들어 SA(풀이기당 기본 3초, 전역 최적 도달 86%)로 풀고, 좋은 해를 평면으로 풀어 J로 서로 다른 3안을 고릅니다. 다른 풀이기 10종과 직접 탐색은 꺼 두었고 실험도 하지 않습니다. 근거: [`evidence/18-SA-선택-근거.md`](evidence/18-SA-선택-근거.md). QUBO JSON은 `public/qubo/solve_qubo.py`로 D-Wave(SA·QPU 등)·Gurobi·CP-SAT에서 풀 수 있습니다.
+- **풀이기는 SA 하나**: 실 배치를 QUBO(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들어 SA(최대 30초, 같은 최저 에너지를 10번 다시 찾으면 멈춤: 측정 40번 모두 전역 최적, 보통 2.5초)로 풀고, 좋은 해를 평면으로 풀어 J로 서로 다른 3안을 고릅니다. 다른 풀이기 10종과 직접 탐색은 꺼 두었고 실험도 하지 않습니다. 근거: [`evidence/18-SA-선택-근거.md`](evidence/18-SA-선택-근거.md). QUBO JSON은 `public/qubo/solve_qubo.py`로 D-Wave(SA·QPU 등)·Gurobi·CP-SAT에서 풀 수 있습니다.
 - QUBO 도면 생성 탭(격자 칸 단위, 변수 약 600개)은 SA가 실이 흩어진 해를 내서 예외로 Tabu를 기본으로 둡니다.
 - 결과는 AI 허브 Sample과 같은 형식의 SPA·STR·OBJ JSON과 SVG로 받을 수 있습니다.
 

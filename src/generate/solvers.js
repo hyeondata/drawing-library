@@ -107,9 +107,15 @@ function betaRange(q) {
   return [Math.log(2) / maxD, Math.log(100) / minD];
 }
 
-function sa(q, { r, deadline, pool, count, sweeps = 1000, ev }) {
+/**
+ * SA: 무작위 시작에서 sweep 1,000번(기하 온도 스케줄)을 한 번의 재시작으로 보고, 시간이 남으면 다시 시작한다.
+ * stopHits를 주면 지금까지의 최저 에너지를 그만큼의 재시작에서 다시 찾았을 때 시간 전에 멈춘다(수렴 판정).
+ */
+function sa(q, { r, deadline, pool, count, sweeps = 1000, ev, stopHits = null }) {
   const [b0, b1] = betaRange(q);
   const { n } = q;
+  let best = Infinity;
+  let hits = 0;
   do {
     const x = randomX(n, r);
     const d = deltas(q, x);
@@ -127,7 +133,11 @@ function sa(q, { r, deadline, pool, count, sweeps = 1000, ev }) {
       if (now() > deadline) break;
     }
     pool.add(x, e);
+    if (e < best - 1e-9) (best = e), (hits = 1);
+    else if (Math.abs(e - best) <= 1e-9) hits++;
+    if (stopHits && hits >= stopHits) return { stopped: true, hits };
   } while (now() < deadline);
+  return { stopped: false, hits };
 }
 
 function d2ts(q, { r, deadline, pool, count, ev }) {
@@ -570,7 +580,7 @@ export const SOLVERS = [
 /**
  * 풀이기 하나를 돌린다. 반환: { key, energy, feasible, ms, evals, samples: [{ x, e, feasible }], note }
  */
-export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null, onEvent = null, onTick = null } = {}) {
+export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null, onEvent = null, onTick = null, stopHits = null } = {}) {
   const solver = SOLVERS.find((s) => s.key === key);
   const r = makeRng(seed * 7919 + key.length * 104729);
   const pool = new Pool(6);
@@ -607,7 +617,7 @@ export function runSolver(key, q, { seed = 1, budgetMs = 300, maxEvals = null, o
           }
         }
       : () => evals++;
-    info = solver.run(q, { r, deadline: t0 + budgetMs, pool, count, ev: onEvent ? (e) => onEvent({ ...e, evals }) : null }) || {};
+    info = solver.run(q, { r, deadline: t0 + budgetMs, pool, count, stopHits, ev: onEvent ? (e) => onEvent({ ...e, evals }) : null }) || {};
   } finally {
     now = realNow;
   }

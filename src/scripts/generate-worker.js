@@ -5,7 +5,7 @@ import { optimize } from '../generate/optimize.js';
 import { buildQubo, toBqmJson } from '../generate/qubo.js';
 
 self.onmessage = (e) => {
-  const { type = 'generate', spec, seed, id, algorithms, budgetMs, weights = 'hand' } = e.data;
+  const { type = 'generate', spec, seed, id, algorithms, budgetMs, stopHits = null, weights = 'hand' } = e.data;
   try {
     if (type === 'qubo') {
       self.postMessage({ id, done: true, bqm: toBqmJson(buildQubo(spec, { weights })) });
@@ -16,8 +16,9 @@ self.onmessage = (e) => {
         algorithms,
         seed,
         budgetMs,
+        stopHits,
         weights,
-        onProgress: (p, key) => self.postMessage({ id, progress: p, key }),
+        onProgress: (p, key, info) => self.postMessage({ id, progress: p, key, info }),
       });
       self.postMessage({ id, done: true, compare: out });
       return;
