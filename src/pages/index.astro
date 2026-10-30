@@ -201,19 +201,18 @@ const steps = [
                   <option value="3000" selected>3초(98%, 기본)</option>
                 </select>
               </label>
-              <label class="gen-inline">QUBO 가중치
-                <select id="gen-weights">
-                  <option value="hand" selected>손으로 정한 값</option>
-                </select>
-              </label>
               <label class="gen-inline">시드 <input type="number" id="gen-seed" value="1" min="1" max="9999" /></label>
               <button type="button" class="button-primary" id="gen-run">SA로 다시 생성</button>
               <button type="button" class="button-ghost small" id="gen-qubo">QUBO 내보내기(D-Wave·Gurobi용)</button>
             </div>
             <p class="note">
               <b>풀이기당 시간</b>은 SA가 QUBO를 푸는 데 쓰는 시간 한도입니다(해를 평면으로 풀고 고르는 시간은 따로 듭니다). SA는 확률적이라 시간을 늘리면 전역 최적에 닿는 비율이 오릅니다(측정값: evidence/results/sa-budget.md).
-              평면 품질은 풀이 시간보다 QUBO 가중치(J와 얼마나 맞는가)가 좌우합니다. 가중치는 규칙과 문헌을 보고 손으로 정했습니다.
+              평면 품질은 풀이 시간보다 아래 QUBO 가중치(J와 얼마나 맞는가)가 좌우합니다.
             </p>
+            <details class="pl-what gen-qw" id="gen-qw" open>
+              <summary><b>QUBO 가중치</b>: 지금 고른 조건으로 만든 QUBO의 항별 계수</summary>
+              <div id="gen-qw-table"></div>
+            </details>
             <p class="note">
               내보낸 QUBO JSON은 <a href={`${base}qubo/solve_qubo.py`} download>solve_qubo.py</a>로 D-Wave(SA·Tabu·QPU·Hybrid)·Gurobi·CP-SAT에서 풀 수 있습니다.
               같은 QUBO에서 D-Wave SA·Tabu와 CP-SAT가 이 화면의 전수 열거로 구한 전역 최적해와 같은 에너지를 내는 것을 확인했습니다. QPU는 Leap 계정이 있어야 합니다.

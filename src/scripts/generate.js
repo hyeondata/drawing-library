@@ -10,6 +10,10 @@ import { WALL, netDims } from '../generate/net-dims.js';
 import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 import { ACTIVE } from '../generate/solvers.js';
+import { TERMS, buildQubo, weightsOf } from '../generate/qubo.js';
+
+/** 화면이 쓰는 QUBO 가중치 세트(손으로 정한 값 + 공간구문 대리 항). */
+const WEIGHTS = 'hand';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
 const { base, steps, byBedrooms, refs } = data;
@@ -116,7 +120,10 @@ function show(i, scroll = true) {
   next.hidden = i === RESULT;
   next.textContent = i === RESULT - 1 ? '도면 만들기 →' : '다음 →';
   $('#gen-summary').textContent = summary();
-  if (i === RESULT) run();
+  if (i === RESULT) {
+    renderWeights();
+    run();
+  }
   if (scroll) document.getElementById('gen').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 $('#gen-next').addEventListener('click', () => show(Math.min(RESULT, state.step + 1)));
@@ -142,6 +149,33 @@ form.addEventListener('change', (e) => {
   // 조건을 바꾸면 결과를 다시 만든다.
   state.top = [];
 });
+
+// ---------- QUBO 가중치 표 ----------
+/**
+ * 지금 고른 조건으로 QUBO를 만들어 항별 계수를 보여 준다(생성기가 쓰는 것과 같은 buildQubo).
+ * 실제 계수 = (기본 가중치 + 공간구문 대리 항) × 선호 배수. 이 조건에서 걸리는 변수가 없는 항은 흐리게 표시한다.
+ */
+function renderWeights() {
+  const spec = buildSpec();
+  const q = buildQubo(spec, { weights: WEIGHTS });
+  const w0 = weightsOf(WEIGHTS);
+  const f = (v, d = 2) => (Math.abs(v) < 1e-9 ? '0' : v.toFixed(d));
+  const rows = TERMS.map((t) => {
+    const w = q.weights[t.id] ?? 0;
+    const syn = w - (w0[t.id] ?? 0);
+    const on = Boolean(t.pref && spec.prefs.includes(t.pref[0]));
+    const b = on ? t.pref[1] : 1;
+    const used = q.unit[t.id].lin.size + q.unit[t.id].quad.size > 0;
+    const coef = w * b;
+    const sign = coef < -1e-9 ? '보상' : coef > 1e-9 ? '감점' : '—';
+    return `<tr class="${used ? '' : 'gen-qw-off'}"><td>${esc(t.label)}</td><td class="mono">${f(w0[t.id] ?? 0)}</td><td class="mono">${Math.abs(syn) > 1e-9 ? (syn > 0 ? '+' : '') + f(syn, 3) : '—'}</td><td>${t.pref ? `${on ? '<b>' : ''}×${t.pref[1]}${on ? '</b>' : ''} <small>${esc(PREF[t.pref[0]]?.short ?? t.pref[0])}</small>` : '—'}</td><td class="mono"><b>${used ? f(coef, 3) : '안 씀'}</b></td><td>${used ? sign : ''}</td><td><small>${esc(t.why)}</small></td></tr>`;
+  });
+  const syn = q.syntaxTerms.length ? `공간구문 대리 항: ${q.syntaxTerms.map((a) => `${esc(a.label)}(λ·s = ${a.scale.toFixed(3)})`).join(', ')}.` : '공간구문 선호를 고르지 않아 대리 항이 없습니다.';
+  $('#gen-qw-table').innerHTML =
+    `<p class="note">변수 ${q.n}개(앞 띠 ${q.bands.front.rooms.length}실 × ${q.bands.front.slots}칸, 뒤 띠 ${q.bands.back.rooms.length}실 × ${q.bands.back.slots}칸), 원-핫 벌점 P = ${q.penalty}. 에너지 = Σ 실제 계수 × 항 값 + P × 원-핫 위반. 음수는 그 배치를 원함(보상), 양수는 피함(감점). ${syn}</p>` +
+    `<div class="mt-scroll"><table class="gen-table"><thead><tr><th>항</th><th>기본 가중치</th><th>+ 대리 항</th><th>선호 배수</th><th>실제 계수</th><th></th><th>근거</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` +
+    `<p class="note">기본 가중치는 시공 가능성 규칙과 문헌을 보고 정한 값이고 점수에 맞춰 보정하지 않았습니다(<a href="${base}method/#qubo">방법과 근거 3.3절</a>). 굵은 선호 배수는 지금 고른 선호로 켜진 것, 흐린 줄은 이 조건에 해당 실이 없어 쓰지 않는 항입니다.</p>`;
+}
 
 // ---------- 생성 ----------
 function getWorker() {
@@ -191,7 +225,7 @@ async function runCompare(algorithms, seed) {
       renderResult();
     }
   };
-  w.postMessage({ type: 'compare', id, spec, seed, algorithms, budgetMs, weights: $('#gen-weights').value });
+  w.postMessage({ type: 'compare', id, spec, seed, algorithms, budgetMs, weights: WEIGHTS });
 }
 
 // QUBO 에너지와 적합성 산점도: 풀이기가 낸 후보(템플릿별)를 평면으로 풀어 잰 점수와 그 해의 에너지.
@@ -328,7 +362,7 @@ $('#gen-qubo').addEventListener('click', () => {
     const spec = buildSpec();
     download(new Blob([JSON.stringify({ spec: { area: spec.area, bedrooms: spec.bedrooms, prefs: spec.prefs }, ...e.data.bqm }, null, 1)], { type: 'application/json' }), `floorplan_qubo_${spec.area}m2_${spec.bedrooms}bed.json`);
   };
-  w.postMessage({ type: 'qubo', id, spec: buildSpec(), weights: $('#gen-weights').value });
+  w.postMessage({ type: 'qubo', id, spec: buildSpec(), weights: WEIGHTS });
 });
 function setProgress(p, text) {
   $('#gen-bar').style.width = `${Math.round(p * 100)}%`;
@@ -410,7 +444,7 @@ function renderResult() {
     </details>`;
   renderProcess();
   renderDiagnosis({ top, current: state.current, spec });
-  renderFormulas({ spec, cand: c, weights: $('#gen-weights').value });
+  renderFormulas({ spec, cand: c, weights: WEIGHTS });
   renderTime();
   renderGallery();
   $('#gen-result').hidden = false;
