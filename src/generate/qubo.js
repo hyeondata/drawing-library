@@ -33,6 +33,7 @@ export const TERMS = [
   { id: 'backBedEnd', hand: 0, label: '뒤 침실이 끝 칸', why: '대리 항 후보(외기 접면)' },
   { id: 'masterKitchen', hand: 0, label: '안방–주방 맞닿음', why: '대리 항 후보' },
   { id: 'bedOverBath', hand: 0, label: '앞 침실–공용욕실 맞닿음', why: '대리 항 후보' },
+  { id: 'bath3Bed', hand: -2, label: '욕실3–앞 침실 맞닿음', why: '화장실 3개 평면의 침실 쪽 욕실(욕실3이 있을 때만)' },
 ];
 
 /** 가중치 세트: 'hand'(기본) | { id: w }. */
@@ -87,7 +88,7 @@ export function buildQubo(spec, { frontBeds = null, weights = 'hand', syntax = t
   const others = program.filter((r) => r.type === '침실' && r.key !== 'master');
   const frontRooms = ['living', 'master', ...others.slice(0, kFront).map((r) => r.key)];
   // 부부욕실·드레스룸은 안방 뒤에 붙으므로 변수에서 뺀다.
-  const backRooms = ['kitchen', 'entrance', 'bathPublic', ...(by.multi ? ['multi'] : []), ...others.slice(kFront).map((r) => r.key)];
+  const backRooms = ['kitchen', 'entrance', 'bathPublic', ...(by.bath3 ? ['bath3'] : []), ...(by.multi ? ['multi'] : []), ...others.slice(kFront).map((r) => r.key)];
   const m = frontRooms.length;
   const k = backRooms.length;
 
@@ -160,6 +161,7 @@ export function buildQubo(spec, { frontBeds = null, weights = 'hand', syntax = t
     at('backBedEnd', 'back', bb, (s, S) => (isEnd(s, S) ? 1 : 0));
   }
   for (const b of beds) if (b !== 'master') vertical('bedOverBath', b, 'bathPublic');
+  for (const b of beds) if (b !== 'master') vertical('bath3Bed', b, 'bath3');
   for (const b of beds) beside('bedLiving', 'front', b, 'living');
   for (let a = 0; a < beds.length; a++) for (let b = a + 1; b < beds.length; b++) beside('bedBed', 'front', beds[a], beds[b]);
   vertical('masterKitchen', 'master', 'kitchen');

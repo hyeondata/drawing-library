@@ -25,6 +25,8 @@ export function unitRow(analysis, u) {
     bathEach: count['화장실'] ? share('화장실') / count['화장실'] : null,
     dress: count['드레스룸'] ? share('드레스룸') : null,
     multi: count['다목적공간'] ? share('다목적공간') : null,
+    // 복도·홀·덕트 등 '기타' 실의 면적비(생성 평면의 복도가 실제보다 넓어지지 않게 쓰는 기준)
+    etc: share('기타'),
   };
 }
 
@@ -38,8 +40,13 @@ function bedroomOptions(stats, b) {
   const s = stats.byBedrooms[b];
   const ref = b === 1 ? stats.byBedrooms[2] : s;
   const tag = b === 1 ? ' (방 2개 기준)' : '';
+  const L = s.living;
   return {
     n: s.n,
+    // 거실 크기 단계(아담·보통·넓게·아주 넓게)의 면적비: 고른 침실 수 세대의 분위수
+    living: { compact: L.p25, standard: L.p50, wide: L.p75, xwide: L.p90 },
+    // 복도·홀 등 '기타' 면적비 p75: 생성 평면의 복도가 이보다 넓으면 감점
+    etcMax: s.etc.p75,
     roomSize: [
       { key: 'small', label: '작게', share: ref.other.p25, sub: `작은방 하위 25% · ${pct(ref.other.p25)}${tag}` },
       { key: 'standard', label: '보통', share: ref.other.p50, sub: `작은방 중앙값 · ${pct(ref.other.p50)}${tag}` },
@@ -86,7 +93,8 @@ export function buildChoices(stats = AIHUB) {
     master: byBedrooms[3].master,
     // 5. 방 구성: 그 구성을 가진 세대 비율(전체, 침실 수별 값은 byBedrooms)
     composition: [
-      { key: 'baths2', label: '화장실 2개(공용·부부욕실)', sub: `${share(c.baths2)}의 세대가 2개 이상(3개 이상 ${share(c.baths3)})`, default: true },
+      { key: 'baths2', label: '화장실 2개(공용·부부욕실)', sub: `${share(c.baths2)}의 세대가 2개 이상`, default: true },
+      { key: 'baths3', label: '화장실 3개(+ 침실 쪽 욕실)', sub: `${share(c.baths3)}의 세대가 3개 이상`, default: false },
       { key: 'dress', label: '드레스룸', sub: `${share(c.dress)}의 세대`, default: true },
       { key: 'multi', label: '다목적실(알파룸·팬트리·다용도실)', sub: `${share(c.multi)}의 세대`, default: false },
       { key: 'outdoorUnit', label: '실외기실', sub: `${share(c.outdoorUnit)}의 세대`, default: true },

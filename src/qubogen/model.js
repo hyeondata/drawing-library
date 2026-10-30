@@ -160,6 +160,7 @@ export function pairsOf(G, prefs = []) {
   add('master', 'dress', 4);
   add('bathPublic', 'hall', 2);
   add('bathPublic', 'living', 1);
+  add('bath3', 'hall', 2);
   add('multi', 'kitchen', 1.5);
   const bad = [];
   const addB = (a, b, m = 1) => has(a) && has(b) && bad.push([a, b, m]);

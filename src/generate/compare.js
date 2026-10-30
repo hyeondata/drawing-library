@@ -134,6 +134,7 @@ export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, 
     let ms = 0;
     let evals = 0;
     const perTemplate = [];
+    const cands = [];
     const start = clock() - run0;
     const phases = [];
     const marks = [];
@@ -166,12 +167,13 @@ export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, 
         cand.template = t.k;
         cand.repaired = order.repaired;
         points.push([t.k, smp.e, cand.objective, key, cand.rules]);
+        cands.push(cand);
         if (!best || cand.objective > best.objective) best = cand;
       }
       phases.push({ label: '평면으로 풀기·다듬기', start: decodeStart, end: clock() - run0 });
     }
     const tb = best ? perTemplate.find((p) => p.k === best.template) : perTemplate[0];
-    results.push({ key, name: solver.name, full: solver.full, family: solver.family, cite: solver.cite, provisional: Boolean(solver.provisional), energy: best ? best.energy : tb.energy, template: tb.k, feasible: tb.feasible, perTemplate, ms, evals, best, info: tb.info, budget: maxEvals ? `평가 ${maxEvals.toLocaleString()}회` : `${budgetMs}ms`, time: { start, phases, marks } });
+    results.push({ key, name: solver.name, full: solver.full, family: solver.family, cite: solver.cite, provisional: Boolean(solver.provisional), energy: best ? best.energy : tb.energy, template: tb.k, feasible: tb.feasible, perTemplate, ms, evals, best, cands: distinctTop(cands, 3), info: tb.info, budget: maxEvals ? `평가 ${maxEvals.toLocaleString()}회` : `${budgetMs}ms`, time: { start, phases, marks } });
   });
   onProgress?.(1);
   // 에너지(낮을수록 좋음)와 순위 점수(높을수록 좋음)의 상관: 템플릿마다 구해 후보 수로 가중 평균. 음수면 에너지가 낮을수록 평면이 좋다.
@@ -210,4 +212,10 @@ function energyOfOrder(q, order) {
     if (seq[v.slot] === v.room) x[i] = 1;
   });
   return energy(q, x);
+}
+
+/** J가 높은 순으로 배치가 서로 다른 후보 n개. */
+function distinctTop(list, n) {
+  const seen = new Set();
+  return [...list].sort((a, b) => b.objective - a.objective).filter((c) => !seen.has(c.signature) && seen.add(c.signature)).slice(0, n);
 }

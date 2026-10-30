@@ -4,14 +4,12 @@ import Topbar from '../components/Topbar.astro';
 import { REFERENCES } from '../model/config.js';
 import { buildChoices } from '../generate/choices.js';
 import { LIFESTYLE_CHOICES, SYNTAX_CHOICES } from '../generate/preferences.js';
-import { SOLVERS } from '../generate/solvers.js';
+import { ACTIVE, SOLVERS } from '../generate/solvers.js';
 import { GEN_STAGES } from '../generate/pipeline.js';
 import { show, showSeg } from '../lib/source.js';
 
-const algos = [
-  { key: 'model', name: '기존: J 직접 탐색', family: '적합성 J(규칙·면적·선호)로 바로 최적화(무작위 + 국소 탐색, 800회)', cite: '' },
-  ...SOLVERS.map((s) => ({ key: s.key, name: s.name, family: s.family, cite: s.cite, provisional: Boolean(s.provisional) })),
-];
+// 생성 알고리즘은 SA만 켠다(근거: evidence/18-SA-선택-근거.md). 다른 풀이기는 코드와 비교 실험에만 남긴다.
+const algos = SOLVERS.filter((s) => ACTIVE.includes(s.key)).map((s) => ({ key: s.key, name: s.name, family: s.family, cite: s.cite }));
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 // 생성 과정 단계마다 실제 코드(빌드 때 소스에서 잘라 옴)
@@ -140,7 +138,7 @@ const steps = [
               </label>
             ))}
           </div>
-          <p class="note">비율은 아파트 평면도 {src.units.toLocaleString()}세대 가운데 그 실이 있는 세대의 비율입니다. 현관·거실·주방·침실·화장실은 필수 실이라 항상 넣습니다. 화장실 3개 이상인 세대도 많지만, 지금 생성기는 화장실을 2개까지만 놓습니다.</p>
+          <p class="note">비율은 아파트 평면도 {src.units.toLocaleString()}세대 가운데 그 실이 있는 세대의 비율입니다. 현관·거실·주방·침실·화장실은 필수 실이라 항상 넣습니다. 침실 수를 고르면 그 침실 수 세대의 절반 이상이 가진 실이 먼저 켜집니다. 화장실 3개는 침실 쪽에 욕실3을 하나 더 둡니다(4개 이상은 고유 세대의 4%라 지원하지 않음).</p>
         </div>
 
         <!-- 6. 공간구문 -->
@@ -181,28 +179,26 @@ const steps = [
           <fieldset class="gen-algos" id="gen-algos">
             <legend>생성 알고리즘</legend>
             <p class="note">
-              '기존'은 적합성 J(규칙 충족 + 목표 면적 + 선호)로 바로 최적화합니다. 나머지는 실 배치를 <b>QUBO</b>(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들어 각 풀이기로 푼 뒤,
-              해를 평면으로 풀어 같은 기준으로 고릅니다. 여러 개를 고르면 같은 시간 예산·같은 시드로 한 번에 돌려 비교합니다.
+              실 배치를 <b>QUBO</b>(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들어 <b>SA(담금질)</b>로 풀고, 좋은 해를 평면으로 풀어 적합성 J(규칙 충족 + 목표 면적 + 선호)로 서로 다른 3안을 고릅니다.
+              다른 풀이기(tabu 계열·PT·SQA·SB·분기한정·열거)와 직접 탐색은 꺼 두었습니다. SA만 쓰는 이유: <a href={`${base}method/#sa-only`}>방법과 근거 5.0절</a>.
             </p>
             <div class="gen-algo-list">
               {algos.map((a) => (
                 <label class="gen-algo">
-                  <input type="checkbox" name="algo" value={a.key} checked={a.key === 'model'} />
+                  <input type="checkbox" name="algo" value={a.key} checked disabled />
                   <span>
-                    <strong>{a.name}</strong>{a.provisional && <em class="gen-badge">QPU 대체·잠정</em>}
+                    <strong>{a.name}</strong>
                     <span class="note">{a.family}{a.cite && a.cite !== '—' ? ` · ${a.cite}` : ''}</span>
                   </span>
                 </label>
               ))}
             </div>
             <div class="gen-algo-actions">
-              <button type="button" class="button-ghost small" id="gen-all">전부 선택</button>
               <label class="gen-inline">풀이기당 시간
                 <select id="gen-budget">
-                  <option value="150">0.15초</option>
-                  <option value="300" selected>0.3초</option>
-                  <option value="1000">1초</option>
-                  <option value="3000">3초</option>
+                  <option value="300">0.3초(최적 도달 55%)</option>
+                  <option value="1000">1초(81%)</option>
+                  <option value="3000" selected>3초(98%, 기본)</option>
                 </select>
               </label>
               <label class="gen-inline">QUBO 가중치
@@ -211,13 +207,12 @@ const steps = [
                 </select>
               </label>
               <label class="gen-inline">시드 <input type="number" id="gen-seed" value="1" min="1" max="9999" /></label>
-              <button type="button" class="button-primary" id="gen-run">선택한 알고리즘으로 생성</button>
+              <button type="button" class="button-primary" id="gen-run">SA로 다시 생성</button>
               <button type="button" class="button-ghost small" id="gen-qubo">QUBO 내보내기(D-Wave·Gurobi용)</button>
             </div>
             <p class="note">
-              <b>풀이기당 시간</b>은 각 알고리즘이 QUBO를 푸는 데 쓰는 시간 한도입니다(같은 한도를 줘야 공정하게 비교됩니다). 해를 평면으로 풀고 고르는 시간은 따로 듭니다.
-              이 크기(변수 18~45개)에서는 tabu 계열·CP-SAT 방식·전수 열거가 0.1초 안에 QUBO 최적에 닿으므로 시간을 늘려도 평면은 거의 좋아지지 않습니다.
-              SA·SQA·SB처럼 확률적인 풀이기는 시간을 늘리면 최적에 닿는 비율이 오릅니다. 평면 품질은 풀이 시간보다 QUBO 가중치(J와 얼마나 맞는가)가 좌우합니다. 가중치는 규칙과 문헌을 보고 손으로 정했습니다.
+              <b>풀이기당 시간</b>은 SA가 QUBO를 푸는 데 쓰는 시간 한도입니다(해를 평면으로 풀고 고르는 시간은 따로 듭니다). SA는 확률적이라 시간을 늘리면 전역 최적에 닿는 비율이 오릅니다(측정값: evidence/results/sa-budget.md).
+              평면 품질은 풀이 시간보다 QUBO 가중치(J와 얼마나 맞는가)가 좌우합니다. 가중치는 규칙과 문헌을 보고 손으로 정했습니다.
             </p>
             <p class="note">
               내보낸 QUBO JSON은 <a href={`${base}qubo/solve_qubo.py`} download>solve_qubo.py</a>로 D-Wave(SA·Tabu·QPU·Hybrid)·Gurobi·CP-SAT에서 풀 수 있습니다.
@@ -350,7 +345,7 @@ const steps = [
     set:html={JSON.stringify({
       base,
       steps,
-      byBedrooms: Object.fromEntries(Object.entries(choices.byBedrooms).map(([b, o]) => [b, { roomSize: o.roomSize, master: o.master, targets: o.targets }])),
+      byBedrooms: Object.fromEntries(Object.entries(choices.byBedrooms).map(([b, o]) => [b, { roomSize: o.roomSize, master: o.master, targets: o.targets, composition: o.composition, living: o.living, etcMax: o.etcMax }])),
       living: choices.living,
       refs: refOf,
       syntax: SYNTAX_CHOICES.map(strip),

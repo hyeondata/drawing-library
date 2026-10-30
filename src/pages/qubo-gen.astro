@@ -12,6 +12,7 @@ import { PREF_EFFECTS } from '../qubogen/model.js';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const Q = 'src/qubogen/model.js';
+// 이 탭은 SA만 쓰는 규칙의 예외다: 변수 약 600개에서 SA는 실이 흩어진 해를 내 Tabu를 기본으로 둔다(evidence/18-SA-선택-근거.md).
 const solvers = SOLVERS.filter((s) => !['cpsat', 'exact'].includes(s.key));
 // 도면 생성 탭과 같은 선택지(같은 데이터에서 계산)
 const choices = buildChoices();
@@ -239,7 +240,7 @@ const steps = [
     </div>
     </div>
   </main>
-  <script id="qg-data" type="application/json" set:html={JSON.stringify({ base, termsA: TERMS_A, termsB: TERMS_B, solvers: solvers.map((s) => ({ key: s.key, name: s.name })), living: choices.living, byBedrooms: Object.fromEntries(Object.entries(choices.byBedrooms).map(([b, o]) => [b, { roomSize: o.roomSize, master: o.master, targets: o.targets }])), prefNames: Object.fromEntries([...SYNTAX_CHOICES, ...LIFESTYLE_CHOICES].map((c) => [c.key, c.title])) })} />
+  <script id="qg-data" type="application/json" set:html={JSON.stringify({ base, termsA: TERMS_A, termsB: TERMS_B, solvers: solvers.map((s) => ({ key: s.key, name: s.name })), living: choices.living, byBedrooms: Object.fromEntries(Object.entries(choices.byBedrooms).map(([b, o]) => [b, { roomSize: o.roomSize, master: o.master, targets: o.targets, living: o.living }])), prefNames: Object.fromEntries([...SYNTAX_CHOICES, ...LIFESTYLE_CHOICES].map((c) => [c.key, c.title])) })} />
   <script>
     import '../scripts/qubo-gen.js';
   </script>

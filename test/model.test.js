@@ -145,10 +145,13 @@ test('실제 샘플에서 거실을 지우면 필수 규칙에 걸리고 규칙 
   assert.ok(ruleRate(after.rules) < ruleRate(before.rules));
 });
 
-test('선택 규칙(채광·안방 부속실)은 규칙 충족률에 들어가지 않는다', () => {
+test('선택 규칙은 규칙 충족률에 들어가지 않고, 목록은 실제 통과율 90% 미만인 규칙과 같다', async () => {
+  const { OPTIONAL_BELOW, OPTIONAL_RULES } = await import('../src/model/config.js');
+  const { AIHUB } = await import('../src/generate/aihub-stats.js');
+  const below = Object.entries(AIHUB.rulePass).filter(([, p]) => p < OPTIONAL_BELOW).map(([id]) => id).sort();
+  assert.deepEqual([...OPTIONAL_RULES].sort(), below);
   const rules = [
     { id: 'program', weight: 2, ratio: 1 },
-    { id: 'daylight', weight: 1, ratio: 0 },
     { id: 'masterSuite', weight: 1, ratio: 0 },
   ];
   assert.equal(ruleRate(rules), 100);
@@ -312,4 +315,23 @@ test('QUBO: 벌점이 유효하고(최적해가 제약을 지킴) 풀이기가 �
   const bqm = toBqmJson(q);
   assert.equal(Object.keys(bqm.linear).length, q.n);
   assert.equal(bqm.vartype, 'BINARY');
+});
+
+test('SA 생성: 화장실 3개 조건에서 욕실 3개를 놓고, 필수 규칙을 지키는 서로 다른 3안을 낸다', async () => {
+  const { buildChoices } = await import('../src/generate/choices.js');
+  const { compareAlgorithms } = await import('../src/generate/compare.js');
+  const { ACTIVE } = await import('../src/generate/solvers.js');
+  assert.deepEqual(ACTIVE, ['sa']);
+  const c = buildChoices();
+  const o = c.byBedrooms[5];
+  const other = o.roomSize[1].share;
+  const spec = { area: 135, bedrooms: 5, baths: 3, dress: true, multi: false, outdoorUnit: true, balcony: true, targets: { living: o.living.standard, ...o.targets, other, master: other * o.master[1].ratio }, prefs: [], etcMax: o.etcMax };
+  const r = compareAlgorithms(spec, { algorithms: ACTIVE, seed: 1, maxEvals: 3000000 }).results[0];
+  assert.equal(r.cands.length, 3);
+  assert.equal(new Set(r.cands.map((x) => x.signature)).size, 3);
+  for (const x of r.cands) {
+    assert.equal(x.layout.rooms.filter((q) => q.type === '화장실').length, 3);
+    assert.ok(x.unit.validity.valid, x.unit.validity.failed.join());
+    assert.equal(x.doorIssues, 0);
+  }
 });

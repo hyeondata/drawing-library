@@ -25,7 +25,7 @@ const SAMPLES = arg('samples', 600);
 // 목표 면적비: 도면 생성 화면의 기본값(AI 허브 아파트 평면도 전체, 침실 3개 세대 중앙값)
 const ch = buildChoices();
 const b3 = ch.byBedrooms[3];
-const targets = { living: ch.living[1].share, ...b3.targets, other: b3.roomSize[1].share, master: b3.roomSize[1].share * b3.master[1].ratio };
+const targets = { living: b3.living.standard, ...b3.targets, other: b3.roomSize[1].share, master: b3.roomSize[1].share * b3.master[1].ratio };
 
 export const VARS = {
   livingBedroomRatio: { label: '거실/침실 통합도 비', pref: 'livingCentral', refs: 'Byun & Choi 2016; Choi et al. 2014' },

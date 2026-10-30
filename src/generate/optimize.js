@@ -39,6 +39,10 @@ export function scoreLayout(spec, layout) {
   };
   const errs = [];
   for (const k of Object.keys(actual)) if (actual[k] !== null) errs.push(Math.abs(actual[k] - spec.targets[k] * spec.area) / (spec.targets[k] * spec.area));
+  // 복도·홀('기타')이 실제 아파트(같은 침실 수 세대의 p75, spec.etcMax)보다 넓으면 그만큼을 면적 오차로 더한다.
+  const interior = sum(layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실').map((r) => r.w * r.h));
+  const etcShare = sum(areaOf((r) => r.type === '기타')) / interior;
+  if (spec.etcMax) errs.push(Math.max(0, etcShare - spec.etcMax) / spec.etcMax);
   const fit = Math.max(0, 100 - 250 * (errs.reduce((s, e) => s + e, 0) / errs.length));
   // 짧은 변이 MIN_SIDE보다 좁은 실은 쓰기 어려운 실로 보고 감점한다.
   // 거실·침실은 긴 변이 짧은 변의 2배를 넘어도 쓰기 어렵다고 본다.
@@ -55,7 +59,7 @@ export function scoreLayout(spec, layout) {
   // 문 동선: 현관에서 문으로 갈 수 없는 실, 침실을 지나야 하는 실은 감점(규칙은 인접 그래프라 이것을 보지 못한다).
   const doorIssues = layout.doorCheck ? layout.doorCheck.unreachable.length + layout.doorCheck.throughBedroom.length : 0;
   objective -= 15 * doorIssues;
-  return { label, unit, rules, fit, prefs, prefScore, objective, noise, actual, narrow, doorIssues };
+  return { label, unit, rules, fit, prefs, prefScore, objective, noise, actual, narrow, doorIssues, etcShare };
 }
 
 /** 앞 띠 순서와 뒤 띠 순서로 만든 배치 서명(비슷한 안을 한 번만 보여 주려고). */

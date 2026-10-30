@@ -9,52 +9,53 @@ export const SYNTAX = {
   "refs": "Byun & Choi 2016; Choi et al. 2014",
   "cv": {
    "0": {
-    "rho": 0.8024728659825304,
-    "varPct": 0.4929423956606793,
-    "objPct": 0.7259318837652113
+    "rho": 0.8024136239047822,
+    "varPct": 0.49255784931484226,
+    "objPct": 0.7324735297945876
    },
    "1": {
-    "rho": 0.8024728659825304,
-    "varPct": 0.8650606593442005,
-    "objPct": 0.6910456531389484
+    "rho": 0.8024136239047822,
+    "varPct": 0.8633643704593543,
+    "objPct": 0.6897642309017041
    },
    "2": {
-    "rho": 0.8024728659825304,
-    "varPct": 0.8866450604705637,
-    "objPct": 0.6284010456516925
+    "rho": 0.8024136239047822,
+    "varPct": 0.8848964703304872,
+    "objPct": 0.6275694953555588
    },
    "0.25": {
-    "rho": 0.8024728659825304,
-    "varPct": 0.7706179960456769,
-    "objPct": 0.7117485254500048
+    "rho": 0.8024136239047822,
+    "varPct": 0.7761952263245937,
+    "objPct": 0.7250768037292029
    },
    "0.5": {
-    "rho": 0.8024728659825304,
-    "varPct": 0.812679222783949,
-    "objPct": 0.707281268021497
+    "rho": 0.8024136239047822,
+    "varPct": 0.8118540140384756,
+    "objPct": 0.7142203077158027
    }
   },
   "weights": {
-   "kitchenLiving": 0.0061,
-   "entranceLiving": 0.0016,
-   "entranceKitchen": -0.1048,
-   "bathKitchen": -0.0517,
-   "bathEntrance": 0.0451,
-   "bathLiving": 0.0063,
-   "multiKitchen": -0.0729,
-   "bedEntrance": 0.056,
-   "backBedEntrance": -0.0495,
-   "backBedUnderBed": 0.0194,
-   "backBedKitchen": 0.054,
-   "bedLiving": -0.0901,
-   "bedBed": 0.0901,
-   "livingOffCenter": 0.7512,
+   "kitchenLiving": 0.0029,
+   "entranceLiving": 0.0028,
+   "entranceKitchen": -0.1088,
+   "bathKitchen": -0.0588,
+   "bathEntrance": 0.0432,
+   "bathLiving": 0.0081,
+   "multiKitchen": -0.0789,
+   "bedEntrance": 0.0554,
+   "backBedEntrance": -0.0476,
+   "backBedUnderBed": 0.0189,
+   "backBedKitchen": 0.0508,
+   "bedLiving": -0.0904,
+   "bedBed": 0.0904,
+   "livingOffCenter": 0.7509,
    "masterNotEnd": 0,
-   "entranceEnd": -0.0407,
-   "kitchenEnd": 0.0854,
-   "backBedEnd": 0.0696,
-   "masterKitchen": -0.0638,
-   "bedOverBath": -0.0031
+   "entranceEnd": -0.0372,
+   "kitchenEnd": 0.0843,
+   "backBedEnd": 0.0741,
+   "masterKitchen": -0.0701,
+   "bedOverBath": -0.0043,
+   "bath3Bed": 0
   }
  },
  "genotypeTau": {
@@ -63,52 +64,53 @@ export const SYNTAX = {
   "refs": "Hillier, Hanson & Graham 1987; Byun & Choi 2016",
   "cv": {
    "0": {
-    "rho": 0.47660034647519045,
-    "varPct": 0.4789246981310804,
-    "objPct": 0.7259318837652113
+    "rho": 0.47990102614298974,
+    "varPct": 0.4824189015820425,
+    "objPct": 0.7324735297945876
    },
    "1": {
-    "rho": 0.47660034647519045,
-    "varPct": 0.7377194882117619,
-    "objPct": 0.8310302710965667
+    "rho": 0.47990102614298974,
+    "varPct": 0.723233238413209,
+    "objPct": 0.8302212131936373
    },
    "2": {
-    "rho": 0.47660034647519045,
-    "varPct": 0.7661622378332065,
-    "objPct": 0.8463250562154576
+    "rho": 0.47990102614298974,
+    "varPct": 0.7426138201517234,
+    "objPct": 0.8294371607787734
    },
    "0.25": {
-    "rho": 0.47660034647519045,
-    "varPct": 0.6191404676516161,
-    "objPct": 0.791325812449728
+    "rho": 0.47990102614298974,
+    "varPct": 0.6247291006196221,
+    "objPct": 0.796226551915221
    },
    "0.5": {
-    "rho": 0.47660034647519045,
-    "varPct": 0.6647575291593575,
-    "objPct": 0.792369906427215
+    "rho": 0.47990102614298974,
+    "varPct": 0.6843177968135291,
+    "objPct": 0.816804490744677
    }
   },
   "weights": {
-   "kitchenLiving": 0.0349,
-   "entranceLiving": 0.0063,
-   "entranceKitchen": -0.0397,
-   "bathKitchen": -0.0045,
-   "bathEntrance": 0.0631,
+   "kitchenLiving": 0.0432,
+   "entranceLiving": 0.0109,
+   "entranceKitchen": -0.0404,
+   "bathKitchen": 0.0044,
+   "bathEntrance": 0.0549,
    "bathLiving": -0.1107,
-   "multiKitchen": -0.0221,
-   "bedEntrance": 0.0003,
-   "backBedEntrance": 0.0211,
-   "backBedUnderBed": -0.0137,
-   "backBedKitchen": -0.0076,
-   "bedLiving": -0.0275,
-   "bedBed": 0.0275,
-   "livingOffCenter": 0.1724,
+   "multiKitchen": -0.0181,
+   "bedEntrance": 0.0052,
+   "backBedEntrance": 0.0172,
+   "backBedUnderBed": -0.0131,
+   "backBedKitchen": 0.0018,
+   "bedLiving": -0.0374,
+   "bedBed": 0.0374,
+   "livingOffCenter": 0.1203,
    "masterNotEnd": 0,
-   "entranceEnd": 0.0503,
-   "kitchenEnd": 0.1657,
-   "backBedEnd": -0.0116,
-   "masterKitchen": -0.1134,
-   "bedOverBath": -0.1144
+   "entranceEnd": 0.0422,
+   "kitchenEnd": 0.1727,
+   "backBedEnd": -0.0126,
+   "masterKitchen": -0.1056,
+   "bedOverBath": -0.1129,
+   "bath3Bed": 0
   }
  },
  "privacyDepthGap": {
@@ -117,52 +119,53 @@ export const SYNTAX = {
   "refs": "Ham & Lee 2017; Park et al. 2024",
   "cv": {
    "0": {
-    "rho": 0.6292180409175286,
-    "varPct": 0.6694364957480072,
-    "objPct": 0.7259318837652113
+    "rho": 0.6287426442080715,
+    "varPct": 0.6697027288568014,
+    "objPct": 0.7324735297945876
    },
    "1": {
-    "rho": 0.6292180409175286,
-    "varPct": 0.8037512164356908,
-    "objPct": 0.7125230495343746
+    "rho": 0.6287426442080715,
+    "varPct": 0.8078338004425517,
+    "objPct": 0.7162068896759675
    },
    "2": {
-    "rho": 0.6292180409175286,
-    "varPct": 0.8185738032929457,
-    "objPct": 0.7039944731891465
+    "rho": 0.6287426442080715,
+    "varPct": 0.8288120458505825,
+    "objPct": 0.688094414493297
    },
    "0.25": {
-    "rho": 0.6292180409175286,
-    "varPct": 0.7502756334139749,
-    "objPct": 0.8121064749792539
+    "rho": 0.6287426442080715,
+    "varPct": 0.7543582174208358,
+    "objPct": 0.8235164784275539
    },
    "0.5": {
-    "rho": 0.6292180409175286,
-    "varPct": 0.7831665434561709,
-    "objPct": 0.767549475431754
+    "rho": 0.6287426442080715,
+    "varPct": 0.7925780748314528,
+    "objPct": 0.7486983563132719
    }
   },
   "weights": {
-   "kitchenLiving": -0.0462,
-   "entranceLiving": -0.0673,
-   "entranceKitchen": -0.1153,
-   "bathKitchen": 0.0252,
-   "bathEntrance": -0.0092,
-   "bathLiving": 0.0104,
-   "multiKitchen": 0.0581,
-   "bedEntrance": 0.0767,
-   "backBedEntrance": 0.0977,
-   "backBedUnderBed": -0.0637,
-   "backBedKitchen": 0.0948,
-   "bedLiving": -0.0054,
-   "bedBed": 0.0054,
-   "livingOffCenter": -0.0907,
+   "kitchenLiving": -0.0486,
+   "entranceLiving": -0.0685,
+   "entranceKitchen": -0.1127,
+   "bathKitchen": 0.0285,
+   "bathEntrance": 0.0018,
+   "bathLiving": 0.0128,
+   "multiKitchen": 0.0494,
+   "bedEntrance": 0.0769,
+   "backBedEntrance": 0.1017,
+   "backBedUnderBed": -0.0636,
+   "backBedKitchen": 0.0909,
+   "bedLiving": -0.0069,
+   "bedBed": 0.0069,
+   "livingOffCenter": -0.0967,
    "masterNotEnd": 0,
-   "entranceEnd": 0.0542,
-   "kitchenEnd": 0.1713,
-   "backBedEnd": -0.0752,
-   "masterKitchen": -0.1353,
-   "bedOverBath": 0.0216
+   "entranceEnd": 0.0562,
+   "kitchenEnd": 0.1637,
+   "backBedEnd": -0.0809,
+   "masterKitchen": -0.1399,
+   "bedOverBath": 0.0264,
+   "bath3Bed": 0
   }
  },
  "kitchenBedroomRatio": {
@@ -171,52 +174,53 @@ export const SYNTAX = {
   "refs": "Byun & Choi 2016; Choi et al. 2014",
   "cv": {
    "0": {
-    "rho": 0.711458943652266,
-    "varPct": 0.5608608452094632,
-    "objPct": 0.7259318837652113
+    "rho": 0.7148294240938824,
+    "varPct": 0.554013961427035,
+    "objPct": 0.7324735297945876
    },
    "1": {
-    "rho": 0.711458943652266,
-    "varPct": 0.8662158994790277,
-    "objPct": 0.834431570124587
+    "rho": 0.7148294240938824,
+    "varPct": 0.8680560816221257,
+    "objPct": 0.8338288940148844
    },
    "2": {
-    "rho": 0.711458943652266,
-    "varPct": 0.8961486714195028,
-    "objPct": 0.8163909001781444
+    "rho": 0.7148294240938824,
+    "varPct": 0.8909863076440718,
+    "objPct": 0.8051366714106736
    },
    "0.25": {
-    "rho": 0.711458943652266,
-    "varPct": 0.7987986190337582,
-    "objPct": 0.8141308230741173
+    "rho": 0.7148294240938824,
+    "varPct": 0.7868910668924904,
+    "objPct": 0.8237718777958709
    },
    "0.5": {
-    "rho": 0.711458943652266,
-    "varPct": 0.8473062640793729,
-    "objPct": 0.8327466428173429
+    "rho": 0.7148294240938824,
+    "varPct": 0.8353987119381052,
+    "objPct": 0.8386147134697455
    }
   },
   "weights": {
-   "kitchenLiving": -0.0392,
-   "entranceLiving": -0.0115,
-   "entranceKitchen": -0.0046,
-   "bathKitchen": -0.0043,
-   "bathEntrance": -0.0356,
-   "bathLiving": 0.0152,
-   "multiKitchen": 0.0342,
-   "bedEntrance": -0.0001,
-   "backBedEntrance": 0.098,
-   "backBedUnderBed": 0.0046,
-   "backBedKitchen": -0.0133,
-   "bedLiving": -0.0134,
-   "bedBed": 0.0134,
-   "livingOffCenter": 0.1934,
+   "kitchenLiving": -0.0347,
+   "entranceLiving": -0.0059,
+   "entranceKitchen": -0.0018,
+   "bathKitchen": 0.0037,
+   "bathEntrance": -0.0264,
+   "bathLiving": 0.0175,
+   "multiKitchen": 0.0388,
+   "bedEntrance": 0.0026,
+   "backBedEntrance": 0.0998,
+   "backBedUnderBed": 0.004,
+   "backBedKitchen": -0.0124,
+   "bedLiving": -0.0155,
+   "bedBed": 0.0155,
+   "livingOffCenter": 0.1896,
    "masterNotEnd": 0,
-   "entranceEnd": 0.0559,
-   "kitchenEnd": 0.1565,
-   "backBedEnd": -0.1759,
-   "masterKitchen": -0.3391,
-   "bedOverBath": 0.0211
+   "entranceEnd": 0.0516,
+   "kitchenEnd": 0.1528,
+   "backBedEnd": -0.1801,
+   "masterKitchen": -0.3404,
+   "bedOverBath": 0.0227,
+   "bath3Bed": 0
   }
  }
 };

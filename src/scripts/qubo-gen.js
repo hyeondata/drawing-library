@@ -35,12 +35,12 @@ function readSpec() {
   return {
     area,
     bedrooms,
-    baths: comp.has('baths2') || life.includes('bath') ? 2 : 1,
+    baths: comp.has('baths3') ? 3 : comp.has('baths2') || life.includes('bath') ? 2 : 1,
     dress: comp.has('dress') || life.includes('storage'),
     multi: comp.has('multi') || life.includes('storage'),
     outdoorUnit: comp.has('outdoorUnit'),
     balcony: comp.has('balcony'),
-    targets: { living: data.living[li].share, kitchen: t.kitchen, master: bedrooms > 1 ? other * ratio : other * 1.6, other, bath: t.bath, entrance: t.entrance, dress: t.dress, multi: t.multi },
+    targets: { living: opt.living[data.living[li].key], kitchen: t.kitchen, master: bedrooms > 1 ? other * ratio : other * 1.6, other, bath: t.bath, entrance: t.entrance, dress: t.dress, multi: t.multi },
     prefs: [...syntax, ...life],
   };
 }

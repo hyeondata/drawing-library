@@ -93,9 +93,9 @@ export function rulesOf(stage, c, spec) {
         add(2, 'qubo', '실 쌍 관계: 주방–거실·현관–거실은 맞닿으면 보상, 침실–현관은 맞닿으면 감점 (가중치는 손으로 정함)', `주방–거실 ${touches(kit, liv) ? '맞닿음' : '안 닿음'} · 현관–거실 ${touches(ent, liv) ? '맞닿음' : '안 닿음'} · 침실–현관 ${bedsAtEnt.length ? `맞닿음(${bedsAtEnt.join(', ')})` : '안 닿음'}`, !bedsAtEnt.length, [lit('seo-hall97'), lit('seo-bands'), lit('byun-living'), lit('ham-depth'), lit('park-privacy'), lit('jin-surrogate'), assume('가중치는 규칙·문헌으로 손으로 정하고 점수에 맞춰 보정하지 않음')]);
       } else add(1, 'search', '"기존: J 직접 탐색" — 실 순서와 치수를 무작위로 뽑고 조금씩 바꿔 J가 오르면 채택(QUBO 없음)', '이 안은 직접 탐색으로 만든 순서', null, [lit('michalek-hybrid'), lit('merrell-metropolis')]);
       const masterAtEnd = front.length && (front[0].key === 'master' || front.at(-1).key === 'master');
-      add(3, 'rule', '안방은 앞 띠의 끝 칸(가운데에 오면 가까운 끝으로 옮김) — 부속실을 뒤에 붙이려고', masterAtEnd ? '안방이 끝 칸' : '안방이 끝이 아님', masterAtEnd, [lit('seo-master'), lit('zeng-master'), data('선택 규칙: 안방에 딸린 부속실(실제 아파트 통과율 78%)'), assume('부속실을 뒤에 붙이기 위해 끝 칸에 둠')]);
+      add(3, 'rule', '안방은 앞 띠의 끝 칸(가운데에 오면 가까운 끝으로 옮김) — 부속실을 뒤에 붙이려고', masterAtEnd ? '안방이 끝 칸' : '안방이 끝이 아님', masterAtEnd, [lit('seo-master'), lit('zeng-master'), data('선택 규칙: 안방에 딸린 부속실(실제 아파트 평면도 통과율 80.2%)'), assume('부속실을 뒤에 붙이기 위해 끝 칸에 둠')]);
       const suite = ['bathMaster', 'dress'].filter((k) => by[k]);
-      if (suite.length) add(4, 'rule', '부부욕실·드레스룸은 배치 변수에서 빼고 안방 뒤에 붙임', suite.map((k) => `${name(k)} ${touches(by[k], by.master) ? '안방에 붙음' : '안방과 떨어짐'}`).join(' · '), suite.every((k) => touches(by[k], by.master)), [lit('ham-suite'), data('선택 규칙: 안방에 딸린 화장실·드레스룸(맞닿은 부속실 ÷ 필요한 부속실, 실제 아파트 통과율 78%)')]);
+      if (suite.length) add(4, 'rule', '부부욕실·드레스룸은 배치 변수에서 빼고 안방 뒤에 붙임', suite.map((k) => `${name(k)} ${touches(by[k], by.master) ? '안방에 붙음' : '안방과 떨어짐'}`).join(' · '), suite.every((k) => touches(by[k], by.master)), [lit('ham-suite'), data('선택 규칙: 안방에 딸린 화장실·드레스룸(맞닿은 부속실 ÷ 필요한 부속실, 실제 아파트 평면도 통과율 80.2%)')]);
       break;
     }
     case 4: {

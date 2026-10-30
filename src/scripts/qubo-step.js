@@ -26,7 +26,7 @@ const CH = buildChoices();
 const targetsOf = (bedrooms) => {
   const o = CH.byBedrooms[bedrooms] || CH.byBedrooms[3];
   const other = o.roomSize[1].share;
-  return { living: CH.living[1].share, ...o.targets, other, master: bedrooms > 1 ? other * o.master[1].ratio : other * 1.6 };
+  return { living: o.living.standard, ...o.targets, other, master: bedrooms > 1 ? other * o.master[1].ratio : other * 1.6 };
 };
 const PREF = Object.fromEntries(ALL_CHOICES.map((c) => [c.key, c]));
 const RULE = {
@@ -43,6 +43,7 @@ const RULE = {
   backBedKitchen: ['beside', '뒤 띠: 뒤 침실 × 주방'],
   backBedEnd: ['at', '뒤 침실이 끝 칸이면 1'],
   bedOverBath: ['vertical', '안방 외 앞 침실 × 공용욕실(뒤)'],
+  bath3Bed: ['vertical', '안방 외 앞 침실 × 욕실3(뒤)'],
   bedLiving: ['beside', '앞 띠: 침실 × 거실'],
   bedBed: ['beside', '앞 띠: 침실 × 침실'],
   masterKitchen: ['vertical', '안방(앞) × 주방(뒤)'],

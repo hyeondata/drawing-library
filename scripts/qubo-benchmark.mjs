@@ -23,7 +23,7 @@ const BUDGET = arg('budget', 100);
 // 목표 면적비: 도면 생성 화면의 기본값(AI 허브 아파트 평면도 전체, 침실 3개 세대 중앙값)
 const ch = buildChoices();
 const b3 = ch.byBedrooms[3];
-const targets = { living: ch.living[1].share, ...b3.targets, other: b3.roomSize[1].share, master: b3.roomSize[1].share * b3.master[1].ratio };
+const targets = { living: b3.living.standard, ...b3.targets, other: b3.roomSize[1].share, master: b3.roomSize[1].share * b3.master[1].ratio };
 const CASES = [
   { name: '59㎡ 방2', spec: { area: 59, bedrooms: 2, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true, targets, prefs: ['livingCentral'] } },
   { name: '84㎡ 방3', spec: { area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true, targets, prefs: ['livingCentral', 'bath'] } },

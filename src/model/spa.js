@@ -356,7 +356,7 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded, T) {
   rule('publicBath', '침실을 거치지 않는 공용 화장실', 1, publicBath ? 1 : 0,
     baths.length ? (publicBath ? '있음' : '모든 화장실이 침실 안쪽') : '화장실 없음');
 
-  // 채광 가능: 모든 거실·침실이 외기나 발코니에 창을 낼 만큼(배율 1에서 81px ≈ 0.9m) 열려 있다. 아파트 평면도 전체 통과율 79%라 선택 규칙(OPTIONAL_RULES)이다.
+  // 채광 가능: 모든 거실·침실이 외기나 발코니에 창을 낼 만큼(배율 1에서 81px ≈ 0.9m) 열려 있다. 아파트 평면도 전체 통과율 91%라 필수 규칙으로 둔다(OPTIONAL_RULES 참고).
   const dark = livable.filter((e) => e.ext < THRESHOLDS.windowMinLength * T.scale);
   rule('daylight', '모든 거실·침실이 외기·발코니에 접함', 1, livable.length ? 1 - dark.length / livable.length : 0,
     dark.length ? `외기에 닿지 않는 실: ${dark.map((e) => e.type).join(', ')}` : '모두 접함');

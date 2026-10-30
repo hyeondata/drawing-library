@@ -2,7 +2,7 @@
 
 /**
  * 판정 기준값(픽셀). 처음에는 Sample 80건 실측에서 정했고, AI 허브 SPA 전체(TL_SPA 9,645건)로 다시 점검했다(scripts/build-aihub-stats.mjs).
- * 전체 데이터에서 아파트 세대의 도달성 규칙 통과율이 97%라 벽 간격 기준(32·50px)은 그대로 두었다.
+ * 전체 데이터에서 아파트 평면도 고유 세대의 도달성 규칙 통과율이 94%라 벽 간격 기준(32·50px)은 그대로 두었다.
  */
 export const THRESHOLDS = {
   // 실 사이 간격은 대부분 25px 이하(벽 두께). 32px 이내면 같은 벽을 공유한다고 본다.
@@ -47,10 +47,12 @@ export const LIVING_RANK_EXCLUDE = new Set(['기타', '현관', '발코니', '�
 export const GATE_RULES = new Set(['program', 'reachable', 'bedroomPrivacy']);
 
 /**
- * 선택 규칙: 실제 아파트도 상당수가 따르지 않아(아파트 평면도 전체 통과율 채광 79%, 안방 부속실 78%) 모든 평면에 요구하지 않는다.
- * 생성의 규칙 충족률에서 빼고, 그 조건을 고른 선호(채광 확보·화장실 2개)에서만 쓴다.
+ * 선택 규칙: 실제 아파트 평면도(APT_FP 고유 세대, evidence/results/aihub-summary.md)의 통과율이 OPTIONAL_BELOW 미만인 규칙.
+ * 실제 평면도 상당수가 따르지 않으므로 모든 평면에 요구하지 않고, 그 조건을 고른 선호(화장실 2개)에서만 쓴다.
+ * 지금은 안방 부속실(80.2%)뿐이다. 채광은 91.3%라 필수로 남긴다. test/model.test.js가 이 목록과 데이터가 맞는지 검사한다.
  */
-export const OPTIONAL_RULES = new Set(['daylight', 'masterSuite']);
+export const OPTIONAL_BELOW = 0.9;
+export const OPTIONAL_RULES = new Set(['masterSuite']);
 
 // 등재 상태(index)는 조사 시점의 판단이며 Clarivate MJL로 확인해야 한다.
 export const REFERENCES = [

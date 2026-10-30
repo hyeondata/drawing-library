@@ -81,7 +81,7 @@ const heatPen = heat(pen, `원-핫 벌점 P(Σx − 1)² (P = ${q.penalty})`, q.
 const shape = {
   kitchenLiving: '이차·앞뒤 맞닿음', entranceLiving: '이차·앞뒤 맞닿음', entranceKitchen: '이차·옆 칸', bathKitchen: '이차·옆 칸', bathEntrance: '이차·옆 칸', bathLiving: '이차·앞뒤 맞닿음', multiKitchen: '이차·옆 칸',
   bedEntrance: '이차·앞뒤 맞닿음', backBedEntrance: '이차·옆 칸', backBedUnderBed: '이차·앞뒤 맞닿음', backBedKitchen: '이차·옆 칸', bedLiving: '이차·옆 칸', bedBed: '이차·옆 칸',
-  livingOffCenter: '일차·위치', masterNotEnd: '일차·위치', entranceEnd: '일차·위치', kitchenEnd: '일차·위치', backBedEnd: '일차·위치', masterKitchen: '이차·앞뒤 맞닿음', bedOverBath: '이차·앞뒤 맞닿음',
+  livingOffCenter: '일차·위치', masterNotEnd: '일차·위치', entranceEnd: '일차·위치', kitchenEnd: '일차·위치', backBedEnd: '일차·위치', masterKitchen: '이차·앞뒤 맞닿음', bedOverBath: '이차·앞뒤 맞닿음', bath3Bed: '이차·앞뒤 맞닿음',
 };
 const termRows = TERMS.map((t) => ({ ...t, shape: shape[t.id] || '' }));
 
@@ -368,7 +368,7 @@ const EX = {
       <div class="mt-eq">w<sub>i</sub> = m<sub>i</sub> + (W − Σm) · max(0, d<sub>i</sub> − m<sub>i</sub>) / Σ<sub>j</sub> max(0, d<sub>j</sub> − m<sub>j</sub>)</div>
       <p>띠의 폭은 <b>최소 폭 m<sub>i</sub>를 먼저 주고</b>(욕실 1.5, 현관 1.2, 주방 2.2, 침실 2.4, 안방 3.0, 거실 3.6m), 남는 폭을 원하는 폭 d<sub>i</sub>(= 면적 ÷ 깊이)의 초과분에 비례해 나눕니다. 띠 폭이 최소 폭의 합보다 넓으면 어떤 실도 최소 폭보다 좁아지지 않지만, 모자라면 최소 폭에 비례해 모두 줄이므로 미달이 생길 수 있습니다. 그런 실과, 거실·침실 가운데 긴 변이 짧은 변의 2배를 넘는 실은 '좁은 실'로 세어 실마다 15점을 빼, 최적화가 그런 깊이·실 순서를 피하게 합니다.</p>
       <div class="mt-eq">J = 0.45·모델 점수 + 0.25·면적 부합 + 0.30·선호 점수 − 40·[무효] − 15·(좁은 실 + 문 동선 문제)</div>
-      <p>목적함수 J는 시공 가능성 규칙의 충족률(채광·안방 부속실처럼 실제 아파트도 20% 남짓이 따르지 않는 선택 규칙은 뺌), 목표 면적과의 차이(면적 부합 = max(0, 100 − 250 × 평균 상대오차)), 고른 선호의 점수를 합칩니다. 실제 도면과 닮은 정도로 채점하지 않습니다. 필수 실이 빠지거나 끊긴 평면은 40점, 좁은 실(위)과 문 동선 문제(현관에서 문으로 갈 수 없는 실, 침실을 지나야만 갈 수 있는 실)는 하나에 15점을 뺍니다. 선호를 하나도 고르지 않으면 선호 몫 0.30을 나머지에 나눠 0.45/0.70·규칙 충족률 + 0.25/0.70·면적 부합을 씁니다.</p>
+      <p>목적함수 J는 시공 가능성 규칙의 충족률(안방 부속실처럼 실제 아파트 평면도의 통과율이 90% 미만인 선택 규칙은 뺌), 목표 면적과의 차이(면적 부합 = max(0, 100 − 250 × 평균 상대오차)), 고른 선호의 점수를 합칩니다. 실제 도면과 닮은 정도로 채점하지 않습니다. 필수 실이 빠지거나 끊긴 평면은 40점, 좁은 실(위)과 문 동선 문제(현관에서 문으로 갈 수 없는 실, 침실을 지나야만 갈 수 있는 실)는 하나에 15점을 뺍니다. 선호를 하나도 고르지 않으면 선호 몫 0.30을 나머지에 나눠 0.45/0.70·규칙 충족률 + 0.25/0.70·면적 부합을 씁니다.</p>
     </section>
 
     <section id="qubo" class="mt-sec">
@@ -470,6 +470,15 @@ const EX = {
 
     <section id="solvers" class="mt-sec">
       <h2>5. 풀이기 11종</h2>
+      <h3 id="sa-only">5.0 도면 생성 탭은 SA 하나만 씁니다</h3>
+      <p>도면 생성 탭의 풀이기는 SA(담금질)만 켜 두었습니다. 아래 11종은 비교 실험과 설명을 위해 남겨 둔 것입니다. 근거는 네 가지입니다(전체: evidence/18-SA-선택-근거.md).</p>
+      <ol>
+        <li><b>목표 장치의 고전 짝</b>: 이 QUBO는 D-Wave 양자 어닐러에서 풀려고 만들었습니다. 양자 어닐링은 SA의 열적 요동을 양자 요동으로 바꾼 방법이고 <a class="mt-c" href={R.kirk.u} target="_blank" rel="noopener">Kirkpatrick 외 1983</a> <a class="mt-c" href={R.santoro.u} target="_blank" rel="noopener">Santoro 외 2002</a>, 양자 어닐러를 평가할 때의 고전 비교 기준도 SA입니다 <a class="mt-c" href={R.ronnow.u} target="_blank" rel="noopener">Rønnow 외 2014</a>. 브라우저 SA는 D-Wave SimulatedAnnealingSampler의 기본 설정(sweep 1,000번, 기하 온도 스케줄)과 같은 방식이라 QPU로 바꿔도 결과를 그대로 잇습니다 <a class="mt-c" href={R.isakov.u} target="_blank" rel="noopener">Isakov 외 2015</a>.</li>
+        <li><b>품질 손실이 작음</b>: 풀이기 비교 실험에서 SA로 만든 평면은 120개 모두 필수 규칙·문 동선을 지켰고, J 중앙값은 가장 높은 QUBO 풀이기보다 {(benchOf('d2ts').obj - benchOf('sa').obj).toFixed(1)}점 낮았습니다. QUBO 없는 직접 탐색은 {(benchOf('model').obj - benchOf('sa').obj).toFixed(1)}점 높지만 양자 어닐러로 옮길 수 없습니다.</li>
+        <li><b>시간을 늘리면 거의 매번 최적</b>: 0.1초에서 SA의 전역 최적 도달률은 {benchOf('sa').hit}%로 tabu 계열(100%)보다 낮지만, 풀이기당 0.3초 55% → 1초 81% → 3초 98%로 오릅니다(evidence/results/sa-budget.md). 그래서 화면 기본 시간을 3초로 두었습니다.</li>
+        <li><b>설명·재현이 쉬움</b>: 어떤 휴리스틱도 모든 문제에서 가장 좋지는 않으므로 <a class="mt-c" href={R.dunning.u} target="_blank" rel="noopener">Dunning 외 2018</a>, 목적(양자 어닐링으로 옮기기)에 맞춰 하나로 고정했습니다. 시드가 같으면 결과가 같습니다.</li>
+      </ol>
+      <p class="note">예외: QUBO 도면 생성 탭(격자 칸 단위, 변수 약 600개)에서는 SA가 실이 흩어진 해에 갇혀(3초, 점검 점수 −96~−109, Tabu는 94) 기본 풀이기를 Tabu로 둡니다.</p>
       <p>모든 풀이기는 같은 QUBO, 같은 시간 예산, 같은 시드로 돕니다. 한 변수 뒤집기의 에너지 변화는 공통으로 다음 식으로 계산하고, 뒤집은 뒤에는 모든 변수의 Δ를 O(n)으로 갱신합니다.</p>
       <div class="mt-eq">Δ<sub>i</sub> = (1 − 2x<sub>i</sub>) · ( q<sub>ii</sub> + Σ<sub>j≠i</sub> q<sub>ij</sub> x<sub>j</sub> )</div>
       <p class="note">결과는 30시드 × 4조건, 풀이기당 100ms를 평가 횟수로 고정하고 손 가중치로 돌린 실험 값입니다("최적 도달" = 전역 최적해와 같은 에너지에 닿은 비율, 숫자 = 순위 점수 J 중앙값). 전체 표와 검정은 evidence/results/qubo-benchmark.md.</p>

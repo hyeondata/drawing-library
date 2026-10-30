@@ -9,6 +9,7 @@ import { deviation } from '../generate/metrics.js';
 import { WALL, netDims } from '../generate/net-dims.js';
 import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
+import { ACTIVE } from '../generate/solvers.js';
 
 const data = JSON.parse(document.getElementById('gen-data').textContent);
 const { base, steps, byBedrooms, refs } = data;
@@ -37,16 +38,18 @@ function buildSpec() {
   const other = Number(radio('roomSize').dataset.share);
   const ratio = Number(radio('master').dataset.ratio);
   const targets = byBedrooms[bedrooms].targets;
+  // 거실 단계는 그대로, 면적비는 고른 침실 수 세대의 분위수
+  const livingShare = byBedrooms[bedrooms].living[data.living[li].key];
   return {
     area,
     bedrooms,
-    baths: comp.has('baths2') || life.includes('bath') ? 2 : 1,
+    baths: comp.has('baths3') ? 3 : comp.has('baths2') || life.includes('bath') ? 2 : 1,
     dress: comp.has('dress') || life.includes('storage'),
     multi: comp.has('multi') || life.includes('storage'),
     outdoorUnit: comp.has('outdoorUnit'),
     balcony: comp.has('balcony'),
     targets: {
-      living: data.living[li].share,
+      living: livingShare,
       kitchen: targets.kitchen,
       master: bedrooms > 1 ? other * ratio : other * 1.6,
       other,
@@ -57,6 +60,7 @@ function buildSpec() {
     },
     prefs: [...syntax, ...life],
     livingKey: data.living[li].key,
+    etcMax: byBedrooms[bedrooms].etcMax,
   };
 }
 
@@ -69,6 +73,12 @@ function summary() {
 /** 침실 수를 바꾸면 작은방·안방 선택지를 그 침실 수 세대의 분위수로 바꾼다. */
 function updateRoomSize() {
   const opts = byBedrooms[radio('bedrooms').value];
+  // 실 구성 기본값: 직접 바꾸기 전에는 그 침실 수 세대의 절반 이상이 가진 실을 켠다
+  if (!state.compositionTouched)
+    for (const input of form.querySelectorAll('input[name="composition"]')) {
+      const p = opts.composition[input.value];
+      if (p !== undefined) input.checked = p >= 0.5;
+    }
   for (const [name, key] of [['roomSize', 'share'], ['master', 'ratio']]) {
     for (const o of opts[name]) {
       const input = form.querySelector(`input[name="${name}"][value="${o.key}"]`);
@@ -114,6 +124,7 @@ $('#gen-prev').addEventListener('click', () => show(Math.max(0, state.step - 1))
 document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => show(Number(b.dataset.goto))));
 form.addEventListener('submit', (e) => e.preventDefault());
 form.addEventListener('change', (e) => {
+  if (e.target.name === 'composition') state.compositionTouched = true;
   if (e.target.name === 'bedrooms') {
     state.bedroomsTouched = true;
     updateRoomSize();
@@ -142,32 +153,8 @@ async function run(seed = state.seed) {
   const spec = buildSpec();
   const same = state.spec && JSON.stringify(state.spec) === JSON.stringify(spec) && state.top.length && seed === state.seed;
   if (same) return renderResult();
-  state.spec = spec;
-  state.seed = seed;
-  const id = ++state.runId;
-  $('#gen-result').hidden = true;
-  $('#gen-progress').hidden = false;
-  setProgress(0, '평면을 만드는 중…');
-  const w = getWorker();
-  const t0 = performance.now();
-  w.onmessage = (e) => {
-    const m = e.data;
-    if (m.id !== state.runId) return;
-    if (m.progress !== undefined) setProgress(m.progress, `평면을 만들고 고르는 중… ${Math.round(m.progress * 100)}%`);
-    if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
-    if (m.done) {
-      state.top = m.top;
-      state.gallery = m.gallery || [];
-      state.timeline = m.timeline || null;
-      state.timeAt = null;
-      state.compare = null;
-      state.current = 0;
-      state.ms = performance.now() - t0;
-      $('#gen-progress').hidden = true;
-      renderResult();
-    }
-  };
-  w.postMessage({ id, spec, seed });
+  // 생성은 켜 둔 풀이기(SA)로만 한다(evidence/18-SA-선택-근거.md).
+  return runCompare(ACTIVE, seed);
 }
 
 // ---------- 알고리즘 비교(QUBO 풀이기) ----------
@@ -188,14 +175,16 @@ async function runCompare(algorithms, seed) {
   w.onmessage = (e) => {
     const m = e.data;
     if (m.id !== state.runId) return;
-    if (m.progress !== undefined) setProgress(m.progress, `${ALGO_NAME[m.key] || ''} 실행 중… (${Math.round(m.progress * algorithms.length) + 1}/${algorithms.length})`);
+    if (m.progress !== undefined) setProgress(m.progress, `${ALGO_NAME[m.key] || ''} 실행 중… (${Math.min(algorithms.length, Math.round(m.progress * algorithms.length) + 1)}/${algorithms.length})`);
     if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
     if (m.done) {
       state.compare = { ...m.compare, budgetMs, seed };
       state.gallery = [];
       state.timeline = null;
       state.timeAt = null;
-      state.top = m.compare.results.filter((r) => r.best).map((r) => ({ ...r.best, tabLabel: r.name, algo: r }));
+      // 풀이기가 하나면 그 풀이기의 서로 다른 상위 3안, 여럿이면 풀이기마다 1안
+      const rs = m.compare.results.filter((r) => r.best);
+      state.top = rs.length === 1 ? rs[0].cands.map((c, i) => ({ ...c, tabLabel: `${rs[0].name} ${i + 1}안`, algo: rs[0] })) : rs.map((r) => ({ ...r.best, tabLabel: r.name, algo: r }));
       state.current = 0;
       state.ms = performance.now() - t0;
       $('#gen-progress').hidden = true;
@@ -325,15 +314,10 @@ function renderCompare() {
   );
 }
 
-$('#gen-all').addEventListener('click', () => document.querySelectorAll('input[name="algo"]').forEach((i) => (i.checked = true)));
 $('#gen-run').addEventListener('click', () => {
   const algos = selectedAlgos();
   const seed = Math.max(1, Number($('#gen-seed').value) || 1);
   if (!algos.length) return setProgress(0, '알고리즘을 하나 이상 고르세요.');
-  if (algos.length === 1 && algos[0] === 'model') {
-    state.top = [];
-    return run(seed);
-  }
   runCompare(algos, seed);
 });
 $('#gen-qubo').addEventListener('click', () => {
@@ -404,7 +388,7 @@ function renderResult() {
     .join('');
   const indoorKeys = c.layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실').map((r) => r.key);
   const netSum = indoorKeys.reduce((t, k) => t + net[k].area, 0);
-  const applied = [...spec.prefs.map((k) => PREF[k].title), spec.baths >= 2 ? '화장실 2개' : '화장실 1개', spec.dress ? '드레스룸' : null, spec.multi ? '다목적실' : null, spec.balcony ? '전면 발코니' : '확장형', spec.outdoorUnit ? '실외기실' : null].filter(Boolean);
+  const applied = [...spec.prefs.map((k) => PREF[k].title), `화장실 ${spec.baths}개`, spec.dress ? '드레스룸' : null, spec.multi ? '다목적실' : null, spec.balcony ? '전면 발코니' : '확장형', spec.outdoorUnit ? '실외기실' : null].filter(Boolean);
   const opens = c.layout.openings || [];
   const cnt = (k) => opens.filter((o) => o.kind === k).length;
   $('#gen-detail').innerHTML = `
