@@ -1,8 +1,18 @@
-// 도면 생성의 공간구문·생활 조건 선택지. 모두 평가 모델의 지표·규칙(src/model/config.js FEATURES, spa.js 규칙)에 묶이고,
-// 근거 문헌은 모델과 같은 REFERENCES id를 쓴다. score(ctx)는 0~100.
-// ctx: { unit(평가 결과 세대), item(groupKey, featureKey), rule(id), layout, noise }
+// 도면 생성의 공간구문·생활 조건 선택지. 분석(src/model/spa.js)의 변수·규칙에 묶이고,
+// 근거 문헌은 REFERENCES id를 쓴다. score(ctx)는 0~100: 변수값이 실제 아파트 평면(AI 허브 APT_FP 전체)의
+// 아래 10% 수준이면 0, 위 10% 수준 이상이면 100(작을수록 좋은 변수는 반대). 생성 목표이지 도면 채점이 아니다.
+// ctx: { features(분석 변수), rule(id), layout, noise }
+import { AIHUB } from './aihub-stats.js';
 
-const pct = (it) => (it && it.percentile !== null && it.percentile !== undefined ? 100 * it.percentile : null);
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+/** 변수 k의 값이 실제 평면 분포의 p10 이하면 0, p90 이상이면 100. lower면 작을수록 좋음. 값이 없으면 null. */
+const toward = (c, k, lower = false) => {
+  const v = c.features[k];
+  const q = AIHUB.features[k];
+  if (v === null || v === undefined || !Number.isFinite(v) || !q) return null;
+  const [lo, hi] = lower ? [q.p90, q.p10] : [q.p10, q.p90];
+  return 100 * clamp01((v - lo) / (hi - lo));
+};
 const avg = (...xs) => {
   const v = xs.filter((x) => x !== null && x !== undefined && Number.isFinite(x));
   return v.length ? v.reduce((s, x) => s + x, 0) / v.length : 0;
@@ -14,9 +24,9 @@ export const SYNTAX_CHOICES = [
     short: '거실 중심',
     title: '거실 중심형',
     desc: '거실이 집에서 가장 통합된(가장 많이 지나가는) 실이 되게 합니다. 한국 아파트의 대표 유전형입니다.',
-    metrics: ['규칙: 거실이 가장 통합된 기능실', '유전형 순위 부합도 τ', '유전형 프로필 거리'],
+    metrics: ['규칙: 거실이 가장 통합된 기능실', '유전형 순위 부합도 τ'],
     refs: ['hillier1987', 'choi2014', 'byun2016'],
-    score: (c) => avg(100 * c.rule('livingCentral'), c.item('syntax', 'genotypeTau')?.score ?? c.item('syntax', 'genotypeDistance')?.score),
+    score: (c) => avg(100 * c.rule('livingCentral'), toward(c, 'genotypeTau')),
   },
   {
     key: 'privacy',
@@ -25,7 +35,7 @@ export const SYNTAX_CHOICES = [
     desc: '침실을 거실·주방보다 한 단계 더 안쪽에 두고, 침실을 지나야만 갈 수 있는 실을 없앱니다.',
     metrics: ['공·사 깊이 차(침실−거실·주방)', '규칙: 침실을 거치지 않고 다른 실에 갈 수 있음'],
     refs: ['park2024', 'ham2017'],
-    score: (c) => avg(c.item('syntax', 'privacyDepthGap')?.score, 100 * c.rule('bedroomPrivacy')),
+    score: (c) => avg(toward(c, 'privacyDepthGap'), 100 * c.rule('bedroomPrivacy')),
   },
   {
     key: 'kitchenLink',
@@ -34,7 +44,7 @@ export const SYNTAX_CHOICES = [
     desc: '주방이 거실과 맞닿고, 주방도 침실보다 잘 이어지게 합니다(주방/침실 통합도 비).',
     metrics: ['규칙: 주방과 거실이 맞닿음', '주방/침실 통합도 비'],
     refs: ['byun2016', 'choi2014'],
-    score: (c) => avg(100 * c.rule('kitchenLiving'), c.item('syntax', 'kitchenBedroomRatio')?.score),
+    score: (c) => avg(100 * c.rule('kitchenLiving'), toward(c, 'kitchenBedroomRatio')),
   },
   {
     key: 'entryNear',
@@ -53,10 +63,10 @@ export const LIFESTYLE_CHOICES = [
     short: '넓은 공용 공간',
     title: '넓은 공용 공간',
     desc: '거실을 한 단계 넓게 잡고, 공용 공간 비중을 키우며, 실을 반듯하고 덜 길쭉하게 만듭니다.',
-    metrics: ['공용/개인 면적비(높을수록)', '실 종횡비', '실 직사각형도'],
+    metrics: ['공용/개인 면적비(높을수록)', '실 종횡비(낮을수록)', '실 직사각형도(높을수록)'],
     refs: ['park2024', 'upasani2020', 'rosin1999'],
     effect: '거실 크기 +1단계',
-    score: (c) => avg(pct(c.item('area', 'publicPrivateRatio')), c.item('shape', 'roomAspectRatio')?.score, c.item('shape', 'roomRectangularity')?.score),
+    score: (c) => avg(toward(c, 'publicPrivateRatio'), toward(c, 'roomAspectRatio', true), toward(c, 'roomRectangularity')),
   },
   {
     key: 'bath',
@@ -75,8 +85,8 @@ export const LIFESTYLE_CHOICES = [
     desc: '침실이 거실·주방·현관과 맞댄 벽을 줄이고(드레스룸·화장실을 완충으로), 침실을 공용 공간보다 깊게 둡니다.',
     metrics: ['소음원과 맞댄 침실 벽 비율(근사)', '공·사 깊이 차'],
     refs: ['park2024', 'ham2017'],
-    note: '차음 성능은 벽체 사양이 정하므로, 여기서는 배치로 줄일 수 있는 부분만 근사합니다. 모델에 차음 지표는 없습니다.',
-    score: (c) => avg(100 * Math.max(0, 1 - c.noise / 0.35), c.item('syntax', 'privacyDepthGap')?.score),
+    note: '차음 성능은 벽체 사양이 정하므로, 여기서는 배치로 줄일 수 있는 부분만 근사합니다. 분석에 차음 지표는 없습니다.',
+    score: (c) => avg(100 * Math.max(0, 1 - c.noise / 0.35), toward(c, 'privacyDepthGap')),
   },
   {
     key: 'sunny',
@@ -85,7 +95,7 @@ export const LIFESTYLE_CHOICES = [
     desc: '거실·침실이 바깥이나 발코니에 닿는 둘레를 늘립니다.',
     metrics: ['거주실 외기 접면비(높을수록)', '규칙: 모든 거실·침실이 외기·발코니에 접함'],
     refs: ['ju2020', 'zeng2025'],
-    score: (c) => avg(pct(c.item('exposure', 'exteriorExposure')), 100 * c.rule('daylight')),
+    score: (c) => avg(toward(c, 'exteriorExposure'), 100 * c.rule('daylight')),
   },
   {
     key: 'storage',

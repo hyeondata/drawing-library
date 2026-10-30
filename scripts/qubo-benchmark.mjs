@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { compareAlgorithms, spearman, templates } from '../src/generate/compare.js';
 import { buildQubo } from '../src/generate/qubo.js';
 import { SOLVERS, runSolver } from '../src/generate/solvers.js';
+import { buildChoices } from '../src/generate/choices.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (name, def) => {
@@ -16,12 +17,13 @@ const arg = (name, def) => {
   return i > 0 ? Number(process.argv[i + 1]) : def;
 };
 const SEEDS = arg('seeds', 30);
-const WEIGHTS = process.argv.includes('--hand') ? 'hand' : 'calibrated';
-const SUFFIX = WEIGHTS === 'hand' ? '-hand' : '';
+const WEIGHTS = 'hand';
 const BUDGET = arg('budget', 100);
-const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public/data/baseline.json'), 'utf8'));
 
-const targets = { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877, bath: 0.032, entrance: 0.0389, dress: 0.0499, multi: 0.0303 };
+// 목표 면적비: 도면 생성 화면의 기본값(AI 허브 아파트 평면도 전체, 침실 3개 세대 중앙값)
+const ch = buildChoices();
+const b3 = ch.byBedrooms[3];
+const targets = { living: b3.living.standard, ...b3.targets, other: b3.roomSize[1].share, master: b3.roomSize[1].share * b3.master[1].ratio };
 const CASES = [
   { name: '59㎡ 방2', spec: { area: 59, bedrooms: 2, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true, targets, prefs: ['livingCentral'] } },
   { name: '84㎡ 방3', spec: { area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: true, balcony: true, targets, prefs: ['livingCentral', 'bath'] } },
@@ -29,7 +31,7 @@ const CASES = [
   { name: '114㎡ 방4', spec: { area: 114, bedrooms: 4, baths: 2, dress: true, multi: true, outdoorUnit: true, balcony: false, targets, prefs: ['kitchenLink', 'sunny', 'storage'] } },
 ];
 const ALGOS = ['model', ...SOLVERS.map((s) => s.key)];
-const NAME = { model: '기존: 모델 직접 탐색', ...Object.fromEntries(SOLVERS.map((s) => [s.key, s.name])) };
+const NAME = { model: '기존: J 직접 탐색', ...Object.fromEntries(SOLVERS.map((s) => [s.key, s.name])) };
 
 // ---- 시간 예산 → 평가 횟수 보정(조건마다, 시드 0으로 BUDGET ms 동안 센 횟수) ----
 const calib = {};
@@ -44,13 +46,13 @@ for (const c of CASES) {
 }
 
 // ---- 실행 ----
-const rows = []; // { case, seed, algo, energy, optimum, objective, model, valid, doorIssues }
+const rows = []; // { case, seed, algo, energy, optimum, objective, rules, valid, doorIssues }
 const pairs = []; // 에너지–순위 점수
 const t0 = Date.now();
 for (const c of CASES) {
   for (let seed = 1; seed <= SEEDS; seed++) {
     for (const algo of ALGOS) {
-      const out = compareAlgorithms(c.spec, { baseline, algorithms: [algo], seed, budgetMs: BUDGET, maxEvals: calib[c.name][algo] || null, weights: WEIGHTS });
+      const out = compareAlgorithms(c.spec, { algorithms: [algo], seed, budgetMs: BUDGET, maxEvals: calib[c.name][algo] || null, weights: WEIGHTS });
       const r = out.results[0];
       rows.push({
         case: c.name,
@@ -60,7 +62,7 @@ for (const c of CASES) {
         template: r.template,
         perTemplate: (r.perTemplate || []).map((p) => ({ k: p.k, energy: p.energy })),
         objective: r.best ? r.best.objective : null,
-        model: r.best ? r.best.model : null,
+        rules: r.best ? r.best.rules : null,
         valid: r.best ? r.best.unit.validity.valid : false,
         doorIssues: r.best ? r.best.doorIssues : null,
         feasible: r.feasible,
@@ -152,15 +154,15 @@ posthoc.forEach((t, i) => (t.holm = Math.min(1, Math.max(...posthoc.slice(0, i +
 // ---- 결과 파일 ----
 const fmt = (v, d = 1) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
 const lines = [];
-lines.push(`# QUBO 풀이기 비교 실험 (${WEIGHTS === 'hand' ? '손으로 정한 가중치' : '평가 모델로 보정한 가중치'})`);
+lines.push('# QUBO 풀이기 비교 실험 (손으로 정한 가중치)');
 lines.push('');
-lines.push(`\`node scripts/qubo-benchmark.mjs --seeds ${SEEDS} --budget ${BUDGET}\`로 만든 파일입니다. 풀이기마다 ${BUDGET}ms를 이 기계에서 평가 횟수로 보정해 고정했으므로 시드가 같으면 결과가 같습니다. '기존'은 평가 모델을 800번 부르는 직접 탐색이라 예산 단위가 다릅니다.`);
+lines.push(`\`node scripts/qubo-benchmark.mjs --seeds ${SEEDS} --budget ${BUDGET}\`로 만든 파일입니다. 풀이기마다 ${BUDGET}ms를 이 기계에서 평가 횟수로 보정해 고정했으므로 시드가 같으면 결과가 같습니다. '기존'은 적합성 J를 800번 재는 직접 탐색이라 예산 단위가 다릅니다.`);
 lines.push('');
 lines.push(`조건 ${CASES.length}개 × 시드 ${SEEDS}개 = 블록 ${N}개. 실행 시간 ${Math.round((Date.now() - t0) / 1000)}초.`);
 lines.push('');
 lines.push('## 요약');
 lines.push('');
-lines.push('| 알고리즘 | QUBO 최적 도달률 | TTS₉₉ | 에너지 차 중앙값 | 순위 점수 중앙값 (IQR) | 모델 점수 중앙값 (IQR) | 유효 평면 | 문 동선 문제 0 | 평균 순위 |');
+lines.push('| 알고리즘 | QUBO 최적 도달률 | TTS₉₉ | 에너지 차 중앙값 | 순위 점수 J 중앙값 (IQR) | 규칙 충족률 중앙값 (IQR) | 유효 평면 | 문 동선 문제 0 | 평균 순위 |');
 lines.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
 for (const a of ALGOS) {
   const rs = rows.filter((r) => r.algo === a);
@@ -172,7 +174,7 @@ for (const a of ALGOS) {
   const hits = rs.filter((r) => r.perTemplate.length && gapOf(r) < 1e-6).length;
   const gaps = rs.map((r) => (a === 'model' ? (r.energy === null || optOf(r) === null ? null : r.energy - optOf(r)) : gapOf(r)));
   const obj = rs.map((r) => r.objective);
-  const mod = rs.map((r) => r.model);
+  const mod = rs.map((r) => r.rules);
   // TTS99 = t_run · ln(0.01) / ln(1 − p_s) (Rønnow et al. 2014). t_run = 예산(ms).
   const ps = rs.length ? hits / rs.length : 0;
   const tts = a === 'model' ? '—' : ps >= 1 ? `${BUDGET}ms` : ps <= 0 ? `> ${BUDGET}ms` : `${Math.round((BUDGET * Math.log(0.01)) / Math.log(1 - ps))}ms`;
@@ -208,10 +210,10 @@ lines.push('');
 lines.push('## 해석할 때');
 lines.push('');
 lines.push('- 변수 18~45개의 작은 QUBO라 전수 열거로 최적값을 알 수 있습니다. 풀이기 사이 차이는 최적 도달률·에너지 차로 보고, 평면 품질은 순위 점수로 따로 봅니다.');
-lines.push('- 순위 점수는 평가 모델(기준 35세대)·목표 면적·선호 점수의 합이라 QUBO 에너지의 대리 관계가 약하면 에너지 최적이 곧 최고 평면은 아닙니다.');
+lines.push('- 순위 점수 J는 규칙 충족·목표 면적·선호 점수의 합이라 QUBO 에너지의 대리 관계가 약하면 에너지 최적이 곧 최고 평면은 아닙니다.');
 lines.push('- SA는 D-Wave QPU 결과가 나오기 전의 임시 대체입니다. 양자 어닐링 결과로 보고하지 않습니다. SQA는 고전 컴퓨터에서 돌린 경로적분 양자 몬테카를로로, SA보다 양자 어닐링에 가까운 대리일 뿐 QPU 결과가 아닙니다.');
 const outDir = path.join(root, 'evidence', 'results');
 fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(path.join(outDir, `qubo-benchmark${SUFFIX}.md`), `${lines.join('\n')}\n`);
-fs.writeFileSync(path.join(outDir, `qubo-benchmark${SUFFIX}.json`), JSON.stringify({ seeds: SEEDS, budgetMs: BUDGET, calib, optimum, posthoc, leader, meanRank, friedman: { chi2, df, p: pFriedman }, rho, rows }, null, 1));
+fs.writeFileSync(path.join(outDir, 'qubo-benchmark.md'), `${lines.join('\n')}\n`);
+fs.writeFileSync(path.join(outDir, 'qubo-benchmark.json'), JSON.stringify({ seeds: SEEDS, budgetMs: BUDGET, calib, optimum, posthoc, leader, meanRank, friedman: { chi2, df, p: pFriedman }, rho, rows }, null, 1));
 console.log(lines.slice(0, 22).join('\n'));

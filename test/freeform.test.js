@@ -7,7 +7,7 @@ const units = JSON.parse(fs.readFileSync(new URL('../public/data/shapes.json', i
 const OUT = new Set(['발코니', '실외기실']);
 const polyArea = (p) => Math.abs(p.reduce((s, [x, y], i) => s + x * p[(i + 1) % p.length][1] - p[(i + 1) % p.length][0] * y, 0)) / 2;
 
-test('Sample에서 뽑은 세대는 모두 사각형이 아닌 실을 가진다', () => {
+test('아파트 평면도에서 뽑은 기준 세대는 모두 사각형이 아닌 실을 가진다', () => {
   assert.ok(units.length >= 20);
   for (const u of units) assert.ok(u.nonrect.length >= 1 && u.rooms.some((r) => r.type === '현관'));
 });
@@ -141,6 +141,7 @@ test('자유형 안목 면적: 칸 면적보다 작고, 경계 길이 × 벽 절
     const cells = a.reduce((n, v) => n + (v === r.k ? 1 : 0), 0);
     if (!cells) continue;
     const gross = cells * P.sx * P.sy;
+    if (gross < 1) continue; // 1㎡ 미만 덕트는 벽 두께만으로 절반 넘게 줄 수 있다
     assert.ok(net[r.k] < gross && net[r.k] > gross * 0.5, `${r.type} ${net[r.k]} / ${gross}`);
   }
 });

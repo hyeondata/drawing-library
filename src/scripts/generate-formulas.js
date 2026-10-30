@@ -32,7 +32,7 @@ const OUTS = [
 const area = (r) => (r ? r.w * r.h : 0);
 const chips = (ids) => `<span class="cites">${ids.map((id) => (GEN_REFS[id] ? `<a class="cite" href="${GEN_REFS[id].url}" target="_blank" rel="noopener" title="${esc(GEN_REFS[id].text || '')}">${esc(GEN_REFS[id].short)}</a>` : '')).join('')}</span>`;
 
-const fx = { spec: null, cand: null, base: null, cur: null, weights: 'calibrated', out: 'living' };
+const fx = { spec: null, cand: null, base: null, cur: null, weights: 'hand', out: 'living' };
 
 export function renderFormulas({ spec, cand, weights }) {
   if (!cand?.params) {

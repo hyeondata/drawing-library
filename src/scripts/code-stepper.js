@@ -11,7 +11,7 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const f = (v, d = 2) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : Math.abs(v) >= 1e4 ? v.toExponential(2) : v.toFixed(d));
 const MAX = 4000; // 저장할 기록 수(그 뒤도 계산은 계속, 기록만 생략)
 
-export function setupSteppers({ q, nameOf, opt, base, spec, baseline }) {
+export function setupSteppers({ q, nameOf, opt, base, spec }) {
   const vname = (i) => `${nameOf[q.vars[i].room] ?? q.vars[i].room}@${q.vars[i].band === 'front' ? '앞' : '뒤'}${q.vars[i].slot + 1}`;
   const feasible = (x) => q.groups.every((g) => g.reduce((s, i) => s + x[i], 0) === 1);
 
@@ -80,7 +80,7 @@ export function setupSteppers({ q, nameOf, opt, base, spec, baseline }) {
       case 'enum':
         return `<b>배정 하나 계산</b>: E = ${f(e.e, 3)}, 지금까지 최소 ${f(Math.min(e.e, e.best), 3)}. 원-핫을 지키는 모든 배정(앞 m! × 뒤 k!)을 차례로 다 계산하므로, 마지막의 최소가 곧 전역 최적해입니다. · ${ok}`;
       case 'model':
-        return `<b>평가 #${e.i}</b>(${e.phase === 'random' ? '무작위 탐색' : '국소 탐색: 좋은 안의 변수를 조금 바꿈'}): 깊이 D = ${f(e.params.depth)}m, 앞 띠 비율 f = ${f(e.params.frontShare)}, 작은방 폭 w = ${f(e.params.bedWidth)}m, 안방 깊이 g = ${f(e.params.masterDepth)} → 평면을 만들어 채점. 목적함수 J = <b>${f(e.objective, 1)}</b>(평가 모델 ${f(e.model, 1)}, 면적 부합 ${f(e.fit, 1)}${e.narrow ? `, 좁은 실 ${e.narrow}개 감점` : ''}), 지금까지 최고 ${f(e.best, 1)}`;
+        return `<b>평가 #${e.i}</b>(${e.phase === 'random' ? '무작위 탐색' : '국소 탐색: 좋은 안의 변수를 조금 바꿈'}): 깊이 D = ${f(e.params.depth)}m, 앞 띠 비율 f = ${f(e.params.frontShare)}, 작은방 폭 w = ${f(e.params.bedWidth)}m, 안방 깊이 g = ${f(e.params.masterDepth)} → 평면을 만들어 J를 잼. 목적함수 J = <b>${f(e.objective, 1)}</b>(규칙 충족 ${f(e.rules, 1)}, 면적 부합 ${f(e.fit, 1)}${e.narrow ? `, 좁은 실 ${e.narrow}개 감점` : ''}), 지금까지 최고 ${f(e.best, 1)}`;
       case 'ff-move': {
         const kind = { wall: '벽 밀기', cell: '칸 하나 넘기기', 'outline-add': '바깥 칸 붙이기', 'outline-remove': '바깥 벽 칸 떼기' }[e.kind] || e.kind;
         const rn = (k) => (k >= 0 ? `${ffP?.rooms[k]?.type ?? '실'}(${k}번)` : '바깥');
@@ -151,7 +151,7 @@ export function setupSteppers({ q, nameOf, opt, base, spec, baseline }) {
         anneal(ffP, { seed, jitter: 0.5, freedom: 'L', steps: Number(box.querySelector('[data-steps]')?.value || 3000), onEvent: push });
       } else if (key === 'model') {
         const ev = (e) => push(e);
-        optimize(spec, { baseline: await baseline(), seed, random: 200, refine: 200, count: 1, onEvent: ev });
+        optimize(spec, { seed, random: 200, refine: 200, count: 1, onEvent: ev });
       } else runSolver(key, q, { seed, budgetMs: 1000, maxEvals: Number(box.querySelector('[data-budget]')?.value || 30000), onEvent: push });
       draw();
     };

@@ -19,7 +19,7 @@ const spec = {
   targets: { living: 0.24, kitchen: 0.12, master: 0.15, other: 0.11, bath: 0.05, entrance: 0.04, dress: 0.04, multi: 0.04 },
   prefs: [],
 };
-const q = buildQubo(spec, { weights: 'calibrated' });
+const q = buildQubo(spec, { weights: 'hand' });
 const nameOf = Object.fromEntries(programOf(spec).map((r) => [r.key, r.name]));
 const opt = runSolver('exact', q, { seed: 1, budgetMs: 3000 }).energy;
 const feasible = (x) => q.groups.every((g) => g.reduce((s, i) => s + x[i], 0) === 1);
@@ -172,12 +172,4 @@ if (saBox) {
 
 // ---------------- 공용 한 걸음씩(나머지 알고리즘) ----------------
 import { setupSteppers } from './code-stepper.js';
-let baselineCache = null;
-setupSteppers({
-  q,
-  nameOf,
-  opt,
-  base,
-  spec,
-  baseline: async () => (baselineCache ||= await (await fetch(`${base}data/baseline.json`)).json()),
-});
+setupSteppers({ q, nameOf, opt, base, spec });

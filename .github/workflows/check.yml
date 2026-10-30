@@ -20,13 +20,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Baseline is up to date
-        run: |
-          npm run baseline
-          git diff --exit-code -- public/data/baseline.json public/data/catalog.json || {
-            echo "::error::평가 모델이 바뀌었는데 기준 분포가 갱신되지 않았습니다. npm run baseline 후 커밋하세요."
-            exit 1
-          }
       - name: Example drawings are up to date
         run: |
           npm run drawings
@@ -34,14 +27,5 @@ jobs:
             echo "::error::예시 도면이 라벨과 다릅니다. npm run drawings 후 커밋하세요."
             exit 1
           }
-      - name: Validation results are up to date
-        run: |
-          npm run results
-          git diff --exit-code -- evidence/results || {
-            echo "::error::검증 결과가 모델과 다릅니다. npm run results 후 커밋하세요."
-            exit 1
-          }
       - run: npx astro build
       - run: npm run deploy -- --dry-run
-      - name: Score table
-        run: npm run evaluate >> "$GITHUB_STEP_SUMMARY"

@@ -7,7 +7,7 @@ import { createSA } from '../src/generate/sa-explained.js';
 const spec = { area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, outdoorUnit: false, balcony: true, targets: { living: 0.24, kitchen: 0.12, master: 0.15, other: 0.11, bath: 0.05, entrance: 0.04, dress: 0.04, multi: 0.04 }, prefs: [] };
 
 test('설명용 SA는 실제 sa()의 첫 담금질과 같은 결과를 낸다(같은 시드)', () => {
-  const q = buildQubo(spec, { weights: 'calibrated' });
+  const q = buildQubo(spec, { weights: 'hand' });
   for (const seed of [1, 2, 3]) {
     const sa = createSA(q, { seed });
     while (sa.step());
@@ -24,7 +24,7 @@ import { anneal, buildProblem } from '../src/freeform/engine.js';
 import fs from 'node:fs';
 
 test('기록점(onEvent)은 계산을 바꾸지 않는다: 모든 풀이기·자유형 담금질에서 기록 있음/없음 결과가 같다', () => {
-  const q = buildQubo(spec, { weights: 'calibrated' });
+  const q = buildQubo(spec, { weights: 'hand' });
   for (const s of SOLVERS) {
     const a = runSolver(s.key, q, { seed: 3, budgetMs: 1000, maxEvals: 20000 });
     let n = 0;

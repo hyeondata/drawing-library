@@ -1,10 +1,13 @@
-// 평가 모델 설정. 팀원이 근거 논문에 맞춰 바꿀 값은 모두 여기에 둔다.
-// 바꾸면 `npm run baseline`으로 기준 분포를 다시 만들고 버전을 올린다.
+// 도면 분석 설정(판정 기준값·실 종류·근거 문헌). 팀원이 근거 논문에 맞춰 바꿀 값은 모두 여기에 둔다.
 
-export const MODEL_VERSION = '0.3.0';
-
-/** 판정 기준값(픽셀). Sample 80건의 실측 분포에서 정했다(README 참고). */
+/**
+ * 판정 기준값(픽셀). 처음에는 Sample 80건 실측에서 정했고, AI 허브 SPA 전체(TL_SPA 9,645건)로 다시 점검했다(scripts/build-aihub-stats.mjs).
+ * 전체 데이터에서 아파트 평면도 고유 세대의 도달성 규칙 통과율이 94%라 벽 간격 기준(32·50px)은 그대로 두었다.
+ */
 export const THRESHOLDS = {
+  // 현관 라벨 두 개가 이 거리(px) 미만이면 한 현관이 쪼개진 것(같은 세대)으로 본다. AI 허브 APT_FP 전체의 현관 쌍 거리는
+  // 0~7px(선 하나로 갈림, 약 1,990쌍)과 10~22px(벽을 사이에 둔 이웃 세대, 약 90쌍)로 나뉘고 8px에는 한 쌍도 없다.
+  entranceSplitGap: 8,
   // 실 사이 간격은 대부분 25px 이하(벽 두께). 32px 이내면 같은 벽을 공유한다고 본다.
   adjacencyGap: 32,
   // 발코니·실외기실·다목적공간과의 경계는 외벽이라 더 두껍다(실측 37~48px).
@@ -18,12 +21,12 @@ export const THRESHOLDS = {
   // 설비 짝 거리. 실측에서 거의 모든 짝이 300px 이내.
   fixturePair: 300,
   // 이보다 작은 '기타' 실은 덕트·PS로 보고 공간구문 그래프에서 뺀다.
-  // 침실 중앙값(약 305px 변)으로 환산하면 1px ≈ 1.1cm, 12,000px² ≈ 1.5㎡.
+  // 침실 중앙값(약 297px 변)으로 환산하면 1px ≈ 1.1cm, 12,000px² ≈ 1.5㎡.
   ductMaxArea: 12000,
-  // 축척 보정의 기준: 침실 한 변(√면적) 중앙값이 이 값인 도면을 배율 1로 본다(표본 중앙값).
+  // 축척 보정의 기준: 침실 한 변(√면적) 중앙값이 이 값인 도면을 배율 1로 본다(전체 9,645건 도면별 값의 중앙값, 표본 80건은 305).
   // 도면마다 침실 한 변 중앙값 / 이 값을 배율 s로 삼아 길이·면적 기준값(접촉 길이·덕트 면적·창 길이)을 늘이거나 줄인다.
   // 벽 간격 기준은 도면 선 굵기를 따라 축척과 무관해 그대로 둔다.
-  referenceBedSide: 305,
+  referenceBedSide: 297,
   // 배율 1인 도면에서 이 길이 이상 외기에 열린 실은 창을 낼 수 있다고 본다.
   windowMinLength: 81,
 };
@@ -43,94 +46,16 @@ export const GENOTYPE_ORDER = ['거실', '주방', '현관', '침실', '화장�
 /** 거실 통합도 순위를 셀 때 비교에서 빼는 실(복도성·외부·공용 공간). Choi et al. (2014)은 복도를 빼고 중심 공간을 정했다. */
 export const LIVING_RANK_EXCLUDE = new Set(['기타', '현관', '발코니', '실외기실', '엘리베이터홀', '계단실', '엘리베이터']);
 
-/** 관문 규칙: 하나라도 어기면 다른 점수로 메울 수 없게 총점을 GATE_CAP으로 묶는다(비보상형). */
+/** 필수 규칙: 하나라도 어기면 시공할 수 없는 평면으로 본다. 생성은 이 규칙을 어긴 안을 크게 감점한다. */
 export const GATE_RULES = new Set(['program', 'reachable', 'bedroomPrivacy']);
-export const GATE_CAP = 69;
 
 /**
- * 영역별 가중치(합 100). 정합성은 '시공 가능한 도면인가'(회의 결정),
- * 공간구문·면적 구성은 'AI 허브 실제 도면 분포에 얼마나 가까운가'를 본다.
+ * 선택 규칙: 실제 아파트 평면도(APT_FP 고유 세대, evidence/results/aihub-summary.md)의 통과율이 OPTIONAL_BELOW 미만인 규칙.
+ * 실제 평면도 상당수가 따르지 않으므로 모든 평면에 요구하지 않고, 그 조건을 고른 선호(화장실 2개)에서만 쓴다.
+ * 지금은 안방 부속실(79.8%)뿐이다. 채광은 90.5%라 필수로 남긴다. test/model.test.js가 이 목록과 데이터가 맞는지 검사한다.
  */
-export const WEIGHTS = {
-  SPA: { syntax: 30, area: 20, shape: 10, exposure: 10, rules: 30 },
-  STR: { rules: 60, profile: 40 },
-  OBJ: { rules: 70, profile: 30 },
-};
-
-/** 기준 분포와 비교할 때 강건 z가 이 값이면 0점, 0이면 100점(선형). */
-export const Z_ZERO_SCORE = 3;
-
-/**
- * 분포 비교 지표 정의. key는 특징 이름, label은 화면 표시명.
- * direction: 'higher'면 중앙값보다 클 때, 'lower'면 작을 때 감점하지 않는다(방향을 정할 근거가 있는 지표). 없으면 양쪽 모두 감점.
- * scoring: 'z'(기본, 중앙값과 Qn 척도로 강건 z) 또는 'ecdf'(경험적 누적분포 백분위). 값이 몇 개뿐인 이산 지표는 'ecdf'.
- * adjust: 'logK'면 기준 분포에서 log(기능실 수)에 회귀한 잔차로 채점한다(D값 정규화의 K 의존성 보정).
- * weight: 영역 안에서의 가중치(기본 1). 0이면 화면에 보이기만 하고 채점에 넣지 않는다.
- * refs: 근거 문헌 id(REFERENCES).
- *
- * v0.3.0(SCI 투고 검토 반영):
- * - 공간구문 지표는 문이 없는 '인접 그래프'에서 계산하므로 이름에 밝힌다(Zeng et al. 2025; Lee, Ostwald & Gu 2018).
- * - 척도를 MAD에서 Qn으로 바꾸고 minScale을 없앴다(Rousseeuw & Croux 1993). Qn이 0이면 백분위로 채점한다.
- * - τ는 5유형이 모두 있을 때만 계산하고, 연속 지표인 유전형 거리를 더했다.
- * - 평균 통합도는 실 수(K) 보정 잔차로, 거실 통제값은 근거가 비SCIE뿐이라 참고값(weight 0)으로 낮췄다.
- * - 직사각형도는 회전 최소 외접 사각형 기준으로 바꾸고 종횡비·침실 최소 폭을 더했다(Rosin 1999; Upasani et al. 2020).
- * - 외기 접면 영역(거주실 외기 접면비)을 새로 두었다(Ju & Oh 2020). 창 가능 실 비율은 표본 전부 1이라 규칙(daylight)으로 옮겼다.
- */
-export const FEATURES = {
-  syntax: [
-    { key: 'livingBedroomRatio', label: '거실/침실 통합도 비(인접 그래프)', refs: ['byun2016', 'choi2014'] },
-    { key: 'kitchenBedroomRatio', label: '주방/침실 통합도 비(인접 그래프)', refs: ['byun2016', 'choi2014'] },
-    { key: 'genotypeTau', label: '거실 중심 유전형 순위 부합도(τ)', direction: 'higher', scoring: 'ecdf', refs: ['hillier1987', 'choi2014'] },
-    { key: 'genotypeDistance', label: '유전형 프로필 거리', direction: 'lower', refs: ['hillier1987', 'choi2014'] },
-    { key: 'privacyDepthGap', label: '공·사 깊이 차(침실−거실·주방)', direction: 'higher', scoring: 'ecdf', refs: ['park2024', 'ham2017'] },
-    { key: 'meanIntegration', label: '기능실 평균 통합도(실 수 보정)', adjust: 'logK', weight: 0.5, refs: ['hillier1984', 'ostwald2011'] },
-    { key: 'livingControl', label: '거실 통제값(참고)', weight: 0, refs: ['ostwald2011', 'lee2018'] },
-  ],
-  area: [
-    { key: 'ratio_거실', label: '거실 면적비' },
-    { key: 'ratio_주방', label: '주방 면적비' },
-    { key: 'ratio_침실', label: '침실 면적비' },
-    { key: 'ratio_화장실', label: '화장실 면적비' },
-    { key: 'ratio_발코니', label: '발코니 면적비' },
-    { key: 'publicPrivateRatio', label: '공용/개인 면적비', refs: ['park2024'] },
-    { key: 'masterBedroomRatio', label: '안방/다른 침실 면적비', refs: ['zeng2025'] },
-  ],
-  shape: [
-    { key: 'roomRectangularity', label: '실 직사각형도(회전 MBR)', direction: 'higher', refs: ['rosin1999', 'rodrigues2013'] },
-    { key: 'roomAspectRatio', label: '실 종횡비', direction: 'lower', refs: ['upasani2020', 'zeng2025'] },
-    { key: 'bedroomMinWidth', label: '가장 좁은 침실의 상대 폭', direction: 'higher', refs: ['upasani2020', 'rodrigues2013'] },
-  ],
-  exposure: [
-    { key: 'exteriorExposure', label: '거주실 외기 접면비', direction: 'higher', refs: ['ju2020', 'zeng2025'] },
-  ],
-  profile: {
-    STR: [
-      { key: 'windowsPerDoor', label: '창/문 개수 비' },
-      { key: 'rcWallShare', label: '철근콘크리트벽 비율' },
-      { key: 'slidingWindowShare', label: '미닫이창 비율' },
-    ],
-    OBJ: [
-      { key: 'bathPerToilet', label: '욕조/변기 비' },
-      { key: 'toiletPerKitchen', label: '변기/싱크대 비' },
-    ],
-  },
-};
-
-/**
- * 기준 분포 층화. 같은 침실 수의 세대가 minSize 이상이면 그 세대들만 기준으로 쓰고, 모자라면 전체를 쓴다.
- * 표본 35세대에서는 3침실만 조건을 채운다. 전체 AI 허브 데이터(SPA 9,095건)로 기준을 다시 만들면 모든 층이 작동한다.
- * 절대 면적대(㎡)는 도면 축척을 알 수 없어(OCR 치수 필요) 아직 층으로 쓰지 않는다.
- */
-export const STRATA = { key: 'bedroomCount', minSize: 15 };
-
-/** 등급 경계(점수 이상). */
-export const GRADES = [
-  [90, 'A'],
-  [80, 'B'],
-  [70, 'C'],
-  [60, 'D'],
-  [0, 'F'],
-];
+export const OPTIONAL_BELOW = 0.9;
+export const OPTIONAL_RULES = new Set(['masterSuite']);
 
 // 등재 상태(index)는 조사 시점의 판단이며 Clarivate MJL로 확인해야 한다.
 export const REFERENCES = [
@@ -172,7 +97,7 @@ export const REFERENCES = [
     text: 'Byun, N., & Choi, J. (2016). A Typology of Korean Housing Units: In Search of Spatial Configuration. JAABE, 15(1), 41–48.',
     url: 'https://doi.org/10.3130/jaabe.15.41',
     index: 'SCIE',
-    usedFor: '서울 평면 2,500개(2001~2013)에서 거실 중심형이 압도적(p.46). 거실/침실 통합도 비 1.56~2.29는 이 도구가 원문 표 평균으로 계산한 값이며 안면 타당도 점검에만 쓰고 채점에는 쓰지 않음',
+    usedFor: '서울 평면 2,500개(2001~2013)에서 거실 중심형이 압도적(p.46). 거실/침실 통합도 비 1.56~2.29는 이 도구가 원문 표 평균으로 계산한 값이며 안면 타당도 점검에만 씀',
   },
   {
     id: 'seo2007',

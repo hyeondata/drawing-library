@@ -263,7 +263,7 @@ export function renderDiagnosis({ top, current, spec }) {
         ${st.mode === 'graph' ? `<ul class="gen-graph-legend">${Object.entries(STATUS).map(([k, v]) => `<li><svg width="34" height="10" aria-hidden="true"><line x1="2" y1="5" x2="32" y2="5" stroke="${v.color}" stroke-width="${k === 'kept' ? 2 : 4}" stroke-linecap="round"${v.dash ? ` stroke-dasharray="${v.dash}"` : ''}/></svg>${esc(v.label)} <b class="mono">${g.counts[k]}</b></li>`).join('')}</ul>` : ''}
         <p class="note">${
           st.mode === 'syntax'
-            ? '정당화 그래프(justified plan graph): 현관을 맨 아래(깊이 0)에 두고, 맞닿은 실을 한 단계씩 위로 쌓았습니다. 숫자와 색은 실의 통합도(1/RRA, 진할수록 다른 실들에서 가깝게 닿는 중심 공간)입니다. 거실 중심형이면 거실이 가장 진하고, 침실은 위층(깊은 곳)에 놓입니다(Hillier & Hanson 1984; Byun & Choi 2016). 평가 모델과 같은 인접 그래프 규약입니다.'
+            ? '정당화 그래프(justified plan graph): 현관을 맨 아래(깊이 0)에 두고, 맞닿은 실을 한 단계씩 위로 쌓았습니다. 숫자와 색은 실의 통합도(1/RRA, 진할수록 다른 실들에서 가깝게 닿는 중심 공간)입니다. 거실 중심형이면 거실이 가장 진하고, 침실은 위층(깊은 곳)에 놓입니다(Hillier & Hanson 1984; Byun & Choi 2016). 시공 가능성 규칙과 같은 인접 그래프 규약입니다.'
             : st.mode === 'graph'
             ? '선은 조건에서 요청한 연결입니다(기본 규칙 + 고른 선호). 실 사이에 문 폭(0.9m) 이상 맞닿고 문·개구부가 있으면 충족, 맞닿기만 하면 문 없음, 떨어져 있으면 빠짐(?)입니다. 피해야 할 연결(예: 침실–현관)이 맞닿으면 어김(✕)입니다. 후보 실이 여럿인 요청(예: 현관–공용 공간)은 가장 잘 이어진 실로 선을 긋습니다. 평면 생성 논문의 요청 그래프–결과 그래프 비교 그림과 같은 방식입니다.'
             : st.mode === 'circ'

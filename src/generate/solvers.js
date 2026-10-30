@@ -28,7 +28,7 @@ function flip(q, x, d, i) {
 }
 const randomX = (n, r) => Uint8Array.from({ length: n }, () => (r() < 0.5 ? 1 : 0));
 
-/** 서로 다른 좋은 해를 모은다(디코딩해 평가 모델로 채점할 후보). */
+/** 서로 다른 좋은 해를 모은다(디코딩해 적합성 J로 고를 후보). */
 class Pool {
   constructor(size = 6) {
     this.size = size;
@@ -549,6 +549,11 @@ function exact(q, { deadline, pool, count, ev }) {
 }
 
 /** 풀이기 목록. refs는 REFERENCES id가 아니라 이 기능의 문헌 표(evidence/10)에 대응하는 짧은 이름. */
+/**
+ * 화면에서 쓰는 풀이기. SA만 켠다(근거: evidence/18-SA-선택-근거.md). 나머지는 코드와 실험(qubo-benchmark)에만 남긴다.
+ */
+export const ACTIVE = ['sa'];
+
 export const SOLVERS = [
   { key: 'd2ts', name: 'D²TS', full: 'Diversification-driven Tabu Search', family: '고전 메타휴리스틱(tabu)', cite: 'Glover, Lü & Hao 2010', run: d2ts },
   { key: 'pr', name: 'Path Relinking', full: 'Path Relinking (PR)', family: '고전 메타휴리스틱(tabu)', cite: 'Wang, Lü, Glover & Hao 2012', run: pathRelinking },

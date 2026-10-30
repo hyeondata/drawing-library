@@ -1,6 +1,6 @@
 // QUBO 풀이기 비교: 풀이기마다 같은 시간 예산·같은 시드로 QUBO를 풀고, 좋은 해 몇 개를 판상형 문법으로 평면으로 풀어 낸 뒤
-// 같은 연속값 다듬기 예산을 주고 평가 모델(+ 목표 면적·선호)로 채점한다. 에너지와 모델 점수를 함께 보고한다.
-// QUBO 에너지는 평가 모델의 대리 지표라 에너지가 낮다고 평면이 좋다는 보장은 없다(그래서 순위상관을 함께 낸다).
+// 같은 연속값 다듬기 예산을 주고 적합성 J(규칙 충족 + 목표 면적 + 선호 − 감점)로 고른다. 에너지와 규칙 충족률을 함께 보고한다.
+// QUBO 에너지는 J의 대리 지표라 에너지가 낮다고 J가 높다는 보장은 없다(그래서 순위상관을 함께 낸다).
 import { buildLayout, rng as makeRng } from './layout.js';
 import { optimize, scoreLayout, signature, snapshot } from './optimize.js';
 import { buildQubo, decode, energy, frontBedCount } from './qubo.js';
@@ -40,14 +40,14 @@ function tweak(p, spec, r) {
 }
 
 /** 순서(QUBO 해) 하나를 평면으로: 기본값으로 만들고 연속값을 refine번 다듬는다(모든 풀이기에 같은 횟수). */
-export function realize(spec, order, baseline, r, refine) {
+export function realize(spec, order, r, refine) {
   const p0 = { ...defaultParams(spec), frontOrder: order.front, backOrder: order.back };
   let best = null;
   let p = p0;
   for (let i = 0; i <= refine; i++) {
     const cand = i === 0 ? p0 : tweak(p, spec, r);
     const layout = buildLayout(spec, structuredClone(cand));
-    const s = scoreLayout(spec, layout, baseline);
+    const s = scoreLayout(spec, layout);
     if (s && (!best || s.objective > best.objective)) {
       best = { layout, params: cand, ...s, signature: signature(layout) };
       p = cand;
@@ -87,18 +87,18 @@ export function spearman(a, b) {
 
 /**
  * 알고리즘들을 돌려 비교한다.
- * algorithms: SOLVERS의 key 배열 + 'model'(기존: 모델 직접 탐색)
+ * algorithms: SOLVERS의 key 배열 + 'model'(기존: J 직접 탐색)
  * 반환: { qubo 요약, results: [{ key, name, energy, feasible, ms, evals, best(평면 후보), samples }], rho }
  */
 /**
  * 앞 띠 작은방 수가 다른 템플릿 두 개(들어가는 최대 개수와 하나 적게). 템플릿마다 QUBO가 다르므로 에너지는 같은 템플릿끼리만 비교한다.
  */
-export function templates(spec, weights = 'calibrated') {
+export function templates(spec, weights = 'hand') {
   const kmax = frontBedCount(spec);
   return [...new Set([kmax, kmax - 1])].filter((k) => k >= 0).map((k) => ({ k, q: buildQubo(spec, { frontBeds: k, weights }) }));
 }
 
-export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'calibrated', onProgress } = {}) {
+export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'hand', onProgress } = {}) {
   const tpls = templates(spec, weights);
   const q = tpls[0].q;
   const results = [];
@@ -112,7 +112,7 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
       const t0 = performance.now();
       const start = clock() - run0;
       const timeline = {};
-      const top = optimize(spec, { baseline, seed, count: 1, timeline });
+      const top = optimize(spec, { seed, count: 1, timeline });
       const best = top[0];
       // 이 안의 배치를 QUBO 에너지로도 잰다(순서를 QUBO 변수로 옮겨서).
       let energyM = null;
@@ -122,7 +122,7 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
         if (order) (energyM = energyOfOrder(t.q, order)), (templateM = t.k);
       }
       results.push({
-        key, name: '기존: 모델 직접 탐색', family: '평가 모델 블랙박스 최적화', cite: '이 사이트 v1', energy: energyM, template: templateM, feasible: true, ms: performance.now() - t0, evals: 800, best, budget: '평가 800회',
+        key, name: '기존: J 직접 탐색', family: '적합성 J 블랙박스 최적화', cite: '이 사이트 v1', energy: energyM, template: templateM, feasible: true, ms: performance.now() - t0, evals: 800, best, budget: '평가 800회',
         // 시간 과정: 탐색 구간 하나, 나은 안을 찾은 순간마다 평면
         time: { start, phases: [{ label: '무작위 탐색', start, end: start + timeline.randomEnd }, { label: '다듬기', start: start + timeline.randomEnd, end: start + timeline.total }], marks: timeline.improvements.map((m) => ({ t: start + m.t, layout: m.layout, note: m.phase })) },
       });
@@ -134,6 +134,7 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
     let ms = 0;
     let evals = 0;
     const perTemplate = [];
+    const cands = [];
     const start = clock() - run0;
     const phases = [];
     const marks = [];
@@ -160,18 +161,19 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
         const sig = `${order.front}|${order.back}`;
         if (seen.has(sig)) continue;
         seen.add(sig);
-        const cand = realize(spec, order, baseline, r, refine);
+        const cand = realize(spec, order, r, refine);
         if (!cand) continue;
         cand.energy = smp.e;
         cand.template = t.k;
         cand.repaired = order.repaired;
-        points.push([t.k, smp.e, cand.objective, key, cand.model]);
+        points.push([t.k, smp.e, cand.objective, key, cand.rules]);
+        cands.push(cand);
         if (!best || cand.objective > best.objective) best = cand;
       }
       phases.push({ label: '평면으로 풀기·다듬기', start: decodeStart, end: clock() - run0 });
     }
     const tb = best ? perTemplate.find((p) => p.k === best.template) : perTemplate[0];
-    results.push({ key, name: solver.name, full: solver.full, family: solver.family, cite: solver.cite, provisional: Boolean(solver.provisional), energy: best ? best.energy : tb.energy, template: tb.k, feasible: tb.feasible, perTemplate, ms, evals, best, info: tb.info, budget: maxEvals ? `평가 ${maxEvals.toLocaleString()}회` : `${budgetMs}ms`, time: { start, phases, marks } });
+    results.push({ key, name: solver.name, full: solver.full, family: solver.family, cite: solver.cite, provisional: Boolean(solver.provisional), energy: best ? best.energy : tb.energy, template: tb.k, feasible: tb.feasible, perTemplate, ms, evals, best, cands: distinctTop(cands, 3), info: tb.info, budget: maxEvals ? `평가 ${maxEvals.toLocaleString()}회` : `${budgetMs}ms`, time: { start, phases, marks } });
   });
   onProgress?.(1);
   // 에너지(낮을수록 좋음)와 순위 점수(높을수록 좋음)의 상관: 템플릿마다 구해 후보 수로 가중 평균. 음수면 에너지가 낮을수록 평면이 좋다.
@@ -189,7 +191,7 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
     results,
     rho: rhoN ? rhoSum / rhoN : null,
     points: points.length,
-    scatter: points, // [템플릿, 에너지, 순위 점수 J, 풀이기 key, 평가 모델 점수]
+    scatter: points, // [템플릿, 에너지, 순위 점수 J, 풀이기 key, 규칙 충족률]
   };
 }
 
@@ -210,4 +212,10 @@ function energyOfOrder(q, order) {
     if (seq[v.slot] === v.room) x[i] = 1;
   });
   return energy(q, x);
+}
+
+/** J가 높은 순으로 배치가 서로 다른 후보 n개. */
+function distinctTop(list, n) {
+  const seen = new Set();
+  return [...list].sort((a, b) => b.objective - a.objective).filter((c) => !seen.has(c.signature) && seen.add(c.signature)).slice(0, n);
 }

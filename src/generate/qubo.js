@@ -4,15 +4,13 @@
 // 정식화: Lucas 2014(Front. Phys.), Glover·Kochenberger·Du 2019(4OR) QUBO 튜토리얼의 배정 문제 형식.
 // 벌점 계수는 한 변수를 뒤집을 때 목적함수가 바뀔 수 있는 최대폭 + 1(보수적 상한, 이 도구가 정함). Ayodele 2022(EvoCOP)는
 // 벌점이 너무 작으면 실행 불가능한 해, 너무 크면 느린 수렴이 생기며 최선의 설정은 문제·풀이기마다 다르다고 보고했다. 너비·깊이처럼 연속인 값과 공간구문 통합도는 QUBO에 넣지 않고,
-// 해를 판상형 문법(layout.js)으로 풀어 낸 뒤 평가 모델이 채점한다.
+// 해를 판상형 문법(layout.js)으로 풀어 낸 뒤 적합성(규칙·면적·선호)으로 고른다.
 import { programOf } from './layout.js';
-import { CALIBRATED } from './qubo-weights.js';
 import { SYNTAX, SYNTAX_LAMBDA } from './syntax-weights.js';
 
 /**
- * QUBO 항 목록. hand = 처음 손으로 정한 가중치(근거: 평가 규칙·문헌), pref = 그 선호를 고르면 곱하는 배수.
- * 에너지 = Σ_t w_t · φ_t(x) + 원-핫 벌점이라 가중치에 대해 선형이다. 그래서 평가 모델 점수로 w를 회귀해 다시 맞출 수 있다
- * (scripts/qubo-calibrate.mjs → qubo-weights.js). hand가 0인 항은 보정에서만 쓰는 후보 항이다.
+ * QUBO 항 목록. hand = 손으로 정한 가중치(근거: 시공 가능성 규칙·문헌), pref = 그 선호를 고르면 곱하는 배수.
+ * 에너지 = Σ_t w_t · φ_t(x) + 원-핫 벌점이라 가중치에 대해 선형이다. hand가 0인 항은 공간구문 대리 항에서만 쓰는 후보 항이다.
  */
 export const TERMS = [
   { id: 'kitchenLiving', hand: -8, pref: ['kitchenLink', 1.6], label: '주방–거실 맞닿음', why: '규칙 kitchenLiving; Byun & Choi 2016' },
@@ -31,23 +29,23 @@ export const TERMS = [
   { id: 'livingOffCenter', hand: 6, pref: ['livingCentral', 1.6], label: '거실이 가운데에서 먼 정도', why: '거실 중심형; Hillier 1987, Choi 2014' },
   { id: 'masterNotEnd', hand: 6, label: '안방이 끝 칸이 아님', why: '부속실을 뒤에 붙임' },
   { id: 'entranceEnd', hand: 1.5, label: '현관이 끝 칸', why: '거실·주방과 가깝게' },
-  { id: 'kitchenEnd', hand: 0, label: '주방이 끝 칸', why: '보정 후보' },
-  { id: 'backBedEnd', hand: 0, label: '뒤 침실이 끝 칸', why: '보정 후보(외기 접면)' },
-  { id: 'masterKitchen', hand: 0, label: '안방–주방 맞닿음', why: '보정 후보' },
-  { id: 'bedOverBath', hand: 0, label: '앞 침실–공용욕실 맞닿음', why: '보정 후보' },
+  { id: 'kitchenEnd', hand: 0, label: '주방이 끝 칸', why: '대리 항 후보' },
+  { id: 'backBedEnd', hand: 0, label: '뒤 침실이 끝 칸', why: '대리 항 후보(외기 접면)' },
+  { id: 'masterKitchen', hand: 0, label: '안방–주방 맞닿음', why: '대리 항 후보' },
+  { id: 'bedOverBath', hand: 0, label: '앞 침실–공용욕실 맞닿음', why: '대리 항 후보' },
+  { id: 'bath3Bed', hand: -2, label: '욕실3–앞 침실 맞닿음', why: '화장실 3개 평면의 침실 쪽 욕실(욕실3이 있을 때만)' },
 ];
 
-/** 가중치 세트: 'calibrated'(평가 모델로 보정, 기본) | 'hand' | { id: w }. */
-export function weightsOf(set = 'calibrated') {
+/** 가중치 세트: 'hand'(기본) | { id: w }. */
+export function weightsOf(set = 'hand') {
   if (set && typeof set === 'object') return set;
-  if (set === 'calibrated' && CALIBRATED) return CALIBRATED.weights;
   return Object.fromEntries(TERMS.map((t) => [t.id, t.hand]));
 }
 
 /**
  * 공간구문 대리 항 더하기: 고른 공간구문 선호(거실 중심·사생활·대면형 주방)마다 해당 변수의 대리 가중치 v를
  * λ·s배 해서 더한다(E = E_기본 + λ·s·Σ v_t φ_t, s = ‖w_기본‖₁/‖v‖₁). v는 SCI(E) 논문의 공간구문 변수를
- * 평가 모델 규약으로 정확히 계산해 φ로 회귀한 것(scripts/syntax-surrogate.mjs, evidence/results/syntax-surrogate.md).
+ * 분석(spa.js) 규약으로 정확히 계산해 φ로 회귀한 것(scripts/syntax-surrogate.mjs, evidence/results/syntax-surrogate.md).
  * 반환: { weights, added: [{ key, label, pref, refs, scale }] }
  */
 export function withSyntax(W, prefs = [], { lambda = SYNTAX_LAMBDA } = {}) {
@@ -80,8 +78,8 @@ export function frontBedCount(spec) {
  * 반환: { n, vars: [{ room, slot, band }], diag: Float64Array, M: Float64Array(n*n, 대칭, 대각 0), offset,
  *         bands: { front: { rooms, slots }, back: { rooms, slots } }, groups: 원-핫 묶음 목록, penalty, terms }
  */
-export function buildQubo(spec, { frontBeds = null, weights = 'calibrated', syntax = true } = {}) {
-  // 공간구문 대리 항은 정해진 가중치 세트(보정·손)에만 더한다(직접 준 가중치 객체는 그대로).
+export function buildQubo(spec, { frontBeds = null, weights = 'hand', syntax = true } = {}) {
+  // 공간구문 대리 항은 정해진 가중치 세트(손)에만 더한다(직접 준 가중치 객체는 그대로).
   const sx = syntax && typeof weights === 'string' ? withSyntax(weightsOf(weights), spec.prefs || []) : { weights: weightsOf(weights), added: [] };
   const W = sx.weights;
   const program = programOf(spec);
@@ -90,7 +88,7 @@ export function buildQubo(spec, { frontBeds = null, weights = 'calibrated', synt
   const others = program.filter((r) => r.type === '침실' && r.key !== 'master');
   const frontRooms = ['living', 'master', ...others.slice(0, kFront).map((r) => r.key)];
   // 부부욕실·드레스룸은 안방 뒤에 붙으므로 변수에서 뺀다.
-  const backRooms = ['kitchen', 'entrance', 'bathPublic', ...(by.multi ? ['multi'] : []), ...others.slice(kFront).map((r) => r.key)];
+  const backRooms = ['kitchen', 'entrance', 'bathPublic', ...(by.bath3 ? ['bath3'] : []), ...(by.multi ? ['multi'] : []), ...others.slice(kFront).map((r) => r.key)];
   const m = frontRooms.length;
   const k = backRooms.length;
 
@@ -163,6 +161,7 @@ export function buildQubo(spec, { frontBeds = null, weights = 'calibrated', synt
     at('backBedEnd', 'back', bb, (s, S) => (isEnd(s, S) ? 1 : 0));
   }
   for (const b of beds) if (b !== 'master') vertical('bedOverBath', b, 'bathPublic');
+  for (const b of beds) if (b !== 'master') vertical('bath3Bed', b, 'bath3');
   for (const b of beds) beside('bedLiving', 'front', b, 'living');
   for (let a = 0; a < beds.length; a++) for (let b = a + 1; b < beds.length; b++) beside('bedBed', 'front', beds[a], beds[b]);
   vertical('masterKitchen', 'master', 'kitchen');

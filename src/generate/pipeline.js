@@ -1,7 +1,7 @@
 // 생성 과정의 단계마다 "어떤 방식으로 정하는가"를 한곳에 정의한다(모든 탭이 같은 구분과 같은 배지를 쓰도록).
 import { basisHtml, lit, data, assume } from './gen-rules.js';
 
-// 방식: rule(정해진 규칙·식) · qubo(QUBO 최적화) · search(탐색: 조금씩 바꿔 점수가 오르면 채택) · sa(담금질 최적화, QUBO 아님) · eval(평가 모델로 채점·비교)
+// 방식: rule(정해진 규칙·식) · qubo(QUBO 최적화) · search(탐색: 조금씩 바꿔 점수가 오르면 채택) · sa(담금질 최적화, QUBO 아님) · eval(적합성 J로 후보 비교)
 
 export const KINDS = {
   rule: {
@@ -26,11 +26,11 @@ export const KINDS = {
   },
   search: {
     label: '국소 탐색',
-    desc: '값을 무작위로 조금씩 바꿔 평면을 다시 만들고, 평가 점수 J가 오르면 채택합니다. QUBO가 아닙니다.',
-    what: '지금 값에서 출발해 <b>무작위로 조금 바꾼 안</b>을 만들어 평면을 다시 그리고 <b>평가 점수 J로 채점</b>해 보아, 점수가 오르면 그 값으로 옮겨 가는 것을 정해진 횟수만큼 되풀이합니다(국소 탐색). 식을 풀어 최적을 구하는 대신, 평가 모델에게 직접 물어 가며 고칩니다. 나빠지는 쪽으로는 가지 않습니다.',
+    desc: '값을 무작위로 조금씩 바꿔 평면을 다시 만들고, 적합성 J가 오르면 채택합니다. QUBO가 아닙니다.',
+    what: '지금 값에서 출발해 <b>무작위로 조금 바꾼 안</b>을 만들어 평면을 다시 그리고 <b>적합성 J를 재</b> 보아, J가 오르면 그 값으로 옮겨 가는 것을 정해진 횟수만큼 되풀이합니다(국소 탐색). 식을 풀어 최적을 구하는 대신, J를 직접 재 가며 고칩니다. 나빠지는 쪽으로는 가지 않습니다.',
     example: '치수 다듬기: 깊이 D ×0.94~1.06, 앞 띠 비율 f ±0.04, 작은방 폭 w ±0.2m 중 하나를 바꾸기를 30번',
     random: '있음(어떤 값을 얼마나 바꿀지 무작위, 시드로 고정하면 같은 결과)',
-    why: '깊이·폭 같은 연속값과 평가 모델 점수(통합도 등 경로 계산 포함)는 QUBO의 이차식으로 쓸 수 없기 때문',
+    why: '깊이·폭 같은 연속값과 J(도달성·통합도 등 경로 계산 포함)는 QUBO의 이차식으로 쓸 수 없기 때문',
     analogy: '간을 보며 소금을 조금씩 더하기 — 맛이 나아지면 그대로 두고, 아니면 되돌림',
     basis: [lit('michalek-hybrid'), lit('merrell-metropolis')],
   },
@@ -45,14 +45,14 @@ export const KINDS = {
     basis: [lit('kirk-sa'), lit('lopes-growth'), lit('merrell-metropolis')],
   },
   eval: {
-    label: '평가',
-    desc: '평가 모델로 채점하고 점수로 후보를 고릅니다.',
-    what: '이미 만들어진 평면을 <b>채점</b>합니다: 실제 아파트 35세대와 얼마나 닮았는지(평가 모델) + 목표 면적에 얼마나 맞는지 + 고른 선호를 얼마나 만족하는지 − 감점. 이 점수 J로 후보를 비교해 고릅니다. 평면 자체를 바꾸지는 않습니다.',
-    example: 'J = 0.45·모델 점수 + 0.25·면적 부합 + 0.30·선호 − 40·[무효] − 15·(좁은 실 + 문 동선 문제)',
+    label: '점검',
+    desc: '시공 가능성 규칙과 고른 조건으로 후보를 점검하고 고릅니다.',
+    what: '이미 만들어진 평면을 <b>점검</b>합니다: 시공 가능성 규칙(필수 실·현관에서의 도달·침실 비통과·거실 중심·주방–거실 맞닿음 등)을 얼마나 지키는지 + 목표 면적에 얼마나 맞는지 + 고른 선호를 얼마나 만족하는지 − 감점. 이 J로 후보를 비교해 고릅니다. 실제 도면과 닮은 정도로 채점하지 않으며, 평면 자체를 바꾸지도 않습니다.',
+    example: 'J = 0.45·규칙 충족 + 0.25·면적 부합 + 0.30·선호 − 40·[필수 규칙 위반] − 15·(좁은 실 + 문 동선 문제)',
     random: '없음',
-    why: 'QUBO 에너지는 평가의 대리(근사)라서, 마지막 판단은 원래 목표인 평가 점수로 해야 하기 때문',
-    analogy: '심사위원이 완성된 작품에 점수 매기기',
-    basis: [data('실제 아파트 35세대(AI 허브 라벨)의 지표 분포와 비교하는 평가 모델'), lit('hillier-syntax'), lit('byun-living'), lit('zeng-geom'), lit('zeng-master'), lit('jin-surrogate')],
+    why: 'QUBO 에너지는 J의 대리(근사)라서, 마지막 판단은 원래 목표인 규칙과 조건으로 해야 하기 때문',
+    analogy: '완성된 설계를 체크리스트로 검토하기',
+    basis: [data('규칙 통과율: AI 허브 아파트 평면도 고유 세대 7,970개(통과율 90% 이상은 필수, 미만은 선택 규칙)'), lit('hillier-syntax'), lit('byun-living'), lit('zeng-geom'), lit('zeng-master'), lit('jin-surrogate')],
   },
 };
 
@@ -85,18 +85,18 @@ export const SELECT_STAGES = [
   { what: '앞 띠 작은방 수(템플릿)', kinds: ['rule', 'eval'], algo: '조건식 + 후보 2개 비교(argmax)', q: { s: 'no', why: '고르는 기준이 평가 점수 J(경로·분포 계산)라 이차식이 아님' }, how: '최소 폭 합(3.0 + 3.6 + 2.6k)이 띠 폭에 들어가는 k를 식으로 계산. k개·k−1개 두 템플릿을 모두 풀고 마지막에 점수로 고름', code: 'qubo.js frontBedCount, compare.js templates' },
   { what: '방 순서: 어느 실이 띠의 몇 번째 칸에 가나', kinds: ['qubo'], algo: 'QUBO + 풀이기 11종(D²TS·Tabu·SA·PT·SQA·SB·CP·전수 열거 등)', q: { s: 'done', why: '' }, how: 'x(실, 칸) 0/1 변수 + 인접 보상·감점 + 원-핫 벌점으로 만든 QUBO를 고른 풀이기로 풂(템플릿마다 한 번). 좋은 해 최대 4개를 다음 단계로 넘김', code: 'qubo.js buildQubo, solvers.js', key: true },
   { what: 'QUBO 해 → 실 순서', kinds: ['rule'], algo: '탐욕 복구(greedy repair)', q: { s: 'na', why: 'QUBO 해를 읽는 단계라 최적화 대상이 아님' }, how: '제약을 어긴 해는 켜진 변수부터 빈 칸에 채우는 탐욕 복구, 안방이 가운데면 가까운 끝으로 옮김', code: 'qubo.js decode' },
-  { what: '치수 변수: 깊이 D·앞 띠 비율 f·작은방 폭 w·안방 깊이 g·면적 배수', kinds: ['search'], algo: '확률적 언덕 오르기(stochastic hill climbing, 30회)', q: { s: 'no', why: '연속값이고 목적(평가 점수 J)이 이차식이 아님. 값을 몇 단계로 나누고 J를 이차식으로 근사하면 QUBO로 쓸 수는 있으나 J와 어긋남' }, how: '기본값에서 출발해 30번, 변수 하나를 조금 바꿔 평면을 다시 만들고 J가 오르면 채택(순서는 그대로)', code: 'compare.js realize · tweak' },
+  { what: '치수 변수: 깊이 D·앞 띠 비율 f·작은방 폭 w·안방 깊이 g·면적 배수', kinds: ['search'], algo: '확률적 언덕 오르기(stochastic hill climbing, 30회)', q: { s: 'no', why: '연속값이고 목적(적합성 J)이 이차식이 아님. 값을 몇 단계로 나누고 J를 이차식으로 근사하면 QUBO로 쓸 수는 있으나 J와 어긋남' }, how: '기본값에서 출발해 30번, 변수 하나를 조금 바꿔 평면을 다시 만들고 J가 오르면 채택(순서는 그대로)', code: 'compare.js realize · tweak' },
   { what: '방의 폭·깊이(직사각형 크기)', kinds: ['rule'], algo: '비례 배분 식(닫힌 식)', q: { s: 'na', why: '치수 변수가 정해지면 바로 계산됨' }, how: '위 치수 변수가 주어지면 식으로 계산: 띠 폭을 최소 폭 먼저 주고 남는 폭은 (원하는 폭 − 최소 폭)에 비례해 나눔', code: 'layout.js buildLayout · allocate' },
   { what: '복도·부속실(부부욕실·드레스룸)', kinds: ['rule'], algo: '조건 분기 규칙(if-then)', q: { s: 'na', why: '치수가 정해지면 위치가 바로 정해짐' }, how: '작은방이 거실보다 얕으면 그 뒤를 복도로, 부속실은 안방 뒤에 붙임', code: 'layout.js buildLayout' },
   { what: '문·개구부·창·발코니 문', kinds: ['rule'], algo: '우선순위 탐욕 선택(greedy)', q: { s: 'other', why: '실마다 문 하나(원-핫) + 이웃 실 비용으로 쓸 수 있음' }, how: '현관문 1개, 공용 공간끼리는 트기, 방마다 우선순위(복도 → 거실 → 현관 → 주방) 쪽에 문 하나, 가장 긴 바깥 벽에 창', code: 'openings.js placeOpenings' },
   { what: '설비(변기·세면대·싱크대 등)', kinds: ['rule'], algo: '배치 규칙(if-then)', q: { s: 'possible', why: '벽 칸 선택 원-핫으로 쓸 수 있으나 구현하지 않음' }, how: '문에서 먼 벽을 따라 놓음', code: 'fixtures.js placeFixtures' },
-  { what: '채점', kinds: ['eval'], algo: '평가 모델: 실제 35세대 분포와의 거리 + 공간구문 그래프 계산 + 감점', q: { s: 'no', why: '그래프 경로(통합도·깊이)와 분포 비교는 이차식이 아님. QUBO 에너지는 이것의 대리' }, how: 'J = 0.45·모델 + 0.25·면적 부합 + 0.30·선호 − 감점. 문을 단 뒤 현관에서 못 가는 방·침실을 지나야 하는 방도 감점', code: 'optimize.js scoreLayout' },
-  { what: '최종안 고르기', kinds: ['eval'], algo: '최댓값 선택(argmax)', q: { s: 'na', why: '후보 몇 개의 점수 비교' }, how: '템플릿 × 해 후보(최대 8개) 가운데 J가 가장 높은 평면', code: 'compare.js compareAlgorithms' },
+  { what: '점검', kinds: ['eval'], algo: '시공 가능성 규칙 + 공간구문 그래프 계산 + 감점', q: { s: 'no', why: '그래프 경로(도달성·통합도·깊이)는 이차식이 아님. QUBO 에너지는 이것의 대리' }, how: 'J = 0.45·규칙 충족 + 0.25·면적 부합 + 0.30·선호 − 감점. 문을 단 뒤 현관에서 못 가는 방·침실을 지나야 하는 방도 감점', code: 'optimize.js scoreLayout' },
+  { what: '최종안 고르기', kinds: ['eval'], algo: '최댓값 선택(argmax)', q: { s: 'na', why: '후보 몇 개의 J 비교' }, how: '템플릿 × 해 후보(최대 8개) 가운데 J가 가장 높은 평면', code: 'compare.js compareAlgorithms' },
 ];
 
-/** 기존: 모델 직접 탐색(QUBO 없이). */
+/** 기존: J 직접 탐색(QUBO 없이). */
 export const MODEL_STAGES = [
-  { what: '방 순서와 치수 변수를 함께', kinds: ['search'], algo: '무작위 탐색 400회 + 확률적 언덕 오르기 400회', q: { s: 'no', why: '평가 점수 J를 그대로 쓰는 방식이라 QUBO가 아님(비교 기준)' }, how: '무작위로 400개 만들어 채점한 뒤, 좋은 4개에서 조금씩 바꿔 400번 더(J가 오르면 채택). QUBO를 쓰지 않음', code: 'optimize.js optimize' },
+  { what: '방 순서와 치수 변수를 함께', kinds: ['search'], algo: '무작위 탐색 400회 + 확률적 언덕 오르기 400회', q: { s: 'no', why: '적합성 J를 그대로 쓰는 방식이라 QUBO가 아님(비교 기준)' }, how: '무작위로 400개 만들어 J를 잰 뒤, 좋은 4개에서 조금씩 바꿔 400번 더(J가 오르면 채택). QUBO를 쓰지 않음', code: 'optimize.js optimize' },
 ];
 
 /** 자유형 평면 탭. */
@@ -131,7 +131,7 @@ export const GEN_STAGES = [
     kinds: ['qubo'],
     modelKinds: ['search'],
     method: ['<b>QUBO 최적화</b> — 이 단계만 QUBO입니다. 변수 x(실, 칸) = 1이면 그 실이 그 칸에 갑니다.', 'E(x) = Σ<sub>t</sub> w<sub>t</sub>·b<sub>t</sub>·φ<sub>t</sub>(x) + P·Σ<sub>묶음</sub>(Σx − 1)²: 앞의 합은 실 사이 관계(예: 주방–거실 맞닿음)의 보상·감점, 뒤의 합은 "실마다 칸 하나, 칸마다 실 하나"를 어기면 받는 벌점입니다.', '고른 풀이기가 이 에너지를 가장 낮게 만드는 x를 찾고(템플릿마다 한 번), 에너지가 낮은 해 최대 4개를 실 순서로 바꿔 다음 단계로 넘깁니다. 제약을 어긴 해는 규칙으로 복구합니다.', '위 행렬의 부부욕실·드레스룸은 QUBO 변수가 아닙니다. 안방 뒤에 붙이는 <b>규칙</b>(5단계)으로 놓입니다.', '단계별 식과 숫자: <a href="{base}qubo-step/">QUBO 따라가기</a>'],
-    modelMethod: ['<b>탐색</b> — 이 안은 "기존: 모델 직접 탐색"이라 QUBO를 쓰지 않았습니다. 실 순서와 치수를 무작위로 400번 뽑아 채점하고, 좋은 4개에서 조금씩 바꿔 400번 더 찾았습니다(J가 오르면 채택).', '부부욕실·드레스룸은 안방 뒤에 붙이는 <b>규칙</b>(5단계)으로 놓입니다.'],
+    modelMethod: ['<b>탐색</b> — 이 안은 "기존: J 직접 탐색"이라 QUBO를 쓰지 않았습니다. 실 순서와 치수를 무작위로 400번 뽑아 J를 재고, 좋은 4개에서 조금씩 바꿔 400번 더 찾았습니다(J가 오르면 채택).', '부부욕실·드레스룸은 안방 뒤에 붙이는 <b>규칙</b>(5단계)으로 놓입니다.'],
     code: [['src/generate/qubo.js', 'buildQubo'], ['src/generate/qubo.js', 'decode']],
     modelCode: [['src/generate/optimize.js', 'optimize']],
   },

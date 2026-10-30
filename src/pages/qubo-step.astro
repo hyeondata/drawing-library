@@ -18,7 +18,7 @@ const steps = [
     kinds: ['rule'], id: 'program', n: 1, title: '실 프로그램: 어떤 실이 몇 ㎡인가',
     goal: '배치를 정하기 전에, 어떤 실을 얼마만큼 둘지부터 정합니다. 이 면적은 QUBO 변수가 아니라 고정된 입력입니다.',
     eq: 'a<sub>r</sub>′ = max(최소 면적<sub>r</sub>, t<sub>r</sub> · A) &nbsp;→&nbsp; a<sub>r</sub> = a<sub>r</sub>′ · A / Σ<sub>s</sub> a<sub>s</sub>′',
-    note: 'A = 전용면적, t<sub>r</sub> = 기준 세대(실제 아파트 35세대)의 실별 면적 비율. 최소 면적을 지키게 올린 뒤, 합이 다시 A가 되도록 모두 같은 비율로 맞춥니다.',
+    note: 'A = 전용면적, t<sub>r</sub> = AI 허브 아파트 평면도 전체에서 고른 침실 수 세대의 실별 면적 비율(중앙값). 최소 면적을 지키게 올린 뒤, 합이 다시 A가 되도록 모두 같은 비율로 맞춥니다.',
     code: show(L, 'programOf'),
   },
   {
@@ -50,10 +50,10 @@ const steps = [
     code: showSeg(Q, "vertical('kitchenLiving'", "at('kitchenEnd'"),
   },
   {
-    kinds: ['qubo'], id: 'weights', n: 6, title: '가중치: 손 → 보정 → 공간구문 대리 항 → 선호 배수',
+    kinds: ['qubo'], id: 'weights', n: 6, title: '가중치: 손 → 공간구문 대리 항 → 선호 배수',
     goal: '항마다 얼마나 중요한지를 가중치 w<sub>t</sub>로 정합니다. 이 사이트의 "개선"은 이 가중치를 세 단계로 바꿔 온 과정입니다. 아래 표에서 항마다 단계별 값을 볼 수 있습니다.',
-    eq: 'w<sub>t</sub> = w<sub>보정,t</sub> + λ · s · v<sub>t</sub>,&nbsp;&nbsp; s = ‖w<sub>보정</sub>‖₁ / ‖v‖₁,&nbsp;&nbsp; 실제 계수 = w<sub>t</sub> · b<sub>t</sub>',
-    note: '① 손 가중치: 평가 규칙·문헌을 보고 정한 처음 값. ② 보정: 20개 조건의 배치 9,567개를 평면으로 풀어 평가 모델로 채점하고, "에너지가 가장 낮은 배치가 그 조건의 최고 점수 배치에 가깝도록" 가중치를 찾았습니다(조건 단위 5겹 교차검증). ③ 공간구문 대리 항: 공간구문 변수(SCI(E) 논문)를 φ로 회귀한 가중치 v를 λ·s배 해서 더합니다. ④ 선호 배수 b<sub>t</sub>: 그 선호를 고르면 해당 항에 곱합니다(안 고르면 1).',
+    eq: 'w<sub>t</sub> = w<sub>손,t</sub> + λ · s · v<sub>t</sub>,&nbsp;&nbsp; s = ‖w<sub>손</sub>‖₁ / ‖v‖₁,&nbsp;&nbsp; 실제 계수 = w<sub>t</sub> · b<sub>t</sub>',
+    note: '① 손 가중치: 시공 가능성 규칙·문헌을 보고 정한 값(점수에 맞춰 다시 정하지 않음). ② 공간구문 대리 항: 공간구문 변수(SCI(E) 논문)를 φ로 회귀한 가중치 v를 λ·s배 해서 더합니다. ③ 선호 배수 b<sub>t</sub>: 그 선호를 고르면 해당 항에 곱합니다(안 고르면 1).',
     code: show(Q, 'weightsOf', 'withSyntax'),
   },
   {
@@ -93,16 +93,16 @@ const steps = [
   },
   {
     kinds: ['rule', 'search', 'eval'], id: 'plan', n: 12, title: '평면으로 풀기: 순서 → 방 크기 → 점수',
-    goal: 'QUBO는 순서만 정합니다. 그 순서로 방 폭·깊이를 식으로 계산해 평면을 만들고, 평가 모델로 채점합니다. 실제 생성기는 기본 치수로 한 번 만든 뒤, 치수 변수(깊이 D·앞 띠 비율 f·작은방 폭 w·안방 깊이 g)를 30번 조금씩 바꿔 J가 가장 높은 것을 고릅니다. 아래에 두 결과를 나란히 보여 줍니다.',
+    goal: 'QUBO는 순서만 정합니다. 그 순서로 방 폭·깊이를 식으로 계산해 평면을 만들고, 적합성 J(규칙 충족·면적 부합·선호)를 잽니다. 실제 생성기는 기본 치수로 한 번 만든 뒤, 치수 변수(깊이 D·앞 띠 비율 f·작은방 폭 w·안방 깊이 g)를 30번 조금씩 바꿔 J가 가장 높은 것을 고릅니다. 아래에 두 결과를 나란히 보여 줍니다.',
     eq: 'w<sub>i</sub> = m<sub>i</sub> + (W − Σm) · max(0, d<sub>i</sub> − m<sub>i</sub>) / Σ<sub>j</sub> max(0, d<sub>j</sub> − m<sub>j</sub>),&nbsp;&nbsp; J = 0.45·모델 + 0.25·면적 부합 + 0.30·선호 − 40·[무효] − 15·(좁은 실 + 문 동선 문제)',
     note: 'd<sub>i</sub> = 실 면적 ÷ 깊이(원하는 폭), m<sub>i</sub> = 최소 폭. 띠 폭 W가 최소 폭 합보다 좁으면 최소 폭에 비례해 모두 줄입니다(좁은 실 감점). 선호를 하나도 안 고르면 0.45/0.70·모델 + 0.25/0.70·면적 부합.',
     code: show(L, 'allocate') + show('src/generate/optimize.js', 'scoreLayout'),
   },
   {
     kinds: ['qubo', 'search', 'eval'], id: 'improve', n: 13, title: '개선은 어떻게 했나: 같은 입력, 세 가지 가중치',
-    goal: '같은 입력에서 가중치만 ① 손 → ② 보정 → ③ 보정 + 공간구문 대리 항으로 바꿔, 전역 최적해 배치와 그 평면 점수가 어떻게 달라지는지 바로 비교합니다.',
+    goal: '같은 입력에서 가중치만 ① 손 → ② 손 + 공간구문 대리 항으로 바꿔, 전역 최적해 배치와 그 평면의 J가 어떻게 달라지는지 바로 비교합니다.',
     eq: '가중치 세트마다: x* = argmin E<sub>w</sub>(x) → 평면 → J(x*)',
-    note: '보정의 목표는 "에너지가 가장 낮은 배치 = 평가 점수가 높은 배치"가 되게 하는 것입니다. 공간구문 대리 항은 공간구문 변수를 올리는 대신 종합 점수를 조금 깎을 수 있습니다(근거 문서 10번).',
+    note: '공간구문 대리 항은 공간구문 변수를 올리는 대신 J(면적 부합·다른 선호)를 조금 깎을 수 있습니다(evidence/results/syntax-surrogate.md).',
     code: '',
   },
 ];
@@ -124,8 +124,8 @@ const steps = [
       <h2>0. 입력 고르기</h2>
       <div class="qs-form">
         <label>전용면적 <select id="qs-area"><option>59</option><option>74</option><option selected>84</option><option>101</option><option>114</option><option>135</option></select> ㎡</label>
-        <label>침실 <select id="qs-bed"><option>2</option><option selected>3</option><option>4</option></select></label>
-        <label>화장실 <select id="qs-bath"><option value="1">1</option><option value="2" selected>2</option></select></label>
+        <label>침실 <select id="qs-bed"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option></select></label>
+        <label>화장실 <select id="qs-bath"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></label>
         <label><input type="checkbox" id="qs-dress" checked /> 드레스룸</label>
         <label><input type="checkbox" id="qs-multi" /> 다목적실</label>
       </div>
@@ -134,7 +134,7 @@ const steps = [
         {ALL_CHOICES.map((c) => <label><input type="checkbox" name="qs-pref" value={c.key} /> {c.short}</label>)}
       </fieldset>
       <div class="qs-form">
-        <label>가중치 <select id="qs-wset"><option value="calibrated" selected>보정(기본)</option><option value="hand">손으로 정한 값</option></select></label>
+        <label>가중치 <select id="qs-wset"><option value="hand" selected>손으로 정한 값</option></select></label>
         <label><input type="checkbox" id="qs-sx" checked /> 공간구문 대리 항</label>
         <label>세기 λ <input type="range" id="qs-lambda" min="0" max="1" step="0.05" value="0.5" /> <b id="qs-lambda-v" class="mono">0.50</b></label>
         <label>템플릿 <select id="qs-tpl"></select></label>
