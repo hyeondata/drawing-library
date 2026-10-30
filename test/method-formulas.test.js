@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { buildQubo, energy, TERMS, weightsOf, withSyntax } from '../src/generate/qubo.js';
 import { programOf } from '../src/generate/layout.js';
 
-/** 3.2·3.3절: E = Σ w_t·b_t·φ_t(x) 의 목적 부분을 (실, 칸) 이름으로만 계산 */
+/** 3.2·3.3절: E = Σ (w_t·b_t + λ·s·v_t)·φ_t(x) 의 목적 부분을 (실, 칸) 이름으로만 계산 */
 function pageObjective(spec, q, x) {
   const prog = programOf(spec);
   const others = prog.filter((r) => r.type === '침실' && r.key !== 'master').map((r) => r.key);
@@ -18,10 +18,12 @@ function pageObjective(spec, q, x) {
     const i = q.vars.findIndex((v) => v.room === room && v.band === band && v.slot === s);
     return i < 0 ? 0 : x[i];
   };
-  const W = withSyntax(weightsOf('hand'), spec.prefs).weights; // 4.1절
+  const base = weightsOf('hand');
+  const W = withSyntax(base, spec.prefs).weights; // 4.1절: W = 기본 + 대리 항
   const w = (id) => {
     const t = TERMS.find((d) => d.id === id);
-    return (W[id] ?? 0) * (t.pref && spec.prefs.includes(t.pref[0]) ? t.pref[1] : 1);
+    // 선호 배수는 기본 가중치에만 곱하고 대리 항은 그대로 더한다
+    return (base[id] ?? 0) * (t.pref && spec.prefs.includes(t.pref[0]) ? t.pref[1] : 1) + ((W[id] ?? 0) - (base[id] ?? 0));
   };
   // ov(i, j) = 겹친 길이 ÷ 짧은 칸 폭
   const ov = (i, j) => Math.max(0, Math.min((i + 1) / m, (j + 1) / k) - Math.max(i / m, j / k)) / Math.min(1 / m, 1 / k);

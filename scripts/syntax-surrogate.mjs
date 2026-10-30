@@ -62,6 +62,8 @@ specs.forEach((spec, si) => {
   const kmax = frontBedCount(spec);
   for (const k of [...new Set([kmax, kmax - 1])].filter((x) => x >= 0)) {
     const q = buildQubo(spec, { frontBeds: k, weights: 'hand', syntax: false });
+    // 대리 항은 선호 배수 없이 더하므로 배수를 뺀 항 값(φ_raw)으로 회귀한다. 기본 에너지는 배수가 들어간 φ로 잰다.
+    const qRaw = buildQubo({ ...spec, prefs: [] }, { frontBeds: k, weights: 'hand', syntax: false });
     const { front, back } = q.bands;
     const r = rng(1000 + si * 10 + k);
     const total = fact(front.slots) * fact(back.slots);
@@ -79,7 +81,7 @@ specs.forEach((spec, si) => {
       if (!s) continue;
       const sx = Object.fromEntries(KEYS.map((kk) => [kk, s.unit.features[kk]]));
       if (KEYS.some((kk) => !Number.isFinite(sx[kk]))) continue;
-      rows.push({ phi: features(q, encode(q, d.front, d.back)), objective: s.objective, sx });
+      rows.push({ phi: features(qRaw, encode(qRaw, d.front, d.back)), phiB: features(q, encode(q, d.front, d.back)), objective: s.objective, sx });
     }
     groups.push({ si, k, rows });
   }
@@ -144,7 +146,7 @@ const energyOf = (w, phi) => w.reduce((s, x, t) => s + x * phi[t], 0);
 /** 그룹들에서: 대리 항 ρ, 그리고 E_손 + λ·s·E_s의 최소 배치가 갖는 변수·종합 점수 백분위 */
 function evaluate(gs, key, v, lam) {
   const s = l1(base) / Math.max(1e-9, l1(v));
-  const w = base.map((b, t) => b + lam * s * v[t]);
+  const w = (r) => energyOf(base, r.phiB) + lam * s * energyOf(v, r.phi);
   let rho = 0;
   let nR = 0;
   let varPct = 0;
@@ -156,7 +158,7 @@ function evaluate(gs, key, v, lam) {
     const es = g.rows.map((r) => energyOf(v, r.phi));
     const rr = spearman(es, vs);
     if (Number.isFinite(rr)) ((rho += -rr), nR++);
-    const E = g.rows.map((r) => energyOf(w, r.phi));
+    const E = g.rows.map((r) => w(r));
     const minE = Math.min(...E);
     const pick = g.rows.filter((_, i) => Math.abs(E[i] - minE) < 1e-9);
     const vr = rankPct(vs);

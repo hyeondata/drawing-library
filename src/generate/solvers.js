@@ -550,7 +550,7 @@ function exact(q, { deadline, pool, count, ev }) {
 
 /** 풀이기 목록. refs는 REFERENCES id가 아니라 이 기능의 문헌 표(evidence/10)에 대응하는 짧은 이름. */
 /**
- * 화면에서 쓰는 풀이기. SA만 켠다(근거: evidence/18-SA-선택-근거.md). 나머지는 코드와 실험(qubo-benchmark)에만 남긴다.
+ * 화면에서 쓰는 풀이기. SA만 켠다(근거: evidence/18-SA-선택-근거.md). 나머지는 꺼 두고 실험하지 않으며 코드와 설명만 남긴다(QUBO 도면 생성 탭은 예외로 Tabu 기본).
  */
 export const ACTIVE = ['sa'];
 

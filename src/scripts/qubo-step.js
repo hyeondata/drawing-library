@@ -75,7 +75,9 @@ function readInput() {
 function build(inp, k) {
   const W0 = weightsOf(inp.wset);
   const sx = inp.sx ? withSyntax(W0, inp.spec.prefs, { lambda: inp.lambda }) : { weights: W0, added: [] };
-  const q = buildQubo(inp.spec, { frontBeds: k, weights: sx.weights });
+  // 실제 생성기와 같게: 대리 몫은 선호 배수로 나눠 넣는다(w × 배수 = 기본 × 배수 + 대리 항).
+  const W = Object.fromEntries(TERMS.map((t) => [t.id, (W0[t.id] ?? 0) + ((sx.weights[t.id] ?? 0) - (W0[t.id] ?? 0)) / boostOf(t, inp.spec)]));
+  const q = buildQubo(inp.spec, { frontBeds: k, weights: W });
   return { q, W0, sx };
 }
 const boostOf = (t, spec) => (t.pref && spec.prefs.includes(t.pref[0]) ? t.pref[1] : 1);
@@ -289,15 +291,15 @@ function stepWeights() {
     const b = boostOf(t, spec);
     const w = S.q.weights[t.id] ?? 0;
     const sy = syn(t.id);
-    return [esc(t.label), f(hand[t.id], 2), sy ? sg(sy, 3) : '—', f(w, 3), b === 1 ? '1' : `<b>${b}</b>(${esc(PREF[t.pref[0]]?.short ?? t.pref[0])})`, `<b>${f(w * b, 3)}</b>`];
+    return [esc(t.label), f(hand[t.id], 2), b === 1 ? '1' : `<b>${b}</b>(${esc(PREF[t.pref[0]]?.short ?? t.pref[0])})`, sy ? sg(sy, 3) : '—', `<b>${f(w * b, 3)}</b>`];
   });
-  const okW = TERMS.every((t) => Math.abs((S.q.weights[t.id] ?? 0) - ((W0[t.id] ?? 0) + syn(t.id))) < 1e-9);
+  const okW = TERMS.every((t) => Math.abs((S.q.weights[t.id] ?? 0) * boostOf(t, spec) - ((W0[t.id] ?? 0) * boostOf(t, spec) + syn(t.id))) < 1e-9);
   live(
     'weights',
     `<p>지금 기준 가중치: <b>손</b>${S.inp.sx ? `, 공간구문 대리 항 λ = ${f(S.inp.lambda)}` : ', 공간구문 대리 항 끔'}.</p>` +
       (S.sx.added.length ? `<p>더해진 대리 항:</p><ul class="qs-ol">${addedRows.join('')}</ul>` : `<p class="note">공간구문 선호(거실 중심·사생활 깊이·주방–거실 연계)를 고르면 여기에 대리 항이 더해집니다.</p>`) +
-      table(['항', '① 손', '② + 대리 항 λ·s·v', 'w (기준 + 대리)', '× 선호 배수 b', '= 실제 계수'], rows) +
-      ok(okW, 'w = 기준 가중치 + Σ λ·s·v (모든 항) = QUBO가 쓴 가중치'),
+      table(['항', '① 손 w', '× 선호 배수 b', '+ 대리 항 λ·s·v', '= 실제 계수 w·b + λ·s·v'], rows) +
+      ok(okW, '실제 계수 = 기준 가중치 × 선호 배수 + Σ λ·s·v (모든 항) = QUBO가 쓴 계수'),
   );
 }
 

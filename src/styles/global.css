@@ -5188,3 +5188,7 @@ a.gr-cite.lit:hover {
 :root[data-theme='dark'] .lv-direct .gr-lv { color: #7cc98a; }
 :root[data-theme='dark'] .lv-adapted .gr-lv,
 :root[data-theme='dark'] .gr-cite .gr-how { color: #e0b05a; }
+
+/* QUBO 가중치 표: 이 조건에서 쓰지 않는 항 */
+.gen-qw-off { opacity: 0.45; }
+.gen-qw summary { cursor: pointer; }

@@ -232,7 +232,7 @@ const cite = (id) => `<a class="mt-c" href="${R[id][2]}" target="_blank" rel="no
         <table class="gen-table hw-table">
           <thead><tr><th>무엇을</th><th>어떻게</th><th>결과</th></tr></thead>
           <tbody>
-            <tr><td>QUBO 풀이기 비교</td><td>조건 4개 × 시드 30개 × 알고리즘 11개, 같은 예산(평가 횟수로 고정) <Fragment set:html={cite('dunning2018')} /></td><td>풀이기별 전역 최적 도달률과 J 중앙값: evidence/results/qubo-benchmark.md(손 가중치). 풀이기보다 QUBO의 항과 가중치가 평면을 좌우</td></tr>
+            <tr><td>SA 실험(켜 둔 풀이기만)</td><td>조건 4개 × 시드 20개, 시간 예산 0.3·1·3초, 전수 열거 최적값을 기준으로</td><td>전역 최적 도달률·TTS₉₉와 3초 평면의 규칙 통과: evidence/results/sa-experiment.md. 다른 풀이기는 꺼 두고 실험하지 않음</td></tr>
             <tr><td>정답 교차 확인</td><td>내보낸 QUBO를 Python에서 D-Wave SA·Tabu와 OR-Tools CP-SAT로 풂</td><td>브라우저 전역 최적해와 같은 에너지</td></tr>
             <tr><td>규칙의 근거</td><td>AI 허브 아파트 평면도 {ch.source.units.toLocaleString()}세대에 같은 분석기를 적용</td><td>실제 통과율 90% 이상인 규칙은 필수로 요구, 90% 미만(안방 부속실 79.8%)은 선택 규칙으로 분리(evidence/results/aihub-summary.md)</td></tr>
             <tr><td>공간구문 대리 항</td><td>같은 데이터, 조건 단위 교차검증</td><td>근사 ρ: {Object.values(SYNTAX).map((v) => `${v.label} ${v.cv['0.5'].rho.toFixed(2)}`).join(', ')}</td></tr>
