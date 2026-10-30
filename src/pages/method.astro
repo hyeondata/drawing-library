@@ -117,13 +117,15 @@ const cite = (ids) => ids.map((id) => R[id]);
 // ---- 켜 둔 풀이기(SA) 실험 결과: evidence/results/sa-experiment.json에서 빌드 때 읽는다(손으로 옮겨 적지 않음) ----
 // 다른 풀이기는 화면에서 꺼 두었고 실험도 하지 않는다(비교 실험 없음).
 const SAX = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'evidence', 'results', 'sa-experiment.json'), 'utf8'));
-const saHit = (ms) => Math.round(100 * (SAX.budget.find((r) => r.budgetMs === ms)?.p ?? NaN));
+const saStop = (k) => SAX.stop.find((r) => r.stopHits === k);
+const saHit = (k) => Math.round(100 * (saStop(k)?.p ?? NaN));
+const saSec = (k, w = 'p50') => ((saStop(k)?.ms[w] ?? NaN) / 1000).toFixed(1);
 const saPlans = SAX.quality.reduce((s2, r) => s2 + r.plans, 0);
 const saValid = SAX.quality.reduce((s2, r) => s2 + r.valid, 0);
 const saDoor = SAX.quality.reduce((s2, r) => s2 + r.door0, 0);
 const resultOf = (a, note = '') =>
   SAX.active.includes(a)
-    ? `켜 둔 풀이기. 풀이기당 3초에서 전역 최적 도달 ${saHit(3000)}%, 평면 ${saPlans}개 중 필수 규칙 통과 ${saValid}개(evidence/results/sa-experiment.md)${note ? `. ${note}` : ''}`
+    ? `켜 둔 풀이기. 최대 ${SAX.maxMs / 1000}초·같은 최저 ${SAX.defaultStop}번 재발견 시 멈춤으로 전역 최적 도달 ${saHit(SAX.defaultStop)}%(보통 ${saSec(SAX.defaultStop)}초), 평면 ${saPlans}개 중 필수 규칙 통과 ${saValid}개(evidence/results/sa-experiment.md)${note ? `. ${note}` : ''}`
     : '꺼 둔 풀이기(실험하지 않음). 코드와 설명만 남겼습니다';
 
 // ---- 풀이기 ----
@@ -465,7 +467,7 @@ const EX = {
       <p>도면 생성 탭의 풀이기는 SA(담금질)만 켜 두었습니다. 아래 11종 중 나머지는 꺼 두었고 실험도 하지 않으며, 코드와 설명만 남겨 두었습니다. 근거는 세 가지입니다(전체: evidence/18-SA-선택-근거.md).</p>
       <ol>
         <li><b>목표 장치의 고전 짝</b>: 이 QUBO는 D-Wave 양자 어닐러에서 풀려고 만들었습니다. 양자 어닐링은 SA의 열적 요동을 양자 요동으로 바꾼 방법이고 <a class="mt-c" href={R.kirk.u} target="_blank" rel="noopener">Kirkpatrick 외 1983</a> <a class="mt-c" href={R.santoro.u} target="_blank" rel="noopener">Santoro 외 2002</a>, 양자 어닐러를 평가할 때의 고전 비교 기준도 SA입니다 <a class="mt-c" href={R.ronnow.u} target="_blank" rel="noopener">Rønnow 외 2014</a>. 브라우저 SA는 D-Wave SimulatedAnnealingSampler의 기본 설정(sweep 1,000번, 기하 온도 스케줄)과 같은 방식이라 QPU로 바꿔도 결과를 그대로 잇습니다 <a class="mt-c" href={R.isakov.u} target="_blank" rel="noopener">Isakov 외 2015</a>.</li>
-        <li><b>시간을 주면 거의 매번 최적, 평면은 규칙을 지킴</b>: SA는 확률적이라 시간에 따라 전역 최적 도달률이 오릅니다(풀이기당 0.3초 {saHit(300)}% → 1초 {saHit(1000)}% → 3초 {saHit(3000)}%, 전수 열거 최적값은 기준으로만 사용). 그래서 화면 기본 시간을 3초로 두었고, 3초로 만든 평면 {saPlans}개 중 필수 규칙 통과 {saValid}개, 문 동선 문제 없음 {saDoor}개입니다(evidence/results/sa-experiment.md).</li>
+        <li><b>시간을 주면 최적, 평면은 규칙을 지킴</b>: SA는 무작위 시작에서 여러 번 다시 풀고, 지금까지의 최저 에너지를 정한 횟수만큼 다시 찾으면 멈춥니다(최대 {SAX.maxMs / 1000}초). 전역 최적 도달률은 3번 {saHit(3)}% → 5번 {saHit(5)}% → 10번 {saHit(10)}%이고, 기본값 10번은 보통 {saSec(10)}초, 가장 오래 걸린 경우 {saSec(10, 'max')}초에 끝났습니다(전수 열거 최적값은 기준으로만 사용). 기본값으로 만든 평면 {saPlans}개 중 필수 규칙 통과 {saValid}개, 문 동선 문제 없음 {saDoor}개입니다(evidence/results/sa-experiment.md).</li>
         <li><b>설명·재현이 쉬움</b>: 어떤 휴리스틱도 모든 문제에서 가장 좋지는 않으므로 <a class="mt-c" href={R.dunning.u} target="_blank" rel="noopener">Dunning 외 2018</a>, 목적(양자 어닐링으로 옮기기)에 맞춰 하나로 고정했습니다. 시드가 같으면 결과가 같습니다.</li>
       </ol>
       <p class="note">예외: QUBO 도면 생성 탭(격자 칸 단위, 변수 약 600개)에서는 SA가 실이 흩어진 해에 갇혀(3초, 점검 점수 −96~−109, Tabu는 94) 기본 풀이기를 Tabu로 둡니다.</p>
@@ -497,9 +499,9 @@ const EX = {
       <h2>6. SA 실험 방법</h2>
       <p>켜 둔 풀이기(SA)만 재고 다른 풀이기와 비교하지 않습니다(<code>node scripts/sa-experiment.mjs</code>).</p>
       <ul>
-        <li><b>전역 최적 도달률</b>: 조건 4개 × 시드 20개에서 시간 예산(0.3·1·3초)마다 SA가 전수 열거의 최적 에너지에 닿은 비율을 셉니다. 전수 열거는 최적값을 구하는 기준으로만 씁니다.</li>
-        <li><b>속도는 TTS₉₉</b>: 99% 확률로 최적에 닿는 데 필요한 시간(한 번 실행의 성공 확률 p와 시간 t로 t · ln(0.01)/ln(1 − p)) <a class="mt-c" href={R.ronnow.u} target="_blank" rel="noopener">Rønnow 외 2014</a>.</li>
-        <li><b>평면 품질</b>: 화면 기본 예산(3초)으로 만든 평면이 필수 규칙·문 동선·최소 폭을 지키는지와 J 분포를 함께 보고합니다. QUBO는 대리이므로 에너지 최적이 곧 최고 평면은 아닙니다 <a class="mt-c" href={R.jin.u} target="_blank" rel="noopener">Jin 2011</a>.</li>
+        <li><b>전역 최적 도달률</b>: 조건 4개 × 시드 {SAX.seeds}개, 최대 {SAX.maxMs / 1000}초에서 멈춤 조건(같은 최저 에너지 3·5·10번 재발견)마다 SA가 전수 열거의 최적 에너지에 닿은 비율과 걸린 시간을 셉니다. 전수 열거는 최적값을 구하는 기준으로만 씁니다.</li>
+        <li><b>멈춤 조건</b>: 정해진 시간을 다 쓰는 대신, 같은 최저 에너지를 여러 번 다시 찾으면 멈춥니다. 시간 대비 성공률로 풀이기 설정을 고르는 방식은 Rønnow 외 2014의 TTS 관점을 따릅니다 <a class="mt-c" href={R.ronnow.u} target="_blank" rel="noopener">Rønnow 외 2014</a>.</li>
+        <li><b>평면 품질</b>: 화면 기본값(최대 30초, 10번 재발견 시 멈춤)으로 만든 평면이 필수 규칙·문 동선·최소 폭을 지키는지와 J 분포를 함께 보고합니다. QUBO는 대리이므로 에너지 최적이 곧 최고 평면은 아닙니다 <a class="mt-c" href={R.jin.u} target="_blank" rel="noopener">Jin 2011</a>.</li>
         <li><b>양자 결과 아님</b>: SA는 D-Wave QPU 실행 전의 고전 대체입니다. QPU 결과는 아직 없습니다.</li>
       </ul>
     </section>

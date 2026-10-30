@@ -98,7 +98,11 @@ export function templates(spec, weights = 'hand') {
   return [...new Set([kmax, kmax - 1])].filter((k) => k >= 0).map((k) => ({ k, q: buildQubo(spec, { frontBeds: k, weights }) }));
 }
 
-export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'hand', onProgress } = {}) {
+/**
+ * stopHits: SA가 같은 최저 에너지를 이만큼 다시 찾으면 시간 전에 멈춘다(null이면 budgetMs까지 계속).
+ * onProgress(p, key, info): p는 0~1, info = { ms(풀이에 쓴 시간), e(지금까지 최저 에너지), stopped }.
+ */
+export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'hand', stopHits = null, onProgress } = {}) {
   const tpls = templates(spec, weights);
   const q = tpls[0].q;
   const results = [];
@@ -138,10 +142,20 @@ export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, 
     const start = clock() - run0;
     const phases = [];
     const marks = [];
-    // 예산을 템플릿 수로 나눠 각 템플릿 QUBO를 푼다.
-    for (const t of tpls) {
+    // 예산을 템플릿 수로 나눠 각 템플릿 QUBO를 푼다. 앞 템플릿이 일찍 멈추면 남은 시간을 뒤 템플릿에 넘긴다.
+    let used = 0;
+    let bestE = null;
+    for (const [ti, t] of tpls.entries()) {
       const solveStart = clock() - run0;
-      const res = runSolver(key, t.q, { seed, budgetMs: budgetMs / tpls.length, maxEvals: maxEvals ? Math.round(maxEvals / tpls.length) : null });
+      const per = maxEvals ? budgetMs / tpls.length : (budgetMs - used) / (tpls.length - ti);
+      const tick = (ms, e) => {
+        if (e !== null && e !== undefined) bestE = bestE === null ? e : Math.min(bestE, e);
+        // 풀이 구간이 전체 진행의 90%, 나머지 10%는 평면으로 풀고 다듬기
+        onProgress?.((idx + (0.9 * Math.min(budgetMs, used + ms)) / budgetMs) / total, key, { ms: used + ms, e: bestE, budgetMs });
+      };
+      const res = runSolver(key, t.q, { seed, budgetMs: per, maxEvals: maxEvals ? Math.round(maxEvals / tpls.length) : null, stopHits, onTick: onProgress ? ({ ms, best }) => tick(ms, best?.e) : null });
+      used += res.ms;
+      tick(0, res.energy);
       phases.push({ label: `QUBO 풀이(앞 침실 ${t.k + 1}개)`, start: solveStart, end: solveStart + res.ms });
       // 에너지가 낮아진 순간마다 그 해를 기본 치수로 평면에 풀어 둔다(최대 16개).
       const tr = res.trace;
