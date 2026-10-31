@@ -5193,3 +5193,7 @@ a.gr-cite.lit:hover {
 /* QUBO 가중치 표: 이 조건에서 쓰지 않는 항 */
 .gen-qw-off { opacity: 0.45; }
 .gen-qw summary { cursor: pointer; }
+
+/* 도면 생성 0단계: 외곽 형태 미리보기 */
+.gen-shapes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.gen-shape-svg { display: block; width: 100%; height: 84px; margin-bottom: 6px; }

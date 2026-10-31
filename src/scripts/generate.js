@@ -11,6 +11,7 @@ import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
 import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
 import { ACTIVE } from '../generate/solvers.js';
 import { TERMS, buildQubo, weightsOf } from '../generate/qubo.js';
+import { createOutlineRunner } from './generate-outline.js';
 
 /** 화면이 쓰는 QUBO 가중치 세트(손으로 정한 값 + 공간구문 대리 항). */
 const WEIGHTS = 'hand';
@@ -69,7 +70,7 @@ function buildSpec() {
 }
 
 function summary() {
-  const parts = [labelOf(radio('area')), `거실 ${labelOf(radio('living'))}`, labelOf(radio('bedrooms')), `작은방 ${labelOf(radio('roomSize'))}`];
+  const parts = [labelOf(radio('shape')), labelOf(radio('area')), `거실 ${labelOf(radio('living'))}`, labelOf(radio('bedrooms')), `작은방 ${labelOf(radio('roomSize'))}`];
   const prefs = [...checks('syntax'), ...checks('lifestyle')].map((k) => PREF[k].short);
   return parts.join(' · ') + (prefs.length ? ` · ${prefs.join(', ')}` : '');
 }
@@ -184,7 +185,25 @@ function getWorker() {
   return state.worker;
 }
 
+// 0단계에서 직사각형이 아닌 외곽을 고르면 자유형 엔진으로 만든다(generate-outline.js).
+const outlineRunner = createOutlineRunner({ base, setProgress: (p, t) => setProgress(p, t), $ });
+const shapeOf = () => radio('shape').value;
+function setMode() {
+  const free = shapeOf() !== 'rect';
+  $('#gen-algos').hidden = free;
+  if (free) $('#gen-result').hidden = true;
+  else $('#gen-ff').hidden = true;
+}
+$('#gen-ff-more').addEventListener('click', () => run(state.seed + 3));
+
 async function run(seed = state.seed) {
+  setMode();
+  if (shapeOf() !== 'rect') {
+    state.seed = seed;
+    $('#gen-ff').hidden = true;
+    $('#gen-progress').hidden = false;
+    return outlineRunner.run(buildSpec(), shapeOf(), seed);
+  }
   const spec = buildSpec();
   const same = state.spec && JSON.stringify(state.spec) === JSON.stringify(spec) && state.top.length && seed === state.seed;
   if (same) return renderResult();
