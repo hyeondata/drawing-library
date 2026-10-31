@@ -9,6 +9,7 @@ import { LIFESTYLE_CHOICES, SYNTAX_CHOICES } from '../generate/preferences.js';
 import { ACTIVE, SOLVERS } from '../generate/solvers.js';
 import { GEN_STAGES } from '../generate/pipeline.js';
 import { show, showSeg } from '../lib/source.js';
+import { largest, maskFromUnit } from '../freeform/outline.js';
 
 // 생성 알고리즘은 SA만 켠다(근거: evidence/18-SA-선택-근거.md). 다른 풀이기는 코드와 비교 실험에만 남긴다.
 // 시간 선택지 옆의 전역 최적 도달률: evidence/results/sa-experiment.json(손으로 옮겨 적지 않음)
@@ -25,8 +26,31 @@ const choices = buildChoices();
 const refOf = Object.fromEntries(REFERENCES.map((r) => [r.id, { short: r.short, url: r.url, index: r.index }]));
 const strip = (c) => ({ key: c.key, short: c.short, title: c.title, desc: c.desc, metrics: c.metrics, refs: c.refs, note: c.note || null, effect: c.effect || null });
 const src = choices.source;
+// 0. 외곽 형태: scripts/build-outlines.mjs가 AI 허브 APT_FP 전체 세대의 외곽을 묶은 결과(대표 외곽 미리보기는 빌드 때 그림)
+const OUTL = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'outlines.json'), 'utf8'));
+const thumb = (m) => {
+  const runs = [];
+  for (let j = 0; j < m.ny; j++)
+    for (let i = 0, s = -1; i <= m.nx; i++) {
+      const on = i < m.nx && m.cells[j * m.nx + i];
+      if (on && s < 0) s = i;
+      if (!on && s >= 0) (runs.push(`M${s} ${j}h${i - s}v1h${s - i}z`), (s = -1));
+    }
+  return `<svg viewBox="-2 -2 ${m.nx + 4} ${m.ny + 6}" class="gen-shape-svg" aria-hidden="true"><path d="${runs.join('')}" fill="#e9d3a6" shape-rendering="crispEdges"/><path d="M0 ${m.ny + 2}h${m.nx}" stroke="#e8590c" stroke-width="0.8"/></svg>`;
+};
+const shapes = [
+  { id: 'rect', label: '직사각형', sub: '판상형 띠 배치(QUBO + SA)', note: '지금까지의 생성 방식', svg: thumb({ nx: 40, ny: 26, cells: new Uint8Array(40 * 26).fill(1) }) },
+  ...OUTL.outlines.map((o) => ({
+    id: o.id,
+    label: `형태 ${o.id.slice(1)}`,
+    sub: `${o.n.toLocaleString()}세대 · ${(o.share * 100).toFixed(1)}%`,
+    note: `침실 ${Object.keys(o.byBeds).join('·')}개 세대 있음`,
+    svg: thumb(largest(maskFromUnit(o.rep, 84))),
+  })),
+];
 
 const steps = [
+  { key: 'shape', title: '외곽 형태', q: '외곽 형태 선택: AI 허브 아파트 평면도의 세대 외곽' },
   { key: 'area', title: '전용면적', q: '전용면적 선택' },
   { key: 'living', title: '거실 면적', q: '거실 면적 비율(전용면적 대비)' },
   { key: 'bedrooms', title: '침실 수', q: '침실 수' },
@@ -45,7 +69,7 @@ const steps = [
     <p class="eyebrow">조건 → 생성 → 적합성으로 최적화</p>
     <h1>도면 <span class="gradient-text">생성하기</span></h1>
     <p class="lede">
-      전용면적부터 생활 조건까지 차례로 선택하면 판상형 아파트 평면을 수백 개 만들어 조건에 가장 잘 맞는 안을 고르고, 그 평면이 전용면적 사각형에서 문·창·설비까지 어떻게 만들어지는지 단계별로 보여 줍니다.
+      외곽 형태(직사각형 또는 AI 허브 세대 외곽)를 먼저 고르고 전용면적부터 생활 조건까지 차례로 선택하면 아파트 평면을 여러 개 만들어 조건에 가장 잘 맞는 안을 고르고, 그 평면이 전용면적 사각형에서 문·창·설비까지 어떻게 만들어지는지 단계별로 보여 줍니다.
       크기·개수·구성 선택지는 AI 허브 SPA 라벨 전체({src.files.toLocaleString()}건)의 아파트 평면도(APT_FP) {src.units.toLocaleString()}세대에서, 공간구문·생활 조건은 공간구문 변수·규칙과 그 근거 논문에서 가져왔습니다.
     </p>
   </section>
@@ -64,9 +88,25 @@ const steps = [
 
     <div class="gen-body">
       <form class="gen-panel" id="gen-form" novalidate>
-        <!-- 1. 평수 -->
+        <!-- 0. 외곽 형태 -->
         <div class="gen-step" data-step="0">
           <h2>{steps[0].q}</h2>
+          <div class="gen-options gen-shapes" data-group="shape">
+            {shapes.map((o) => (
+              <label class="gen-opt"><input type="radio" name="shape" value={o.id} checked={o.id === 'rect'} />
+                <Fragment set:html={o.svg} />
+                <strong>{o.label}</strong>
+                <span>{o.sub}</span>
+                <span class="gen-opt-note">{o.note}</span>
+              </label>
+            ))}
+          </div>
+          <p class="note">아파트 평면도 고유 세대 {OUTL.total.toLocaleString()}개의 실내 외곽(발코니가 아래·앞에 오게 돌림)을 외곽 상자 12×12 칸 채움 비율로 묶은 {OUTL.outlines.length}개 형태입니다(k-means, 외곽이 한 덩어리가 아닌 세대는 세대 분리 오류로 보고 뺌). 그림은 묶음 중심에 가장 가까운 세대의 외곽, 주황 선은 앞(발코니) 쪽입니다. 직사각형이 아닌 형태를 고르면 그 외곽 안에 칸 담금질(자유형 엔진)로 실을 나누고, 실 구성은 같은 형태에서 고른 침실 수의 세대를 씁니다.</p>
+        </div>
+
+        <!-- 1. 평수 -->
+        <div class="gen-step" data-step="1" hidden>
+          <h2>{steps[1].q}</h2>
           <div class="gen-options" data-group="area">
             {choices.area.map((o) => (
               <label class="gen-opt"><input type="radio" name="area" value={o.value} data-bedrooms={o.bedrooms} checked={o.value === 84} />
@@ -80,8 +120,8 @@ const steps = [
         </div>
 
         <!-- 2. 거실 크기 -->
-        <div class="gen-step" data-step="1" hidden>
-          <h2>{steps[1].q}</h2>
+        <div class="gen-step" data-step="2" hidden>
+          <h2>{steps[2].q}</h2>
           <div class="gen-options" data-group="living">
             {choices.living.map((o) => (
               <label class="gen-opt"><input type="radio" name="living" value={o.key} data-share={o.share} checked={o.key === 'standard'} />
@@ -95,8 +135,8 @@ const steps = [
         </div>
 
         <!-- 3. 방 개수 -->
-        <div class="gen-step" data-step="2" hidden>
-          <h2>{steps[2].q}</h2>
+        <div class="gen-step" data-step="3" hidden>
+          <h2>{steps[3].q}</h2>
           <div class="gen-options" data-group="bedrooms">
             {choices.bedrooms.map((o) => (
               <label class="gen-opt"><input type="radio" name="bedrooms" value={o.value} checked={o.value === 3} />
@@ -109,8 +149,8 @@ const steps = [
         </div>
 
         <!-- 4. 방 크기 -->
-        <div class="gen-step" data-step="3" hidden>
-          <h2>{steps[3].q}</h2>
+        <div class="gen-step" data-step="4" hidden>
+          <h2>{steps[4].q}</h2>
           <h3 class="gen-sub">작은방 크기</h3>
           <div class="gen-options" data-group="roomSize">
             {choices.roomSize.map((o) => (
@@ -134,8 +174,8 @@ const steps = [
         </div>
 
         <!-- 5. 방 구성 -->
-        <div class="gen-step" data-step="4" hidden>
-          <h2>{steps[4].q}</h2>
+        <div class="gen-step" data-step="5" hidden>
+          <h2>{steps[5].q}</h2>
           <div class="gen-options gen-multi" data-group="composition" data-multi>
             {choices.composition.map((o) => (
               <label class="gen-opt"><input type="checkbox" name="composition" value={o.key} checked={o.default} />
@@ -148,8 +188,8 @@ const steps = [
         </div>
 
         <!-- 6. 공간구문 -->
-        <div class="gen-step" data-step="5" hidden>
-          <h2>{steps[5].q}</h2>
+        <div class="gen-step" data-step="6" hidden>
+          <h2>{steps[6].q}</h2>
           <div class="gen-options gen-multi gen-wide" data-group="syntax" data-multi>
             {SYNTAX_CHOICES.map((c) => (
               <label class="gen-opt"><input type="checkbox" name="syntax" value={c.key} checked={c.key === 'livingCentral'} />
@@ -164,8 +204,8 @@ const steps = [
         </div>
 
         <!-- 7. 생활 조건 -->
-        <div class="gen-step" data-step="6" hidden>
-          <h2>{steps[6].q}</h2>
+        <div class="gen-step" data-step="7" hidden>
+          <h2>{steps[7].q}</h2>
           <div class="gen-options gen-multi gen-wide" data-group="lifestyle" data-multi>
             {LIFESTYLE_CHOICES.map((c) => (
               <label class="gen-opt"><input type="checkbox" name="lifestyle" value={c.key} />
@@ -180,8 +220,8 @@ const steps = [
         </div>
 
         <!-- 8. 결과 -->
-        <div class="gen-step" data-step="7" hidden>
-          <h2>{steps[7].q}</h2>
+        <div class="gen-step" data-step="8" hidden>
+          <h2>{steps[8].q}</h2>
           <fieldset class="gen-algos" id="gen-algos">
             <legend>생성 알고리즘</legend>
             <p class="note">
@@ -233,6 +273,16 @@ const steps = [
           <div class="gen-progress" id="gen-progress" hidden>
             <div class="gen-bar"><i id="gen-bar"></i></div>
             <p class="note" id="gen-progress-text">평면을 만드는 중…</p>
+          </div>
+          <div id="gen-ff" hidden>
+            <div class="gen-toolbar">
+              <div class="seg gen-tabs" role="tablist" id="gen-ff-tabs"></div>
+              <button type="button" class="button-ghost small" id="gen-ff-more">다른 안 만들기</button>
+            </div>
+            <div class="gen-result">
+              <figure class="gen-plan" id="gen-ff-plan"></figure>
+              <div class="gen-detail" id="gen-ff-detail"></div>
+            </div>
           </div>
           <div id="gen-result" hidden>
             <div class="gen-toolbar">

@@ -29,6 +29,7 @@ npm run preview
 npm run stats -- <TL_SPA 폴더>            # 전체 분석(약 3분) → src/generate/aihub-stats.js
 npm run stats -- --reuse                  # 저장해 둔 세대별 행(data/, 커밋 안 함)으로 요약만
 node scripts/build-shapes.mjs <TL_SPA 폴더> # 자유형 평면의 기준 세대(public/data/shapes.json)
+node scripts/build-outlines.mjs <TL_SPA 폴더> # 도면 생성 첫 단계의 외곽 형태(public/data/outlines.json)
 npm run syntax                            # 공간구문 대리 항 다시 맞추기
 npm run sa                                # 켜 둔 풀이기(SA)만 실험: 시간 예산별 최적 도달률, 평면 품질
 ```

@@ -8,6 +8,7 @@
     "dev": "astro dev --host 127.0.0.1 --port 8790",
     "build": "astro build",
     "shapes": "node scripts/build-shapes.mjs",
+    "outlines": "node scripts/build-outlines.mjs",
     "preview": "astro preview --host 127.0.0.1 --port 8790",
     "data:prepare": "python3 scripts/prepare_data.py",
     "drawings": "node scripts/build-drawings.mjs",
