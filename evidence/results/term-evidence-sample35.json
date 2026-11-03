@@ -1,0 +1,831 @@
+{
+ "generatedAt": "2026-11-03",
+ "realUnits": 35,
+ "genLayouts": 4854,
+ "rows": [
+  {
+   "id": "kitchenLiving",
+   "label": "주방–거실 맞닿음",
+   "key": "kitchenLiving",
+   "sign": 1,
+   "def": "주방–거실 맞닿음",
+   "why": "규칙 kitchenLiving; Byun & Choi 2016",
+   "hand": -8,
+   "cal": 2.18,
+   "real": {
+    "n": 35,
+    "p": 1,
+    "lo": 0.9010957324106112,
+    "hi": 1
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.9009064688916357,
+    "lo": 0.8921811761193126,
+    "hi": 0.9089976848793664
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.009862118596093218,
+     "groups": 18,
+     "pos": 10
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.26184782341532115,
+     "groups": 18,
+     "pos": 18
+    },
+    "genotypeTau": {
+     "mean": 0.16699114363600687,
+     "groups": 18,
+     "pos": 18
+    },
+    "privacyDepthGap": {
+     "mean": 0.23003551826334917,
+     "groups": 18,
+     "pos": 18
+    }
+   }
+  },
+  {
+   "id": "entranceLiving",
+   "label": "현관–거실 맞닿음",
+   "key": "entranceLiving",
+   "sign": 1,
+   "def": "현관–거실 맞닿음",
+   "why": "규칙 livingNear·entry; Seo 2007",
+   "hand": -5,
+   "cal": -0.58,
+   "real": {
+    "n": 35,
+    "p": 1,
+    "lo": 0.9010957324106112,
+    "hi": 1
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.36299958796868564,
+    "lo": 0.34958498418226397,
+    "hi": 0.37663087267070555
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": 0.5704934348238473,
+     "groups": 40,
+     "pos": 40
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.1814064374478792,
+     "groups": 40,
+     "pos": 0
+    },
+    "genotypeTau": {
+     "mean": 0.11551466106426925,
+     "groups": 40,
+     "pos": 35
+    },
+    "privacyDepthGap": {
+     "mean": 0.29011193014557024,
+     "groups": 40,
+     "pos": 40
+    }
+   }
+  },
+  {
+   "id": "entranceKitchen",
+   "label": "현관–주방 옆",
+   "key": "entranceKitchen",
+   "sign": 1,
+   "def": "현관–주방 맞닿음",
+   "why": "현관이 공용 공간으로 열림",
+   "hand": -5,
+   "cal": -4.82,
+   "real": {
+    "n": 35,
+    "p": 0.42857142857142855,
+    "lo": 0.27984333081678914,
+    "hi": 0.5914287074102662
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.638442521631644,
+    "lo": 0.6248217067208054,
+    "hi": 0.6518443747751413
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": 0.05621585890497969,
+     "groups": 33,
+     "pos": 24
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.26831482826738023,
+     "groups": 33,
+     "pos": 33
+    },
+    "genotypeTau": {
+     "mean": 0.12449146743584964,
+     "groups": 33,
+     "pos": 30
+    },
+    "privacyDepthGap": {
+     "mean": 0.8015169380537347,
+     "groups": 33,
+     "pos": 33
+    }
+   }
+  },
+  {
+   "id": "bathKitchen",
+   "label": "공용욕실–주방 옆",
+   "key": "bathKitchen",
+   "sign": 1,
+   "def": "공용욕실–주방 맞닿음",
+   "why": "규칙 publicBath",
+   "hand": -3,
+   "cal": 2.76,
+   "real": {
+    "n": 34,
+    "p": 0.17647058823529413,
+    "lo": 0.08348855603569685,
+    "hi": 0.33514067740052156
+   },
+   "gen": {
+    "n": 4559,
+    "p": 0.6435621846896249,
+    "lo": 0.6295436467414085,
+    "hi": 0.6573389835914086
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.025604937075211085,
+     "groups": 33,
+     "pos": 16
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.15678862923845197,
+     "groups": 33,
+     "pos": 28
+    },
+    "genotypeTau": {
+     "mean": 0.007252889180655128,
+     "groups": 33,
+     "pos": 21
+    },
+    "privacyDepthGap": {
+     "mean": 0.08558827676824604,
+     "groups": 33,
+     "pos": 28
+    }
+   }
+  },
+  {
+   "id": "bathEntrance",
+   "label": "공용욕실–현관 옆",
+   "key": "bathEntrance",
+   "sign": 1,
+   "def": "공용욕실–현관 맞닿음",
+   "why": "규칙 publicBath",
+   "hand": -3,
+   "cal": -0.83,
+   "real": {
+    "n": 34,
+    "p": 0.7647058823529411,
+    "lo": 0.6000353719173557,
+    "hi": 0.8756316189075566
+   },
+   "gen": {
+    "n": 4559,
+    "p": 0.4307962272428164,
+    "lo": 0.41648598069337556,
+    "hi": 0.44522300346246263
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.3109828571586792,
+     "groups": 40,
+     "pos": 8
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.17865713611474704,
+     "groups": 40,
+     "pos": 36
+    },
+    "genotypeTau": {
+     "mean": -0.08791222931080753,
+     "groups": 40,
+     "pos": 3
+    },
+    "privacyDepthGap": {
+     "mean": 0.0824751586179753,
+     "groups": 40,
+     "pos": 27
+    }
+   }
+  },
+  {
+   "id": "bathLiving",
+   "label": "공용욕실–거실 맞닿음",
+   "key": "bathLiving",
+   "sign": 1,
+   "def": "공용욕실–거실 맞닿음",
+   "why": "공용욕실이 공용 공간에 닿음",
+   "hand": -2,
+   "cal": -0.6,
+   "real": {
+    "n": 34,
+    "p": 1,
+    "lo": 0.8984820937803899,
+    "hi": 1
+   },
+   "gen": {
+    "n": 4559,
+    "p": 0.6273305549462601,
+    "lo": 0.6131932383941219,
+    "hi": 0.6412534642922041
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": 0.026585593926620583,
+     "groups": 34,
+     "pos": 24
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.043382140339010465,
+     "groups": 34,
+     "pos": 12
+    },
+    "genotypeTau": {
+     "mean": -0.0813226364017149,
+     "groups": 34,
+     "pos": 5
+    },
+    "privacyDepthGap": {
+     "mean": -0.1004330868363251,
+     "groups": 34,
+     "pos": 5
+    }
+   }
+  },
+  {
+   "id": "multiKitchen",
+   "label": "다목적실–주방 옆",
+   "key": "multiKitchen",
+   "sign": 1,
+   "def": "다목적실–주방 맞닿음",
+   "why": "팬트리",
+   "hand": -3,
+   "cal": 3.76,
+   "real": {
+    "n": 11,
+    "p": 1,
+    "lo": 0.7411599827511859,
+    "hi": 1
+   },
+   "gen": {
+    "n": 2337,
+    "p": 0.6187419768934531,
+    "lo": 0.5988702540883608,
+    "hi": 0.638223960231822
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.06597065800399098,
+     "groups": 14,
+     "pos": 6
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.21767122170488135,
+     "groups": 14,
+     "pos": 14
+    },
+    "genotypeTau": {
+     "mean": 0.04169124692804775,
+     "groups": 14,
+     "pos": 12
+    },
+    "privacyDepthGap": {
+     "mean": 0.03663992120604541,
+     "groups": 14,
+     "pos": 10
+    }
+   }
+  },
+  {
+   "id": "bedEntrance",
+   "label": "침실–현관 맞닿음",
+   "key": "bedEntrance",
+   "sign": 1,
+   "def": "침실–현관 맞닿음",
+   "why": "공·사 깊이; Park et al. 2024",
+   "hand": 4,
+   "cal": 4.96,
+   "real": {
+    "n": 35,
+    "p": 0.11428571428571428,
+    "lo": 0.0453510585448975,
+    "hi": 0.2595179478812023
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.5914709517923362,
+    "lo": 0.5775751000686296,
+    "hi": 0.6052221323483353
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.031254056514091015,
+     "groups": 33,
+     "pos": 15
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.19560052118588214,
+     "groups": 33,
+     "pos": 0
+    },
+    "genotypeTau": {
+     "mean": -0.0725979032551245,
+     "groups": 33,
+     "pos": 6
+    },
+    "privacyDepthGap": {
+     "mean": -0.6028182474194189,
+     "groups": 33,
+     "pos": 0
+    }
+   }
+  },
+  {
+   "id": "backBedEntrance",
+   "label": "뒤 침실–현관 옆",
+   "key": "bedEntrance",
+   "sign": 1,
+   "def": "침실–현관 맞닿음(뒤 침실 항, 같은 관계로 측정)",
+   "why": "사생활",
+   "hand": 3,
+   "cal": 2.99,
+   "real": {
+    "n": 35,
+    "p": 0.11428571428571428,
+    "lo": 0.0453510585448975,
+    "hi": 0.2595179478812023
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.5914709517923362,
+    "lo": 0.5775751000686296,
+    "hi": 0.6052221323483353
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.031254056514091015,
+     "groups": 33,
+     "pos": 15
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.19560052118588214,
+     "groups": 33,
+     "pos": 0
+    },
+    "genotypeTau": {
+     "mean": -0.0725979032551245,
+     "groups": 33,
+     "pos": 6
+    },
+    "privacyDepthGap": {
+     "mean": -0.6028182474194189,
+     "groups": 33,
+     "pos": 0
+    }
+   }
+  },
+  {
+   "id": "backBedUnderBed",
+   "label": "뒤 침실이 앞 침실 뒤",
+   "def": "생성 문법 고유(앞·뒤 띠)라 실제 도면에서 같은 정의로 잴 수 없음",
+   "why": "복도로 묶임",
+   "hand": -2,
+   "cal": -2.03
+  },
+  {
+   "id": "backBedKitchen",
+   "label": "뒤 침실–주방 옆",
+   "key": "backBedKitchen",
+   "sign": 1,
+   "def": "작은 침실–주방 맞닿음",
+   "why": "방음",
+   "hand": 2,
+   "cal": 4.66,
+   "real": {
+    "n": 35,
+    "p": 0.5714285714285714,
+    "lo": 0.4085712925897337,
+    "hi": 0.7201566691832108
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.4402554594149155,
+    "lo": 0.42634274504404707,
+    "hi": 0.4542626662151426
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.23622680434049373,
+     "groups": 30,
+     "pos": 0
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.02624195819221834,
+     "groups": 30,
+     "pos": 19
+    },
+    "genotypeTau": {
+     "mean": -0.018425651174926186,
+     "groups": 30,
+     "pos": 13
+    },
+    "privacyDepthGap": {
+     "mean": -0.1592562568415427,
+     "groups": 30,
+     "pos": 1
+    }
+   }
+  },
+  {
+   "id": "bedLiving",
+   "label": "침실–거실 옆",
+   "key": "bedLiving",
+   "sign": 1,
+   "def": "침실–거실 맞닿음",
+   "why": "방음 근사",
+   "hand": 1.5,
+   "cal": -4.37,
+   "real": {
+    "n": 35,
+    "p": 1,
+    "lo": 0.9010957324106112,
+    "hi": 1
+   },
+   "gen": {
+    "n": 4854,
+    "p": 1,
+    "lo": 0.9992091961170576,
+    "hi": 1.0000000000000002
+   },
+   "sx": {
+    "livingBedroomRatio": null,
+    "kitchenBedroomRatio": null,
+    "genotypeTau": null,
+    "privacyDepthGap": null
+   }
+  },
+  {
+   "id": "bedBed",
+   "label": "침실끼리 옆",
+   "key": "bedBed",
+   "sign": 1,
+   "def": "침실끼리 맞닿음",
+   "why": "방음 근사",
+   "hand": 0.8,
+   "cal": 2.32,
+   "real": {
+    "n": 35,
+    "p": 0.6857142857142857,
+    "lo": 0.5201992812074803,
+    "hi": 0.8144934194021753
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.7101359703337453,
+    "lo": 0.697210132610219,
+    "hi": 0.7227294553747
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.6663721721713031,
+     "groups": 27,
+     "pos": 0
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.07477020804954099,
+     "groups": 27,
+     "pos": 4
+    },
+    "genotypeTau": {
+     "mean": -0.0914984720882722,
+     "groups": 27,
+     "pos": 6
+    },
+    "privacyDepthGap": {
+     "mean": 0.16338888174362148,
+     "groups": 27,
+     "pos": 23
+    }
+   }
+  },
+  {
+   "id": "livingOffCenter",
+   "label": "거실이 가운데에서 먼 정도",
+   "key": "livingOffCenter",
+   "sign": 1,
+   "def": "거실 중심의 장축 중앙 거리(0–0.5)",
+   "why": "거실 중심형; Hillier 1987, Choi 2014",
+   "hand": 6,
+   "cal": 7.09,
+   "real": {
+    "n": 35,
+    "mean": 0.08764506146788441
+   },
+   "gen": {
+    "n": 4854,
+    "mean": 0.2010285012065386
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.657609419540446,
+     "groups": 40,
+     "pos": 0
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.06342111042699583,
+     "groups": 40,
+     "pos": 8
+    },
+    "genotypeTau": {
+     "mean": -0.1397088259968214,
+     "groups": 40,
+     "pos": 2
+    },
+    "privacyDepthGap": {
+     "mean": -0.04684798220015703,
+     "groups": 40,
+     "pos": 16
+    }
+   }
+  },
+  {
+   "id": "masterNotEnd",
+   "label": "안방이 끝 칸이 아님",
+   "key": "masterEnd",
+   "sign": -1,
+   "def": "안방이 장축 끝 20% 안",
+   "why": "부속실을 뒤에 붙임",
+   "hand": 6,
+   "cal": 3.69,
+   "real": {
+    "n": 35,
+    "p": 0.8285714285714286,
+    "lo": 0.6731739236041119,
+    "hi": 0.9189747005514328
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.9936135146271117,
+    "lo": 0.990949272855521,
+    "hi": 0.9954970534306223
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": 0.583212007144313,
+     "groups": 3,
+     "pos": 3
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.1840217762452474,
+     "groups": 3,
+     "pos": 2
+    },
+    "genotypeTau": {
+     "mean": 0.594446137760222,
+     "groups": 3,
+     "pos": 3
+    },
+    "privacyDepthGap": {
+     "mean": 0.19095452273863078,
+     "groups": 3,
+     "pos": 3
+    }
+   }
+  },
+  {
+   "id": "entranceEnd",
+   "label": "현관이 끝 칸",
+   "key": "entranceEnd",
+   "sign": 1,
+   "def": "현관이 장축 끝 20% 안",
+   "why": "거실·주방과 가깝게",
+   "hand": 1.5,
+   "cal": -1.41,
+   "real": {
+    "n": 35,
+    "p": 0.6,
+    "lo": 0.43572419581519467,
+    "hi": 0.7444949506669274
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.41244334569427277,
+    "lo": 0.39866905558808696,
+    "hi": 0.42635611608486346
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.026052359990163577,
+     "groups": 40,
+     "pos": 19
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.15012675773725034,
+     "groups": 40,
+     "pos": 37
+    },
+    "genotypeTau": {
+     "mean": 0.03962235082847192,
+     "groups": 40,
+     "pos": 26
+    },
+    "privacyDepthGap": {
+     "mean": 0.481459065235086,
+     "groups": 40,
+     "pos": 40
+    }
+   }
+  },
+  {
+   "id": "kitchenEnd",
+   "label": "주방이 끝 칸",
+   "key": "kitchenEnd",
+   "sign": 1,
+   "def": "주방이 장축 끝 20% 안",
+   "why": "보정 후보",
+   "hand": 0,
+   "cal": 8,
+   "real": {
+    "n": 35,
+    "p": 0.05714285714285714,
+    "lo": 0.015812829614043955,
+    "hi": 0.1860738073937003
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.3044911413267408,
+    "lo": 0.2917036713144621,
+    "hi": 0.3175878296681965
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.09272308847744136,
+     "groups": 40,
+     "pos": 6
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.3338931975636818,
+     "groups": 40,
+     "pos": 1
+    },
+    "genotypeTau": {
+     "mean": -0.2513363626756568,
+     "groups": 40,
+     "pos": 3
+    },
+    "privacyDepthGap": {
+     "mean": -0.2899840816933673,
+     "groups": 40,
+     "pos": 2
+    }
+   }
+  },
+  {
+   "id": "backBedEnd",
+   "label": "뒤 침실이 끝 칸",
+   "key": "otherBedEnd",
+   "sign": 1,
+   "def": "작은 침실이 장축 끝 20% 안",
+   "why": "보정 후보(외기 접면)",
+   "hand": 0,
+   "cal": -7.1,
+   "real": {
+    "n": 35,
+    "p": 0.9428571428571428,
+    "lo": 0.8139261926062996,
+    "hi": 0.984187170385956
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.7035434693036671,
+    "lo": 0.6905386782749134,
+    "hi": 0.7162263344006747
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": 0.5505912310759478,
+     "groups": 40,
+     "pos": 38
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.2205618746011055,
+     "groups": 40,
+     "pos": 40
+    },
+    "genotypeTau": {
+     "mean": 0.17810372695062016,
+     "groups": 40,
+     "pos": 36
+    },
+    "privacyDepthGap": {
+     "mean": 0.026401226859119952,
+     "groups": 40,
+     "pos": 23
+    }
+   }
+  },
+  {
+   "id": "masterKitchen",
+   "label": "안방–주방 맞닿음",
+   "key": "masterKitchen",
+   "sign": 1,
+   "def": "안방–주방 맞닿음",
+   "why": "보정 후보",
+   "hand": 0,
+   "cal": -0.56,
+   "real": {
+    "n": 35,
+    "p": 0.2,
+    "lo": 0.10042319445900802,
+    "hi": 0.35891936609462516
+   },
+   "gen": {
+    "n": 4854,
+    "p": 0.05109188298310672,
+    "lo": 0.04524483449092334,
+    "hi": 0.0576489280393329
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.09185052126675718,
+     "groups": 12,
+     "pos": 3
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.44082477380056967,
+     "groups": 12,
+     "pos": 12
+    },
+    "genotypeTau": {
+     "mean": 0.28154812289582243,
+     "groups": 12,
+     "pos": 12
+    },
+    "privacyDepthGap": {
+     "mean": -0.020535398103653294,
+     "groups": 12,
+     "pos": 4
+    }
+   }
+  },
+  {
+   "id": "bedOverBath",
+   "label": "앞 침실–공용욕실 맞닿음",
+   "key": "bedOverBath",
+   "sign": 1,
+   "def": "작은 침실–공용욕실 맞닿음",
+   "why": "보정 후보",
+   "hand": 0,
+   "cal": -0.2,
+   "real": {
+    "n": 34,
+    "p": 0.7352941176470589,
+    "lo": 0.5688253783710155,
+    "hi": 0.8539897245844621
+   },
+   "gen": {
+    "n": 4559,
+    "p": 0.5812678218907655,
+    "lo": 0.5668841266154768,
+    "hi": 0.5955146732902662
+   },
+   "sx": {
+    "livingBedroomRatio": {
+     "mean": -0.03550851774996266,
+     "groups": 30,
+     "pos": 10
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.0985576908530503,
+     "groups": 30,
+     "pos": 6
+    },
+    "genotypeTau": {
+     "mean": -0.10820359483872247,
+     "groups": 30,
+     "pos": 2
+    },
+    "privacyDepthGap": {
+     "mean": -0.18078502209106476,
+     "groups": 30,
+     "pos": 0
+    }
+   }
+  }
+ ]
+}

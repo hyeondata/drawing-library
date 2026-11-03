@@ -1,0 +1,1555 @@
+{
+ "units": 19196,
+ "drawings": 7134,
+ "compare": [
+  {
+   "id": "kitchenLiving",
+   "label": "주방–거실 맞닿음",
+   "small_real": 1,
+   "small_n": 35,
+   "small_verdict": "보상",
+   "full_real": 0.9998927096185827,
+   "full_n": 18641,
+   "full_verdict": "보상",
+   "gen": 0.9009064688916357,
+   "hand": -8,
+   "cal": 2.18,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.009862118596093218,
+     "groups": 18,
+     "pos": 10
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.26184782341532115,
+     "groups": 18,
+     "pos": 18
+    },
+    "genotypeTau": {
+     "mean": 0.16699114363600687,
+     "groups": 18,
+     "pos": 18
+    },
+    "privacyDepthGap": {
+     "mean": 0.23003551826334917,
+     "groups": 18,
+     "pos": 18
+    }
+   },
+   "key": "kitchenLiving"
+  },
+  {
+   "id": "entranceLiving",
+   "label": "현관–거실 맞닿음",
+   "small_real": 1,
+   "small_n": 35,
+   "small_verdict": "보상",
+   "full_real": 0.9957282767243175,
+   "full_n": 19196,
+   "full_verdict": "보상",
+   "gen": 0.36299958796868564,
+   "hand": -5,
+   "cal": -0.58,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": 0.5704934348238473,
+     "groups": 40,
+     "pos": 40
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.1814064374478792,
+     "groups": 40,
+     "pos": 0
+    },
+    "genotypeTau": {
+     "mean": 0.11551466106426925,
+     "groups": 40,
+     "pos": 35
+    },
+    "privacyDepthGap": {
+     "mean": 0.29011193014557024,
+     "groups": 40,
+     "pos": 40
+    }
+   },
+   "key": "entranceLiving"
+  },
+  {
+   "id": "entranceKitchen",
+   "label": "현관–주방 옆",
+   "small_real": 0.42857142857142855,
+   "small_n": 35,
+   "small_verdict": "벌점",
+   "full_real": 0.19510755860737086,
+   "full_n": 18641,
+   "full_verdict": "벌점",
+   "gen": 0.638442521631644,
+   "hand": -5,
+   "cal": -4.82,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": 0.05621585890497969,
+     "groups": 33,
+     "pos": 24
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.26831482826738023,
+     "groups": 33,
+     "pos": 33
+    },
+    "genotypeTau": {
+     "mean": 0.12449146743584964,
+     "groups": 33,
+     "pos": 30
+    },
+    "privacyDepthGap": {
+     "mean": 0.8015169380537347,
+     "groups": 33,
+     "pos": 33
+    }
+   },
+   "key": "entranceKitchen"
+  },
+  {
+   "id": "bathKitchen",
+   "label": "공용욕실–주방 옆",
+   "small_real": 0.17647058823529413,
+   "small_n": 34,
+   "small_verdict": "벌점",
+   "full_real": 0.19001148105625718,
+   "full_n": 17420,
+   "full_verdict": "벌점",
+   "gen": 0.6435621846896249,
+   "hand": -3,
+   "cal": 2.76,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.025604937075211085,
+     "groups": 33,
+     "pos": 16
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.15678862923845197,
+     "groups": 33,
+     "pos": 28
+    },
+    "genotypeTau": {
+     "mean": 0.007252889180655128,
+     "groups": 33,
+     "pos": 21
+    },
+    "privacyDepthGap": {
+     "mean": 0.08558827676824604,
+     "groups": 33,
+     "pos": 28
+    }
+   },
+   "key": "bathKitchen"
+  },
+  {
+   "id": "bathEntrance",
+   "label": "공용욕실–현관 옆",
+   "small_real": 0.7647058823529411,
+   "small_n": 34,
+   "small_verdict": "보상",
+   "full_real": 0.6478246355847335,
+   "full_n": 17974,
+   "full_verdict": "보상",
+   "gen": 0.4307962272428164,
+   "hand": -3,
+   "cal": -0.83,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.3109828571586792,
+     "groups": 40,
+     "pos": 8
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.17865713611474704,
+     "groups": 40,
+     "pos": 36
+    },
+    "genotypeTau": {
+     "mean": -0.08791222931080753,
+     "groups": 40,
+     "pos": 3
+    },
+    "privacyDepthGap": {
+     "mean": 0.0824751586179753,
+     "groups": 40,
+     "pos": 27
+    }
+   },
+   "key": "bathEntrance"
+  },
+  {
+   "id": "bathLiving",
+   "label": "공용욕실–거실 맞닿음",
+   "small_real": 1,
+   "small_n": 34,
+   "small_verdict": "보상",
+   "full_real": 0.8309780794480917,
+   "full_n": 17974,
+   "full_verdict": "보상",
+   "gen": 0.6273305549462601,
+   "hand": -2,
+   "cal": -0.6,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": 0.026585593926620583,
+     "groups": 34,
+     "pos": 24
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.043382140339010465,
+     "groups": 34,
+     "pos": 12
+    },
+    "genotypeTau": {
+     "mean": -0.0813226364017149,
+     "groups": 34,
+     "pos": 5
+    },
+    "privacyDepthGap": {
+     "mean": -0.1004330868363251,
+     "groups": 34,
+     "pos": 5
+    }
+   },
+   "key": "bathLiving"
+  },
+  {
+   "id": "multiKitchen",
+   "label": "다목적실–주방 옆",
+   "small_real": 1,
+   "small_n": 11,
+   "small_verdict": "보상",
+   "full_real": 0.6954232482786553,
+   "full_n": 2469,
+   "full_verdict": "보상",
+   "gen": 0.6187419768934531,
+   "hand": -3,
+   "cal": 3.76,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.06597065800399098,
+     "groups": 14,
+     "pos": 6
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.21767122170488135,
+     "groups": 14,
+     "pos": 14
+    },
+    "genotypeTau": {
+     "mean": 0.04169124692804775,
+     "groups": 14,
+     "pos": 12
+    },
+    "privacyDepthGap": {
+     "mean": 0.03663992120604541,
+     "groups": 14,
+     "pos": 10
+    }
+   },
+   "key": "multiKitchen"
+  },
+  {
+   "id": "bedEntrance",
+   "label": "침실–현관 맞닿음",
+   "small_real": 0.11428571428571428,
+   "small_n": 35,
+   "small_verdict": "벌점",
+   "full_real": 0.14588333507252427,
+   "full_n": 19166,
+   "full_verdict": "벌점",
+   "gen": 0.5914709517923362,
+   "hand": 4,
+   "cal": 4.96,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.031254056514091015,
+     "groups": 33,
+     "pos": 15
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.19560052118588214,
+     "groups": 33,
+     "pos": 0
+    },
+    "genotypeTau": {
+     "mean": -0.0725979032551245,
+     "groups": 33,
+     "pos": 6
+    },
+    "privacyDepthGap": {
+     "mean": -0.6028182474194189,
+     "groups": 33,
+     "pos": 0
+    }
+   },
+   "key": "bedEntrance"
+  },
+  {
+   "id": "backBedEntrance",
+   "label": "뒤 침실–현관 옆",
+   "small_real": 0.11428571428571428,
+   "small_n": 35,
+   "small_verdict": "벌점",
+   "full_real": 0.14588333507252427,
+   "full_n": 19166,
+   "full_verdict": "벌점",
+   "gen": 0.5914709517923362,
+   "hand": 3,
+   "cal": 2.99,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.031254056514091015,
+     "groups": 33,
+     "pos": 15
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.19560052118588214,
+     "groups": 33,
+     "pos": 0
+    },
+    "genotypeTau": {
+     "mean": -0.0725979032551245,
+     "groups": 33,
+     "pos": 6
+    },
+    "privacyDepthGap": {
+     "mean": -0.6028182474194189,
+     "groups": 33,
+     "pos": 0
+    }
+   },
+   "key": "bedEntrance"
+  },
+  {
+   "id": "backBedUnderBed",
+   "label": "뒤 침실이 앞 침실 뒤",
+   "small_real": null,
+   "small_n": null,
+   "small_verdict": "측정 불가",
+   "full_real": null,
+   "full_n": null,
+   "full_verdict": "측정 불가",
+   "gen": null,
+   "hand": -2,
+   "cal": -2.03,
+   "sx_gen": null,
+   "key": null
+  },
+  {
+   "id": "backBedKitchen",
+   "label": "뒤 침실–주방 옆",
+   "small_real": 0.5714285714285714,
+   "small_n": 35,
+   "small_verdict": "차이 불확실",
+   "full_real": 0.4328873543375054,
+   "full_n": 18536,
+   "full_verdict": "차이 불확실",
+   "gen": 0.4402554594149155,
+   "hand": 2,
+   "cal": 4.66,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.23622680434049373,
+     "groups": 30,
+     "pos": 0
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.02624195819221834,
+     "groups": 30,
+     "pos": 19
+    },
+    "genotypeTau": {
+     "mean": -0.018425651174926186,
+     "groups": 30,
+     "pos": 13
+    },
+    "privacyDepthGap": {
+     "mean": -0.1592562568415427,
+     "groups": 30,
+     "pos": 1
+    }
+   },
+   "key": "backBedKitchen"
+  },
+  {
+   "id": "bedLiving",
+   "label": "침실–거실 옆",
+   "small_real": 1,
+   "small_n": 35,
+   "small_verdict": "문법 강제",
+   "full_real": 0.9981738495252008,
+   "full_n": 19166,
+   "full_verdict": "문법 강제",
+   "gen": 1,
+   "hand": 1.5,
+   "cal": -4.37,
+   "sx_gen": {
+    "livingBedroomRatio": null,
+    "kitchenBedroomRatio": null,
+    "genotypeTau": null,
+    "privacyDepthGap": null
+   },
+   "key": "bedLiving"
+  },
+  {
+   "id": "bedBed",
+   "label": "침실끼리 옆",
+   "small_real": 0.6857142857142857,
+   "small_n": 35,
+   "small_verdict": "차이 불확실",
+   "full_real": 0.7339550479383874,
+   "full_n": 19087,
+   "full_verdict": "보상",
+   "gen": 0.7101359703337453,
+   "hand": 0.8,
+   "cal": 2.32,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.6663721721713031,
+     "groups": 27,
+     "pos": 0
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.07477020804954099,
+     "groups": 27,
+     "pos": 4
+    },
+    "genotypeTau": {
+     "mean": -0.0914984720882722,
+     "groups": 27,
+     "pos": 6
+    },
+    "privacyDepthGap": {
+     "mean": 0.16338888174362148,
+     "groups": 27,
+     "pos": 23
+    }
+   },
+   "key": "bedBed"
+  },
+  {
+   "id": "livingOffCenter",
+   "label": "거실이 가운데에서 먼 정도",
+   "small_real": 0.08764506146788441,
+   "small_n": 35,
+   "small_verdict": "벌점",
+   "full_real": 0.09519446066536025,
+   "full_n": 19196,
+   "full_verdict": "벌점",
+   "gen": 0.2010285012065386,
+   "hand": 6,
+   "cal": 7.09,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.657609419540446,
+     "groups": 40,
+     "pos": 0
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.06342111042699583,
+     "groups": 40,
+     "pos": 8
+    },
+    "genotypeTau": {
+     "mean": -0.1397088259968214,
+     "groups": 40,
+     "pos": 2
+    },
+    "privacyDepthGap": {
+     "mean": -0.04684798220015703,
+     "groups": 40,
+     "pos": 16
+    }
+   },
+   "key": "livingOffCenter"
+  },
+  {
+   "id": "masterNotEnd",
+   "label": "안방이 끝 칸이 아님",
+   "small_real": 0.8285714285714286,
+   "small_n": 35,
+   "small_verdict": "문법 강제",
+   "full_real": 0.7812793488469164,
+   "full_n": 19166,
+   "full_verdict": "문법 강제",
+   "gen": 0.9936135146271117,
+   "hand": 6,
+   "cal": 3.69,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": 0.583212007144313,
+     "groups": 3,
+     "pos": 3
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.1840217762452474,
+     "groups": 3,
+     "pos": 2
+    },
+    "genotypeTau": {
+     "mean": 0.594446137760222,
+     "groups": 3,
+     "pos": 3
+    },
+    "privacyDepthGap": {
+     "mean": 0.19095452273863078,
+     "groups": 3,
+     "pos": 3
+    }
+   },
+   "key": "masterEnd"
+  },
+  {
+   "id": "entranceEnd",
+   "label": "현관이 끝 칸",
+   "small_real": 0.6,
+   "small_n": 35,
+   "small_verdict": "보상",
+   "full_real": 0.5138049593665347,
+   "full_n": 19196,
+   "full_verdict": "보상",
+   "gen": 0.41244334569427277,
+   "hand": 1.5,
+   "cal": -1.41,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.026052359990163577,
+     "groups": 40,
+     "pos": 19
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.15012675773725034,
+     "groups": 40,
+     "pos": 37
+    },
+    "genotypeTau": {
+     "mean": 0.03962235082847192,
+     "groups": 40,
+     "pos": 26
+    },
+    "privacyDepthGap": {
+     "mean": 0.481459065235086,
+     "groups": 40,
+     "pos": 40
+    }
+   },
+   "key": "entranceEnd"
+  },
+  {
+   "id": "kitchenEnd",
+   "label": "주방이 끝 칸",
+   "small_real": 0.05714285714285714,
+   "small_n": 35,
+   "small_verdict": "벌점",
+   "full_real": 0.07435223432219301,
+   "full_n": 18641,
+   "full_verdict": "벌점",
+   "gen": 0.3044911413267408,
+   "hand": 0,
+   "cal": 8,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.09272308847744136,
+     "groups": 40,
+     "pos": 6
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.3338931975636818,
+     "groups": 40,
+     "pos": 1
+    },
+    "genotypeTau": {
+     "mean": -0.2513363626756568,
+     "groups": 40,
+     "pos": 3
+    },
+    "privacyDepthGap": {
+     "mean": -0.2899840816933673,
+     "groups": 40,
+     "pos": 2
+    }
+   },
+   "key": "kitchenEnd"
+  },
+  {
+   "id": "backBedEnd",
+   "label": "뒤 침실이 끝 칸",
+   "small_real": 0.9428571428571428,
+   "small_n": 35,
+   "small_verdict": "보상",
+   "full_real": 0.9218840048200346,
+   "full_n": 19087,
+   "full_verdict": "보상",
+   "gen": 0.7035434693036671,
+   "hand": 0,
+   "cal": -7.1,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": 0.5505912310759478,
+     "groups": 40,
+     "pos": 38
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.2205618746011055,
+     "groups": 40,
+     "pos": 40
+    },
+    "genotypeTau": {
+     "mean": 0.17810372695062016,
+     "groups": 40,
+     "pos": 36
+    },
+    "privacyDepthGap": {
+     "mean": 0.026401226859119952,
+     "groups": 40,
+     "pos": 23
+    }
+   },
+   "key": "otherBedEnd"
+  },
+  {
+   "id": "masterKitchen",
+   "label": "안방–주방 맞닿음",
+   "small_real": 0.2,
+   "small_n": 35,
+   "small_verdict": "보상",
+   "full_real": 0.2112812248186946,
+   "full_n": 18615,
+   "full_verdict": "보상",
+   "gen": 0.05109188298310672,
+   "hand": 0,
+   "cal": -0.56,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.09185052126675718,
+     "groups": 12,
+     "pos": 3
+    },
+    "kitchenBedroomRatio": {
+     "mean": 0.44082477380056967,
+     "groups": 12,
+     "pos": 12
+    },
+    "genotypeTau": {
+     "mean": 0.28154812289582243,
+     "groups": 12,
+     "pos": 12
+    },
+    "privacyDepthGap": {
+     "mean": -0.020535398103653294,
+     "groups": 12,
+     "pos": 4
+    }
+   },
+   "key": "masterKitchen"
+  },
+  {
+   "id": "bedOverBath",
+   "label": "앞 침실–공용욕실 맞닿음",
+   "small_real": 0.7352941176470589,
+   "small_n": 34,
+   "small_verdict": "차이 불확실",
+   "full_real": 0.5278413850879643,
+   "full_n": 17905,
+   "full_verdict": "벌점",
+   "gen": 0.5812678218907655,
+   "hand": 0,
+   "cal": -0.2,
+   "sx_gen": {
+    "livingBedroomRatio": {
+     "mean": -0.03550851774996266,
+     "groups": 30,
+     "pos": 10
+    },
+    "kitchenBedroomRatio": {
+     "mean": -0.0985576908530503,
+     "groups": 30,
+     "pos": 6
+    },
+    "genotypeTau": {
+     "mean": -0.10820359483872247,
+     "groups": 30,
+     "pos": 2
+    },
+    "privacyDepthGap": {
+     "mean": -0.18078502209106476,
+     "groups": 30,
+     "pos": 0
+    }
+   },
+   "key": "bedOverBath"
+  }
+ ],
+ "assoc": [
+  {
+   "key": "backBedKitchen",
+   "y": "livingBedroomRatio",
+   "n": 18529,
+   "drawings": 7052.0,
+   "coef": 0.15194053464645324,
+   "lo": 0.12332670024329034,
+   "hi": 0.18055436904961614,
+   "p": 2.292031485555249e-25,
+   "note": "",
+   "p_holm": 5.959281862443647e-24
+  },
+  {
+   "key": "backBedKitchen",
+   "y": "kitchenBedroomRatio",
+   "n": 18528,
+   "drawings": 7051.0,
+   "coef": -0.1734841577687557,
+   "lo": -0.18844565560984675,
+   "hi": -0.15852265992766465,
+   "p": 2.4503090334732494e-114,
+   "note": "",
+   "p_holm": 1.0781359747282297e-112
+  },
+  {
+   "key": "backBedKitchen",
+   "y": "genotypeTau",
+   "n": 18378,
+   "drawings": 7042.0,
+   "coef": -0.04247177737503191,
+   "lo": -0.054417020201228315,
+   "hi": -0.030526534548835506,
+   "p": 3.1981823069307534e-12,
+   "note": "",
+   "p_holm": 6.076546383168431e-11
+  },
+  {
+   "key": "backBedKitchen",
+   "y": "privacyDepthGap",
+   "n": 18530,
+   "drawings": 7053.0,
+   "coef": -0.1223562448129299,
+   "lo": -0.13379409473477352,
+   "hi": -0.11091839489108629,
+   "p": 1.3214881697390633e-97,
+   "note": "",
+   "p_holm": 5.285952678956253e-96
+  },
+  {
+   "key": "bathEntrance",
+   "y": "livingBedroomRatio",
+   "n": 17938,
+   "drawings": 6751.0,
+   "coef": -0.36120056153421026,
+   "lo": -0.39483906989076195,
+   "hi": -0.3275620531776586,
+   "p": 2.5131547044138637e-98,
+   "note": "",
+   "p_holm": 1.030393428809684e-96
+  },
+  {
+   "key": "bathEntrance",
+   "y": "kitchenBedroomRatio",
+   "n": 17386,
+   "drawings": 6746.0,
+   "coef": 0.017701813044572294,
+   "lo": -0.00012014281620554429,
+   "hi": 0.03552376890535013,
+   "p": 0.05156455614137641,
+   "note": "",
+   "p_holm": 0.2448534757109369
+  },
+  {
+   "key": "bathEntrance",
+   "y": "genotypeTau",
+   "n": 17381,
+   "drawings": 6741.0,
+   "coef": 0.13147819663788646,
+   "lo": 0.12154382018318008,
+   "hi": 0.14141257309259284,
+   "p": 2.3900650239648898e-148,
+   "note": "",
+   "p_holm": 1.2189331622220937e-146
+  },
+  {
+   "key": "bathEntrance",
+   "y": "privacyDepthGap",
+   "n": 17948,
+   "drawings": 6755.0,
+   "coef": -0.03328392115684946,
+   "lo": -0.046445953302726675,
+   "hi": -0.02012188901097224,
+   "p": 7.183963675309421e-07,
+   "note": "",
+   "p_holm": 9.339152777902247e-06
+  },
+  {
+   "key": "bathKitchen",
+   "y": "livingBedroomRatio",
+   "n": 17387,
+   "drawings": 6747.0,
+   "coef": -0.10135817200416963,
+   "lo": -0.13799941646576389,
+   "hi": -0.06471692754257538,
+   "p": 5.90301055975897e-08,
+   "note": "",
+   "p_holm": 8.264214783662558e-07
+  },
+  {
+   "key": "bathKitchen",
+   "y": "kitchenBedroomRatio",
+   "n": 17386,
+   "drawings": 6746.0,
+   "coef": 0.263717130134599,
+   "lo": 0.2435835624717128,
+   "hi": 0.28385069779748523,
+   "p": 2.380331659663188e-145,
+   "note": "",
+   "p_holm": 1.190165829831594e-143
+  },
+  {
+   "key": "bathKitchen",
+   "y": "genotypeTau",
+   "n": 17381,
+   "drawings": 6741.0,
+   "coef": 0.012978526078374105,
+   "lo": 0.003371992467852818,
+   "hi": 0.02258505968889539,
+   "p": 0.008098591488900724,
+   "note": "",
+   "p_holm": 0.07253779046291114
+  },
+  {
+   "key": "bathKitchen",
+   "y": "privacyDepthGap",
+   "n": 17397,
+   "drawings": 6751.0,
+   "coef": 0.1193371439104479,
+   "lo": 0.0983579962375945,
+   "hi": 0.1403162915833013,
+   "p": 7.241612207782394e-29,
+   "note": "",
+   "p_holm": 2.1000675402568943e-27
+  },
+  {
+   "key": "bathLiving",
+   "y": "livingBedroomRatio",
+   "n": 17938,
+   "drawings": 6751.0,
+   "coef": 0.3701011931889258,
+   "lo": 0.337915786989872,
+   "hi": 0.4022865993879796,
+   "p": 1.7729483286404052e-112,
+   "note": "",
+   "p_holm": 7.623677813153743e-111
+  },
+  {
+   "key": "bathLiving",
+   "y": "kitchenBedroomRatio",
+   "n": 17386,
+   "drawings": 6746.0,
+   "coef": -0.1468316522877492,
+   "lo": -0.17371918588007523,
+   "hi": -0.11994411869542317,
+   "p": 9.824000808819961e-27,
+   "note": "",
+   "p_holm": 2.6524802183813897e-25
+  },
+  {
+   "key": "bathLiving",
+   "y": "genotypeTau",
+   "n": 17381,
+   "drawings": 6741.0,
+   "coef": 0.013334489219728962,
+   "lo": 0.003101379175179858,
+   "hi": 0.023567599264278066,
+   "p": 0.010650056235044036,
+   "note": "",
+   "p_holm": 0.07253779046291114
+  },
+  {
+   "key": "bathLiving",
+   "y": "privacyDepthGap",
+   "n": 17948,
+   "drawings": 6755.0,
+   "coef": -0.1492205251261154,
+   "lo": -0.1671305347228313,
+   "hi": -0.13131051552939949,
+   "p": 6.058371591876443e-60,
+   "note": "",
+   "p_holm": 2.2415974889942837e-58
+  },
+  {
+   "key": "bedBed",
+   "y": "livingBedroomRatio",
+   "n": 19080,
+   "drawings": 7055.0,
+   "coef": 0.11791764912097591,
+   "lo": 0.08832522240607604,
+   "hi": 0.14751007583587578,
+   "p": 5.72264415975467e-15,
+   "note": "",
+   "p_holm": 1.2017552735484807e-13
+  },
+  {
+   "key": "bedBed",
+   "y": "kitchenBedroomRatio",
+   "n": 18528,
+   "drawings": 7051.0,
+   "coef": 0.056639520228106435,
+   "lo": 0.03914563674025559,
+   "hi": 0.07413340371595728,
+   "p": 2.2137660372340597e-10,
+   "note": "",
+   "p_holm": 3.7634022632979015e-09
+  },
+  {
+   "key": "bedBed",
+   "y": "genotypeTau",
+   "n": 18378,
+   "drawings": 7042.0,
+   "coef": -0.17368612598618283,
+   "lo": -0.18820456911241373,
+   "hi": -0.15916768285995192,
+   "p": 1.4078721684967285e-121,
+   "note": "",
+   "p_holm": 6.476211975084952e-120
+  },
+  {
+   "key": "bedBed",
+   "y": "privacyDepthGap",
+   "n": 19081,
+   "drawings": 7056.0,
+   "coef": 0.038910665798302414,
+   "lo": 0.02143665801347973,
+   "hi": 0.0563846735831251,
+   "p": 1.2747401257691394e-05,
+   "note": "",
+   "p_holm": 0.00015296881509229673
+  },
+  {
+   "key": "bedEntrance",
+   "y": "livingBedroomRatio",
+   "n": 19159,
+   "drawings": 7112.0,
+   "coef": -0.19529507918362443,
+   "lo": -0.22825638303476795,
+   "hi": -0.16233377533248092,
+   "p": 3.5501866755367698e-31,
+   "note": "",
+   "p_holm": 1.1360597361717663e-29
+  },
+  {
+   "key": "bedEntrance",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": -0.059073331007693484,
+   "lo": -0.07260982929409515,
+   "hi": -0.04553683272129182,
+   "p": 1.1962839485337543e-17,
+   "note": "",
+   "p_holm": 2.751453081627635e-16
+  },
+  {
+   "key": "bedEntrance",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": 0.05625073216172022,
+   "lo": 0.043133357687857296,
+   "hi": 0.06936810663558314,
+   "p": 4.284521341912762e-17,
+   "note": "",
+   "p_holm": 9.425946952208076e-16
+  },
+  {
+   "key": "bedEntrance",
+   "y": "privacyDepthGap",
+   "n": 19160,
+   "drawings": 7113.0,
+   "coef": -0.5059874232088929,
+   "lo": -0.5189097872080338,
+   "hi": -0.493065059209752,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "bedLiving",
+   "y": "livingBedroomRatio",
+   "n": 19159,
+   "drawings": 7112.0,
+   "coef": 0.3171019162923193,
+   "lo": 0.0014306513408737231,
+   "hi": 0.6327731812437649,
+   "p": 0.04897069514218738,
+   "note": "",
+   "p_holm": 0.2448534757109369
+  },
+  {
+   "key": "bedLiving",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": -0.3663703301374153,
+   "lo": -0.5629549218097172,
+   "hi": -0.1697857384651134,
+   "p": 0.00025945561693379915,
+   "note": "",
+   "p_holm": 0.0025945561693379916
+  },
+  {
+   "key": "bedLiving",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": 0.05155982526460225,
+   "lo": -0.08320926619884078,
+   "hi": 0.1863289167280453,
+   "p": 0.4533504263289493,
+   "note": "",
+   "p_holm": 0.4533504263289493
+  },
+  {
+   "key": "bedLiving",
+   "y": "privacyDepthGap",
+   "n": 19160,
+   "drawings": 7113.0,
+   "coef": -0.32701252320477514,
+   "lo": -0.6900613888237344,
+   "hi": 0.03603634241418402,
+   "p": 0.07749364877927019,
+   "note": "",
+   "p_holm": 0.2448534757109369
+  },
+  {
+   "key": "bedOverBath",
+   "y": "livingBedroomRatio",
+   "n": 17898,
+   "drawings": 6731.0,
+   "coef": -0.13689836045551995,
+   "lo": -0.15853985640558832,
+   "hi": -0.1152568645054516,
+   "p": 2.672195861951078e-35,
+   "note": "",
+   "p_holm": 9.085465930633665e-34
+  },
+  {
+   "key": "bedOverBath",
+   "y": "kitchenBedroomRatio",
+   "n": 17346,
+   "drawings": 6726.0,
+   "coef": -0.028220616371511513,
+   "lo": -0.04144352777449281,
+   "hi": -0.014997704968530211,
+   "p": 2.8769186185218334e-05,
+   "note": "",
+   "p_holm": 0.00031646104803740167
+  },
+  {
+   "key": "bedOverBath",
+   "y": "genotypeTau",
+   "n": 17341,
+   "drawings": 6721.0,
+   "coef": 0.13764665816804555,
+   "lo": 0.12809264041122312,
+   "hi": 0.147200675924868,
+   "p": 2.021388029893777e-175,
+   "note": "",
+   "p_holm": 1.0511217755447641e-173
+  },
+  {
+   "key": "bedOverBath",
+   "y": "privacyDepthGap",
+   "n": 17899,
+   "drawings": 6732.0,
+   "coef": 0.07119845867101168,
+   "lo": 0.06079511507043676,
+   "hi": 0.0816018022715866,
+   "p": 5.032672097578792e-41,
+   "note": "",
+   "p_holm": 1.811761955128365e-39
+  },
+  {
+   "key": "entranceEnd",
+   "y": "livingBedroomRatio",
+   "n": 19159,
+   "drawings": 7112.0,
+   "coef": -0.30465731275415986,
+   "lo": -0.33015781926965415,
+   "hi": -0.27915680623866557,
+   "p": 2.94332989277643e-121,
+   "note": "",
+   "p_holm": 1.3244984517493935e-119
+  },
+  {
+   "key": "entranceEnd",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": 0.06858815320492663,
+   "lo": 0.05369612449555681,
+   "hi": 0.08348018191429646,
+   "p": 1.7644600295260739e-19,
+   "note": "",
+   "p_holm": 4.4111500738151846e-18
+  },
+  {
+   "key": "entranceEnd",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": 0.1299088065206046,
+   "lo": 0.11973003604367065,
+   "hi": 0.14008757699753854,
+   "p": 4.2544627757506925e-138,
+   "note": "",
+   "p_holm": 2.0421421323603326e-136
+  },
+  {
+   "key": "entranceEnd",
+   "y": "privacyDepthGap",
+   "n": 19169,
+   "drawings": 7116.0,
+   "coef": 0.014587441933851262,
+   "lo": 0.0036269661766369,
+   "hi": 0.025547917691065625,
+   "p": 0.009092886542512557,
+   "note": "",
+   "p_holm": 0.07253779046291114
+  },
+  {
+   "key": "entranceKitchen",
+   "y": "livingBedroomRatio",
+   "n": 18608,
+   "drawings": 7109.0,
+   "coef": -0.12677872758342687,
+   "lo": -0.16008432438476805,
+   "hi": -0.09347313078208569,
+   "p": 8.609001928411677e-14,
+   "note": "",
+   "p_holm": 1.7218003856823352e-12
+  },
+  {
+   "key": "entranceKitchen",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": 0.3206107851883928,
+   "lo": 0.30301371170931357,
+   "hi": 0.33820785866747205,
+   "p": 2.79874845127679e-279,
+   "note": "",
+   "p_holm": 1.5952866172277702e-277
+  },
+  {
+   "key": "entranceKitchen",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": 0.2197653183821086,
+   "lo": 0.20741093985236433,
+   "hi": 0.23211969691185289,
+   "p": 2.5465570740796693e-266,
+   "note": "",
+   "p_holm": 1.4006063907438181e-264
+  },
+  {
+   "key": "entranceKitchen",
+   "y": "privacyDepthGap",
+   "n": 18618,
+   "drawings": 7113.0,
+   "coef": 0.5138598929290535,
+   "lo": 0.5046276973364356,
+   "hi": 0.5230920885216714,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "entranceLiving",
+   "y": "livingBedroomRatio",
+   "n": 19159,
+   "drawings": 7112.0,
+   "coef": 1.224954464741492,
+   "lo": 1.0785750153601295,
+   "hi": 1.3713339141228547,
+   "p": 1.860689601134092e-60,
+   "note": "",
+   "p_holm": 7.070620484309549e-59
+  },
+  {
+   "key": "entranceLiving",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": -0.551105451504866,
+   "lo": -0.7355542775121484,
+   "hi": -0.36665662549758365,
+   "p": 4.739237742421305e-09,
+   "note": "",
+   "p_holm": 7.108856613631957e-08
+  },
+  {
+   "key": "entranceLiving",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": 0.32828488472690204,
+   "lo": 0.2553034427365897,
+   "hi": 0.40126632671721435,
+   "p": 1.183004188776695e-18,
+   "note": "",
+   "p_holm": 2.839210053064068e-17
+  },
+  {
+   "key": "entranceLiving",
+   "y": "privacyDepthGap",
+   "n": 19169,
+   "drawings": 7116.0,
+   "coef": 0.573110424739504,
+   "lo": 0.47170433104170506,
+   "hi": 0.674516518437303,
+   "p": 1.6220835959409846e-28,
+   "note": "",
+   "p_holm": 4.541834068634757e-27
+  },
+  {
+   "key": "kitchenEnd",
+   "y": "livingBedroomRatio",
+   "n": 18608,
+   "drawings": 7109.0,
+   "coef": 0.14038407088154342,
+   "lo": 0.09428146867349452,
+   "hi": 0.18648667308959233,
+   "p": 2.3994349200658993e-09,
+   "note": "",
+   "p_holm": 3.839095872105439e-08
+  },
+  {
+   "key": "kitchenEnd",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": -0.23691753126221335,
+   "lo": -0.25246550524638817,
+   "hi": -0.22136955727803853,
+   "p": 5.50433585187691e-196,
+   "note": "",
+   "p_holm": 2.9172980014947623e-194
+  },
+  {
+   "key": "kitchenEnd",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": -0.23794273529965956,
+   "lo": -0.2572014566516473,
+   "hi": -0.21868401394767184,
+   "p": 1.528439359685934e-129,
+   "note": "",
+   "p_holm": 7.18366499052389e-128
+  },
+  {
+   "key": "kitchenEnd",
+   "y": "privacyDepthGap",
+   "n": 18618,
+   "drawings": 7113.0,
+   "coef": -0.05912213818379346,
+   "lo": -0.07729094599328616,
+   "hi": -0.04095333037430075,
+   "p": 1.7963447364630516e-10,
+   "note": "",
+   "p_holm": 3.233420525633493e-09
+  },
+  {
+   "key": "kitchenLiving",
+   "y": "livingBedroomRatio",
+   "n": 18608,
+   "drawings": null,
+   "coef": null,
+   "lo": null,
+   "hi": null,
+   "p": null,
+   "note": "한쪽 집단 30 미만",
+   "p_holm": null
+  },
+  {
+   "key": "kitchenLiving",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": null,
+   "coef": null,
+   "lo": null,
+   "hi": null,
+   "p": null,
+   "note": "한쪽 집단 30 미만",
+   "p_holm": null
+  },
+  {
+   "key": "kitchenLiving",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": null,
+   "coef": null,
+   "lo": null,
+   "hi": null,
+   "p": null,
+   "note": "한쪽 집단 30 미만",
+   "p_holm": null
+  },
+  {
+   "key": "kitchenLiving",
+   "y": "privacyDepthGap",
+   "n": 18618,
+   "drawings": null,
+   "coef": null,
+   "lo": null,
+   "hi": null,
+   "p": null,
+   "note": "한쪽 집단 30 미만",
+   "p_holm": null
+  },
+  {
+   "key": "livingOffCenter",
+   "y": "livingBedroomRatio",
+   "n": 19159,
+   "drawings": 7112.0,
+   "coef": 0.28474229314219385,
+   "lo": 0.27213528184063385,
+   "hi": 0.29734930444375385,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "livingOffCenter",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": -0.1551603211044776,
+   "lo": -0.16193134531574524,
+   "hi": -0.14838929689320998,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "livingOffCenter",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": -0.12939818904502978,
+   "lo": -0.13445808899230086,
+   "hi": -0.12433828909775871,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "livingOffCenter",
+   "y": "privacyDepthGap",
+   "n": 19169,
+   "drawings": 7116.0,
+   "coef": -0.07249564132471711,
+   "lo": -0.07811429218703285,
+   "hi": -0.06687699046240138,
+   "p": 4.243969694526205e-141,
+   "note": "",
+   "p_holm": 2.0795451503178407e-139
+  },
+  {
+   "key": "masterEnd",
+   "y": "livingBedroomRatio",
+   "n": 19159,
+   "drawings": 7112.0,
+   "coef": -0.4792971068500807,
+   "lo": -0.5057665101003319,
+   "hi": -0.45282770359982955,
+   "p": 6.956123256111102e-276,
+   "note": "",
+   "p_holm": 3.8954290234222174e-274
+  },
+  {
+   "key": "masterEnd",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": 0.23270831975629994,
+   "lo": 0.2232925228277934,
+   "hi": 0.24212411668480646,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "masterEnd",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": 0.22236854585516427,
+   "lo": 0.21185215181925315,
+   "hi": 0.2328849398910754,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "masterEnd",
+   "y": "privacyDepthGap",
+   "n": 19160,
+   "drawings": 7113.0,
+   "coef": 0.11340235901089775,
+   "lo": 0.10291710366858217,
+   "hi": 0.12388761435321333,
+   "p": 1.0002673384117786e-99,
+   "note": "",
+   "p_holm": 4.20112282132947e-98
+  },
+  {
+   "key": "masterKitchen",
+   "y": "livingBedroomRatio",
+   "n": 18608,
+   "drawings": 7109.0,
+   "coef": -0.7072852330951583,
+   "lo": -0.7300841629959316,
+   "hi": -0.6844863031943851,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "masterKitchen",
+   "y": "kitchenBedroomRatio",
+   "n": 18607,
+   "drawings": 7108.0,
+   "coef": 0.4042029254827317,
+   "lo": 0.3882734952970123,
+   "hi": 0.42013235566845103,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "masterKitchen",
+   "y": "genotypeTau",
+   "n": 18457,
+   "drawings": 7099.0,
+   "coef": 0.18697520381585062,
+   "lo": 0.1760904585358382,
+   "hi": 0.19785994909586302,
+   "p": 1.7157822468662105e-248,
+   "note": "",
+   "p_holm": 9.265224133077537e-247
+  },
+  {
+   "key": "masterKitchen",
+   "y": "privacyDepthGap",
+   "n": 18609,
+   "drawings": 7110.0,
+   "coef": 0.09766485003544817,
+   "lo": 0.08093766621840429,
+   "hi": 0.11439203385249205,
+   "p": 2.5309060941560407e-30,
+   "note": "",
+   "p_holm": 7.592718282468122e-29
+  },
+  {
+   "key": "multiKitchen",
+   "y": "livingBedroomRatio",
+   "n": 2453,
+   "drawings": 1906.0,
+   "coef": -0.2819131319339948,
+   "lo": -0.33007613899725236,
+   "hi": -0.2337501248707373,
+   "p": 1.8180143194193558e-30,
+   "note": "",
+   "p_holm": 5.635844390200003e-29
+  },
+  {
+   "key": "multiKitchen",
+   "y": "kitchenBedroomRatio",
+   "n": 2453,
+   "drawings": 1906.0,
+   "coef": 0.3568509737042647,
+   "lo": 0.33961632787399165,
+   "hi": 0.3740856195345378,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "multiKitchen",
+   "y": "genotypeTau",
+   "n": 2453,
+   "drawings": 1906.0,
+   "coef": 0.48087484417234594,
+   "lo": 0.4573551584450387,
+   "hi": 0.5043945298996532,
+   "p": 0.0,
+   "note": "",
+   "p_holm": 0.0
+  },
+  {
+   "key": "multiKitchen",
+   "y": "privacyDepthGap",
+   "n": 2460,
+   "drawings": 1908.0,
+   "coef": 0.025603345419155203,
+   "lo": 0.006663708198169426,
+   "hi": 0.04454298264014098,
+   "p": 0.008059754495879016,
+   "note": "",
+   "p_holm": 0.07253779046291114
+  },
+  {
+   "key": "otherBedEnd",
+   "y": "livingBedroomRatio",
+   "n": 19080,
+   "drawings": 7055.0,
+   "coef": 0.2488958839796332,
+   "lo": 0.20739438196148202,
+   "hi": 0.29039738599778436,
+   "p": 6.70024743644213e-32,
+   "note": "",
+   "p_holm": 2.211081654025903e-30
+  },
+  {
+   "key": "otherBedEnd",
+   "y": "kitchenBedroomRatio",
+   "n": 18528,
+   "drawings": 7051.0,
+   "coef": 0.10345105190416277,
+   "lo": 0.08801279347355205,
+   "hi": 0.1188893103347735,
+   "p": 2.112875226222183e-39,
+   "note": "",
+   "p_holm": 7.395063291777641e-38
+  },
+  {
+   "key": "otherBedEnd",
+   "y": "genotypeTau",
+   "n": 18378,
+   "drawings": 7042.0,
+   "coef": -0.01188721481447822,
+   "lo": -0.029523291213945695,
+   "hi": 0.005748861584989254,
+   "p": 0.18647761918928496,
+   "note": "",
+   "p_holm": 0.3729552383785699
+  },
+  {
+   "key": "otherBedEnd",
+   "y": "privacyDepthGap",
+   "n": 19081,
+   "drawings": 7056.0,
+   "coef": 0.2249938075195646,
+   "lo": 0.20218250470378776,
+   "hi": 0.24780511033534144,
+   "p": 2.9105200442124407e-83,
+   "note": "",
+   "p_holm": 1.1351028172428518e-81
+  }
+ ]
+}

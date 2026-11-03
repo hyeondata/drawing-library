@@ -1,0 +1,9 @@
+[project]
+name = "floorplan-eval-analysis"
+version = "0.1.0"
+description = "Statistics on the full AI Hub APT_FP_SPA data (term evidence)"
+requires-python = ">=3.11"
+dependencies = ["numpy", "pandas", "statsmodels", "scipy"]
+
+[tool.uv]
+package = false

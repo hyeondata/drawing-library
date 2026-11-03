@@ -9,10 +9,10 @@ export { MODEL_VERSION, detectKind };
 
 const ANALYZERS = { SPA: analyzeSPA, STR: analyzeSTR, OBJ: analyzeOBJ };
 
-export function analyze(label, kind = detectKind(label)) {
+export function analyze(label, kind = detectKind(label), opts = {}) {
   const fn = ANALYZERS[kind];
   if (!fn) throw new Error(kind ? `${kind} 라벨은 평가 대상이 아닙니다(문자 정보만 있음).` : '평가할 라벨이 없습니다.');
-  return fn(parseLabel(label));
+  return fn(parseLabel(label), opts);
 }
 
 /** 기준 분포에 넣을 특징값 목록: [{ unit, features }] */

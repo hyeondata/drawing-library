@@ -60,7 +60,7 @@ function neighborsOf(n, edges, keep) {
  * 세대 분리. 현관마다 출발해 벽 두께를 비용으로 한 최단경로로 실을 배정한다.
  * 세대 경계벽은 내벽보다 두꺼워 비용이 커지므로 이웃 세대로 잘 넘어가지 않는다.
  */
-function assignUnits(spaces, edges) {
+function assignUnits(spaces, edges, strictEntrance = false) {
   const isPrivate = (i) => !COMMON_TYPES.has(spaces[i].type);
   const adj = Array.from({ length: spaces.length }, () => []);
   for (const [i, j, , gap] of edges) {
@@ -71,6 +71,8 @@ function assignUnits(spaces, edges) {
   }
   let entrances = spaces.map((s, i) => i).filter((i) => spaces[i].type === '현관');
   let rootless = false;
+  // 엄격 기준(현관 하나 = 세대 하나): 현관이 없는 도면은 세대로 세지 않는다.
+  if (entrances.length === 0 && strictEntrance) return { units: [], unitOf: spaces.map(() => -1), rootless: false, stranded: new Set() };
   if (entrances.length === 0) {
     // 현관이 없으면 거실(없으면 가장 큰 실)을 기준으로 한 세대로 본다.
     const priv = spaces.map((s, i) => i).filter(isPrivate);
@@ -101,7 +103,8 @@ function assignUnits(spaces, edges) {
 
   // 거실도 침실도 없는 조각(현관이 둘로 나뉜 경우 등)은 가장 많이 맞닿은 세대에 합친다.
   let roots = entrances.map((e, u) => u);
-  for (let changed = true; changed; ) {
+  // 엄격 기준에서는 거실·침실 없는 현관 조각도 합치지 않고 그대로 한 세대로 둔다.
+  for (let changed = !strictEntrance; changed; ) {
     changed = false;
     for (const u of roots) {
       const members = spaces.map((s, i) => i).filter((i) => unitOf[i] === u);
@@ -390,11 +393,12 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded, T) {
   };
 }
 
-export function analyzeSPA(parsed) {
+/** opts.unitRule: 'default'(현관 조각 병합·무현관 도면은 거실 기준 한 세대) | 'entrance'(현관 하나 = 세대 하나). */
+export function analyzeSPA(parsed, opts = {}) {
   const spaces = parsed.items.filter((it) => it.group === '공간');
   const T = scaledThresholds(drawingScale(spaces));
   const edges = buildAdjacency(spaces, T);
-  const { units, unitOf, rootless, stranded } = assignUnits(spaces, edges);
+  const { units, unitOf, rootless, stranded } = assignUnits(spaces, edges, opts.unitRule === 'entrance');
   return {
     kind: 'SPA',
     spaces: spaces.map((s, i) => ({ id: s.id, type: s.type, area: s.area, center: s.center, polys: s.polys, unit: unitOf[i], common: COMMON_TYPES.has(s.type) })),
