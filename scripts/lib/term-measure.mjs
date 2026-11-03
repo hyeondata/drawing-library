@@ -92,6 +92,8 @@ export function measureDrawing(dataDir, file) {
       areaPx: Math.round(u.totalArea / (a.scale * a.scale)),
       rel: relations(a, u),
       sx: Object.fromEntries(SX.map((k) => [k, u.features[k] ?? null])),
+      // 평가 모델 특징값 전체: 기준 분포(샘플 35세대 vs 전체) 비교용(analysis/baseline_compare.py)
+      features: u.features,
     });
   }
   return { rows, census };
