@@ -4,7 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { GATE_CAP } from '../src/model/config.js';
-import { analyze, closenessScore, detectKind, ecdf, evaluate, percentileScore, qnScale, robustStats } from '../src/model/index.js';
+import { analyze, cdfAt, closenessScore, detectKind, ecdf, evaluate, extractFeatures, makeCdf, percentileScore, qnScale, robustStats, scoreAnalysis, summarizePool } from '../src/model/index.js';
 import { minAreaRect } from '../src/model/geometry.js';
 import { diamondValue, kendallTauB, nodeMetrics } from '../src/model/syntax.js';
 
@@ -175,13 +175,72 @@ test('관문 결과는 점수와 별도로 유효성으로 출력되고, 상한�
   assert.equal(r.units[0].capped, false);
 });
 
-test('평가 시 자기 자신은 기준 분포에서 빠진다', () => {
-  const id = baseline.entries.SPA[0].drawing;
+test('평가 시 자기 자신은 기준 분포에서 빠진다(세대 목록형 기준: STR)', () => {
+  const id = baseline.entries.STR[0].drawing;
   const label = readJson(`public/data/labels/${id}.json`);
-  const own = baseline.entries.SPA.filter((e) => e.drawing === id).length;
+  const own = baseline.entries.STR.filter((e) => e.drawing === id).length;
   const r = evaluate(label, { baseline, drawingId: id });
-  assert.equal(r.baselineSize, baseline.entries.SPA.length - own);
-  assert.equal(detectKind(label), 'SPA');
+  assert.equal(r.baselineSize, baseline.entries.STR.length - own);
+  assert.equal(detectKind(label), 'STR');
+});
+
+test('SPA 기준은 전체 7,275장 요약형이고 샘플 세대 목록은 쓰지 않는다', () => {
+  assert.equal(baseline.entries.SPA.length, 0);
+  assert.equal(baseline.census.SPA.drawings, 7275);
+  const id = 'APT_FP_SPA_001168733';
+  const r = evaluate(readJson(`public/data/labels/${id}.json`), { baseline, drawingId: id });
+  assert.equal(r.baselineSize, baseline.summary.SPA.all.n);
+  assert.ok(r.units.every((u) => u.baselineSize >= baseline.summary.SPA.strata.minSize));
+});
+
+test('Qn 척도(이분 탐색)는 모든 쌍을 정렬한 값과 같다', () => {
+  const brute = (s) => {
+    const d = [];
+    for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) d.push(Math.abs(s[i] - s[j]));
+    d.sort((a, b) => a - b);
+    const h = Math.floor(s.length / 2) + 1;
+    return d[(h * (h - 1)) / 2 - 1];
+  };
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (const n of [2, 3, 10, 11, 57, 200]) {
+    for (const ties of [false, true]) {
+      const v = Array.from({ length: n }, () => (ties ? Math.round(rnd() * 5) / 5 : rnd() * 3)).sort((a, b) => a - b);
+      const h = Math.floor(n / 2) + 1;
+      const small = { 2: 0.399, 3: 0.994, 4: 0.512, 5: 0.844, 6: 0.611, 7: 0.857, 8: 0.669, 9: 0.872 };
+      const dn = n <= 9 ? small[n] : n % 2 ? n / (n + 1.4) : n / (n + 3.8);
+      assert.equal(qnScale(v), 2.2219 * dn * brute(v), `n=${n} ties=${ties}`);
+      assert.ok(h >= 2);
+    }
+  }
+});
+
+test('요약형 누적분포: 이산 지표는 ecdf와 같고, 연속 지표는 격자 오차(1/500) 이내다', () => {
+  const disc = [0, 0, 0.2, 0.2, 0.2, 0.4, 0.6, 0.6, 1, 1].sort((a, b) => a - b);
+  const c1 = makeCdf(disc);
+  assert.ok(c1.u);
+  for (const x of [-1, 0, 0.1, 0.2, 0.5, 0.6, 1, 2]) assert.equal(cdfAt(x, c1, disc.length), ecdf(x, disc));
+  let seed = 3;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const cont = Array.from({ length: 5000 }, () => rnd() ** 2).sort((a, b) => a - b);
+  const c2 = makeCdf(cont);
+  assert.ok(c2.q);
+  for (let i = 0; i < 200; i++) {
+    const x = rnd();
+    assert.ok(Math.abs(cdfAt(x, c2, cont.length) - ecdf(x, cont)) <= 1 / 500 + 1e-9);
+  }
+});
+
+test('요약형 기준으로 채점한 점수는 세대 목록으로 채점한 점수와 같다(샘플 세대로 대조)', () => {
+  const ids = fs.readdirSync(path.join(root, 'public/data/labels')).filter((f) => f.includes('_SPA_')).map((f) => f.replace('.json', ''));
+  const an = ids.map((id) => analyze(readJson(`public/data/labels/${id}.json`), 'SPA'));
+  const pool = an.flatMap((a) => extractFeatures(a).map((e) => e.features));
+  const sum = summarizePool(pool);
+  for (const a of an) {
+    const x = scoreAnalysis(a, pool);
+    const y = scoreAnalysis(a, sum);
+    assert.ok(Math.abs(x.score - y.score) < 1e-9, `${x.score} vs ${y.score}`);
+  }
 });
 
 test('실제 샘플에서 거실을 지우면 점수가 떨어진다', () => {
@@ -195,8 +254,9 @@ test('실제 샘플에서 거실을 지우면 점수가 떨어진다', () => {
 });
 
 test('모든 샘플을 오류 없이 평가하고 점수는 0~100이다', () => {
+  const catalog = readJson('public/data/catalog.json');
   for (const kind of ['SPA', 'STR', 'OBJ']) {
-    for (const id of new Set(baseline.entries[kind].map((e) => e.drawing))) {
+    for (const id of catalog.filter((c) => c.kind === kind).map((c) => c.id)) {
       const r = evaluate(readJson(`public/data/labels/${id}.json`), { baseline, drawingId: id });
       assert.ok(r.score >= 0 && r.score <= 100, `${id}: ${r.score}`);
     }

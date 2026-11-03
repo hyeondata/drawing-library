@@ -651,7 +651,7 @@ async function stepPlan() {
      <div class="qs-two"><figure>${layoutSvg(lay0, { mode: 'space' })}<figcaption>(가) 기본값 — J ${f(sc0?.objective, 1)}</figcaption></figure><figure>${layoutSvg(lay1, { mode: 'space' })}<figcaption>(나) 다듬기 뒤 — J ${f(best.objective, 1)}</figcaption></figure></div>
      <details open><summary><b>(가) 기본값의 방 폭 계산</b></summary>${allocHtml(tr0)}<div class="mt-eq">${jLine(spec, sc0)}</div></details>
      <details open><summary><b>(나) 다듬기 뒤의 방 폭 계산</b></summary>${allocHtml(tr1)}<div class="mt-eq">${jLine(spec, best)}</div></details>
-     <p class="note">면적 부합 = max(0, 100 − 250 × 실별 상대 오차 평균). 모델 점수 = 실제 아파트 35세대 분포와의 근접도(평가 모델).</p>` +
+     <p class="note">면적 부합 = max(0, 100 − 250 × 실별 상대 오차 평균). 모델 점수 = 실제 아파트 7,275장(평면 8,331개) 분포와의 근접도(평가 모델).</p>` +
       ok(Math.abs(lay1.W * lay1.D - spec.area) < 1e-6 && Math.abs(lay0.W * lay0.D - spec.area) < 1e-6, `두 평면 모두 W × D = 전용면적 ${spec.area}㎡`) +
       ok(Math.abs(scoreLayout(spec, lay1, bl).objective - best.objective) < 1e-9, '다듬은 매개변수로 다시 만든 평면의 J = realize()가 돌려준 J'),
   );

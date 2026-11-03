@@ -47,12 +47,12 @@ export const KINDS = {
   eval: {
     label: '평가',
     desc: '평가 모델로 채점하고 점수로 후보를 고릅니다.',
-    what: '이미 만들어진 평면을 <b>채점</b>합니다: 실제 아파트 35세대와 얼마나 닮았는지(평가 모델) + 목표 면적에 얼마나 맞는지 + 고른 선호를 얼마나 만족하는지 − 감점. 이 점수 J로 후보를 비교해 고릅니다. 평면 자체를 바꾸지는 않습니다.',
+    what: '이미 만들어진 평면을 <b>채점</b>합니다: 실제 아파트(AI 허브 7,275장)와 얼마나 닮았는지(평가 모델) + 목표 면적에 얼마나 맞는지 + 고른 선호를 얼마나 만족하는지 − 감점. 이 점수 J로 후보를 비교해 고릅니다. 평면 자체를 바꾸지는 않습니다.',
     example: 'J = 0.45·모델 점수 + 0.25·면적 부합 + 0.30·선호 − 40·[무효] − 15·(좁은 실 + 문 동선 문제)',
     random: '없음',
     why: 'QUBO 에너지는 평가의 대리(근사)라서, 마지막 판단은 원래 목표인 평가 점수로 해야 하기 때문',
     analogy: '심사위원이 완성된 작품에 점수 매기기',
-    basis: [data('실제 아파트 35세대(AI 허브 라벨)의 지표 분포와 비교하는 평가 모델'), lit('hillier-syntax'), lit('byun-living'), lit('zeng-geom'), lit('zeng-master'), lit('jin-surrogate')],
+    basis: [data('실제 아파트 평면 8,331개(AI 허브 APT_FP_SPA 7,275장)의 지표 분포와 비교하는 평가 모델'), lit('hillier-syntax'), lit('byun-living'), lit('zeng-geom'), lit('zeng-master'), lit('jin-surrogate')],
   },
 };
 
@@ -90,7 +90,7 @@ export const SELECT_STAGES = [
   { what: '복도·부속실(부부욕실·드레스룸)', kinds: ['rule'], algo: '조건 분기 규칙(if-then)', q: { s: 'na', why: '치수가 정해지면 위치가 바로 정해짐' }, how: '작은방이 거실보다 얕으면 그 뒤를 복도로, 부속실은 안방 뒤에 붙임', code: 'layout.js buildLayout' },
   { what: '문·개구부·창·발코니 문', kinds: ['rule'], algo: '우선순위 탐욕 선택(greedy)', q: { s: 'other', why: '실마다 문 하나(원-핫) + 이웃 실 비용으로 쓸 수 있음' }, how: '현관문 1개, 공용 공간끼리는 트기, 방마다 우선순위(복도 → 거실 → 현관 → 주방) 쪽에 문 하나, 가장 긴 바깥 벽에 창', code: 'openings.js placeOpenings' },
   { what: '설비(변기·세면대·싱크대 등)', kinds: ['rule'], algo: '배치 규칙(if-then)', q: { s: 'possible', why: '벽 칸 선택 원-핫으로 쓸 수 있으나 구현하지 않음' }, how: '문에서 먼 벽을 따라 놓음', code: 'fixtures.js placeFixtures' },
-  { what: '채점', kinds: ['eval'], algo: '평가 모델: 실제 35세대 분포와의 거리 + 공간구문 그래프 계산 + 감점', q: { s: 'no', why: '그래프 경로(통합도·깊이)와 분포 비교는 이차식이 아님. QUBO 에너지는 이것의 대리' }, how: 'J = 0.45·모델 + 0.25·면적 부합 + 0.30·선호 − 감점. 문을 단 뒤 현관에서 못 가는 방·침실을 지나야 하는 방도 감점', code: 'optimize.js scoreLayout' },
+  { what: '채점', kinds: ['eval'], algo: '평가 모델: 실제 아파트 7,275장 분포와의 거리 + 공간구문 그래프 계산 + 감점', q: { s: 'no', why: '그래프 경로(통합도·깊이)와 분포 비교는 이차식이 아님. QUBO 에너지는 이것의 대리' }, how: 'J = 0.45·모델 + 0.25·면적 부합 + 0.30·선호 − 감점. 문을 단 뒤 현관에서 못 가는 방·침실을 지나야 하는 방도 감점', code: 'optimize.js scoreLayout' },
   { what: '최종안 고르기', kinds: ['eval'], algo: '최댓값 선택(argmax)', q: { s: 'na', why: '후보 몇 개의 점수 비교' }, how: '템플릿 × 해 후보(최대 8개) 가운데 J가 가장 높은 평면', code: 'compare.js compareAlgorithms' },
 ];
 

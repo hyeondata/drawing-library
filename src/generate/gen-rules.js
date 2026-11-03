@@ -38,7 +38,7 @@ export const lit = (key) => {
   return { type: 'lit', id: c.ref, key, what: c.ko };
 };
 const law = (label, what, url = '') => ({ type: 'law', label, what, url });
-export const data = (what) => ({ type: 'data', label: 'AI 허브 35세대 · 평가 모델', what });
+export const data = (what) => ({ type: 'data', label: 'AI 허브 7,275장 · 평가 모델', what });
 export const assume = (what) => ({ type: 'assume', label: '설계 가정', what });
 
 const f1 = (v) => Number(v).toFixed(1);
@@ -218,4 +218,4 @@ export function basisHtml(basis = []) {
     })
     .join('')}</div>`;
 }
-export const BASIS_LEGEND = '<div class="gr-legend"><span class="gr-cite lit lv-direct"><b>문헌</b><em class="gr-lv">원문에 있음</em></span><span class="gr-cite lit lv-adapted"><b>문헌</b><em class="gr-lv">원문 개념 → 이 도구 규칙</em></span><span class="gr-cite lit lv-unverified"><b>문헌</b><em class="gr-lv">초록만 확인</em></span><span class="gr-cite law"><b>법령</b></span><span class="gr-cite data"><b>데이터</b><small>AI 허브 35세대</small></span><span class="gr-cite assume"><b>설계 가정</b></span><span class="note">문헌 근거는 2026-10-28에 원문을 열어 한 줄씩 대조했습니다. <b>원문에 있음</b>: 적힌 내용이 원문에 있음. <b>원문 개념 → 이 도구 규칙</b>: 원문의 관찰·개념을 이 도구가 규칙으로 옮겼고 수치·식은 이 도구가 정함. <b>초록만 확인</b>: 전문을 열람하지 못함. 「원문」을 누르면 원문 문장과 쪽이 나옵니다. 설계 가정은 문헌 근거 없이 이 도구가 정한 값입니다.</span></div>';
+export const BASIS_LEGEND = '<div class="gr-legend"><span class="gr-cite lit lv-direct"><b>문헌</b><em class="gr-lv">원문에 있음</em></span><span class="gr-cite lit lv-adapted"><b>문헌</b><em class="gr-lv">원문 개념 → 이 도구 규칙</em></span><span class="gr-cite lit lv-unverified"><b>문헌</b><em class="gr-lv">초록만 확인</em></span><span class="gr-cite law"><b>법령</b></span><span class="gr-cite data"><b>데이터</b><small>AI 허브 7,275장</small></span><span class="gr-cite assume"><b>설계 가정</b></span><span class="note">문헌 근거는 2026-10-28에 원문을 열어 한 줄씩 대조했습니다. <b>원문에 있음</b>: 적힌 내용이 원문에 있음. <b>원문 개념 → 이 도구 규칙</b>: 원문의 관찰·개념을 이 도구가 규칙으로 옮겼고 수치·식은 이 도구가 정함. <b>초록만 확인</b>: 전문을 열람하지 못함. 「원문」을 누르면 원문 문장과 쪽이 나옵니다. 설계 가정은 문헌 근거 없이 이 도구가 정한 값입니다.</span></div>';

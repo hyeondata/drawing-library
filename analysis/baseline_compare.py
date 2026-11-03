@@ -1,10 +1,11 @@
-"""평가 모델 기준 분포 비교: 샘플 35세대(public/data/baseline.json) vs 전체 APT_FP_SPA 7,275장(현관 하나 = 세대 하나).
+"""평가 모델 기준 분포 비교: 이전 샘플 35세대(data/baseline-sample35.json, 동결) vs 현재 기준(전체 APT_FP_SPA 7,275장).
 
-왜: 평가 모델의 '모델 점수'(J의 0.45)는 기준 분포의 중앙값·Qn 척도에 대한 근접도다. 그 기준이 아직 샘플 35세대다.
-    기준을 전체 데이터로 바꾸면 J와 생성 결과가 달라지므로(사용자 승인 필요), 먼저 두 기준이 얼마나 다른지와
-    샘플 기준이 실제 아파트를 얼마나 낮게 채점하는지를 잰다. 기준 교체 자체는 하지 않는다.
+왜: 평가 모델의 '모델 점수'(J의 0.45)는 기준 분포의 중앙값·Qn 척도에 대한 근접도다. 2026-11-04에 기준을 샘플 35세대에서
+    전체 데이터(현관 하나 = 세대 하나, 거실·주방·화장실 있음, 침실 1~5개, 같은 평면 한 번 = 8,331개 평면)로 바꿨다.
+    두 기준이 얼마나 다른지와, 샘플 기준이 실제 아파트를 얼마나 낮게 채점했는지를 기록한다.
 
-입력: <aihub-full>/derived/real-units.jsonl(features), public/data/baseline.json, 특징 정의(src/model/config.js를 node로 읽음)
+입력: <aihub-full>/derived/real-units.jsonl(features), <aihub-full>/derived/baseline-units.jsonl(기준에 들어간 세대),
+      data/baseline-sample35.json, 특징 정의(src/model/config.js를 node로 읽음)
 출력: evidence/results/baseline-compare.md, .json
 
 계산
@@ -92,9 +93,11 @@ def main() -> None:
     t = time.perf_counter()
     defs, strata, z0 = feature_defs()
     defs = [d for d in defs if d["weight"] > 0 and not d["adjust"] and d["key"] != "genotypeDistance"]
-    full = pd.json_normalize([json.loads(l)["features"] | {"drawing": json.loads(l)["drawing"]} for l in DATA.read_text(encoding="utf8").splitlines() if l.strip()])
-    base = json.loads((ROOT / "public" / "data" / "baseline.json").read_text(encoding="utf8"))
-    sample = pd.json_normalize([e["features"] for e in base["entries"]["SPA"]])
+    keep = {(r["drawing"], r["unit"]) for r in map(json.loads, (DATA.parent / "baseline-units.jsonl").read_text(encoding="utf8").splitlines()) if r}
+    rows_all = [json.loads(l) for l in DATA.read_text(encoding="utf8").splitlines() if l.strip()]
+    full = pd.json_normalize([r["features"] | {"drawing": r["drawing"]} for r in rows_all if (r["drawing"], r["unit"]) in keep])
+    base = json.loads((ROOT / "data" / "baseline-sample35.json").read_text(encoding="utf8"))
+    sample = pd.json_normalize([e["features"] for e in base["entries"]])
     T["load"] = time.perf_counter() - t
 
     t = time.perf_counter()
@@ -142,10 +145,10 @@ def main() -> None:
     (RES / "baseline-compare.json").write_text(json.dumps({"timing": T, "layers": {k: {str(int(a)): int(b) for a, b in v.items()} for k, v in layers.items()}, "rows": rows}, ensure_ascii=False, indent=1), encoding="utf8")
 
     f3 = lambda x: f"{x:.3f}"
-    L = ["# 평가 모델 기준 분포: 샘플 35세대 vs 전체 APT_FP_SPA 7,275장\n"]
-    L.append(f"> `uv run python baseline_compare.py` (analysis/) · 전체 {len(full):,}세대(현관 하나 = 세대 하나, 거실 있는 세대) · 샘플 {len(sample)}세대(`public/data/baseline.json`) · **기준 교체는 하지 않음**(J·생성 결과가 바뀌므로 승인 필요)\n")
+    L = ["# 평가 모델 기준 분포: 이전 샘플 35세대 vs 현재 전체 APT_FP_SPA 7,275장\n"]
+    L.append(f"> `uv run python baseline_compare.py` (analysis/) · 현재 기준 {len(full):,}개 평면(7,275장, 현관 하나 = 세대 하나, 거실·주방·화장실 있음, 침실 1~5개, 같은 평면 한 번) · 이전 샘플 {len(sample)}세대(`data/baseline-sample35.json`, 동결) · 2026-11-04 기준 교체\n")
     L.append("## 1. 지표별 중앙값과 Qn 척도\n")
-    L.append("| 지표 | 채점 | 샘플 중앙값 (Qn) | 전체 중앙값 (Qn) | 중앙값 이동 / 샘플 Qn | 전체 세대 평균 점수: 샘플 기준 → 전체 기준 | 50점 미만 비율: 샘플 기준 → 전체 기준 |")
+    L.append("| 지표 | 채점 | 샘플 중앙값 (Qn) | 전체 중앙값 (Qn) | 중앙값 이동 / 샘플 Qn | 현재 기준 평면 평균 점수: 샘플 기준 → 전체 기준 | 50점 미만 비율: 샘플 기준 → 전체 기준 |")
     L.append("|---|---|---|---|---|---|---|")
     for r in rows:
         shift = (r["full_median"] - r["sample_median"]) / r["sample_qn"] if r["sample_qn"] > 0 else float("nan")
@@ -166,7 +169,8 @@ def main() -> None:
     L.append("- **numpy `searchsorted`**: 백분위(ecdf) 채점을 세대 1.9만 개에 대해 한 번에 계산.")
     L.append("- **node 호출로 특징 정의 읽기**: 지표 목록·방향·채점 방식을 `src/model/config.js`에서 그대로 가져와 평가 모델과 어긋나지 않게 함.\n")
     L.append("## 한계\n")
-    L.append("- 샘플은 기본 세대 규칙(현관 조각 병합), 전체는 현관 하나 = 세대 하나 규칙입니다. 거실 있는 세대만 넣어 대부분 같은 세대이지만 정의가 완전히 같지는 않습니다.")
+    L.append("- 샘플은 기본 세대 규칙(현관 조각 병합), 전체는 현관 하나 = 세대 하나 규칙입니다. 정의가 완전히 같지는 않습니다.")
+    L.append("- 전체 기준의 거르는 기준과 이유는 `scripts/build-baseline-full.mjs` 머리말에 있습니다.")
     L.append("- 파생 지표(유전형 거리, 실 수 보정 평균 통합도)는 기준 분포에 따라 정의가 바뀌어 이 비교에서 뺐습니다.")
     (RES / "baseline-compare.md").write_text("\n".join(L) + "\n", encoding="utf8")
     print(" · ".join(f"{k} {v:.2f}s" for k, v in T.items()))

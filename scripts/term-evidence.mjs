@@ -7,13 +7,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import crypto from 'node:crypto';
-import os from 'node:os';
-import { Worker } from 'node:worker_threads';
 import { rng } from '../src/generate/layout.js';
 import { TERMS } from '../src/generate/qubo.js';
 import { CALIBRATED } from '../src/generate/qubo-weights.js';
 import { END, SX, specs } from './lib/term-measure.mjs';
+import { defaultThreads, loadRealUnits, requireDataDir, runPool as runPoolN } from './lib/real-units.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'evidence', 'results');
@@ -26,11 +24,7 @@ const SAMPLES = arg('samples', 200);
 const BOOT = arg('boot', 2000);
 // 실제 도면 기준은 전체 APT_FP_SPA 7,275장(샘플 20장이 아님). 없으면 멈춘다(샘플로 조용히 바꾸지 않음).
 const dataDir = path.resolve(argStr('data', path.join(root, '..', 'aihub-full', 'TL_SPA')));
-const PREFIX = 'APT_FP_SPA_';
-if (!fs.existsSync(dataDir)) {
-  console.error(`실제 도면 폴더가 없습니다: ${dataDir}\nDrive 도면_논문/1download.tar를 받아 TL_SPA.zip.part0을 이 폴더에 푸십시오.`);
-  process.exit(1);
-}
+requireDataDir(dataDir);
 const SX_LABEL = { livingBedroomRatio: '거실/침실 통합도 비', kitchenBedroomRatio: '주방/침실 통합도 비', genotypeTau: '유전형 τ', privacyDepthGap: '사생활 깊이 차' };
 
 // QUBO 항 ↔ 측정 관계. sign: 관계가 있을 때 항이 켜지는 방향(+1) 또는 반대(−1; masterNotEnd는 끝이 "아닐 때" 켜짐)
@@ -57,68 +51,11 @@ const MAP = {
   backBedUnderBed: [null, 1, '생성 문법 고유(앞·뒤 띠)라 실제 도면에서 같은 정의로 잴 수 없음'],
 };
 
-// ---- 병렬 측정(worker_threads) + 캐시 ----
-// 7,275장 분석이 한 스레드로 약 77초 걸려 CPU 스레드 수만큼 나눠 돌린다. 작업은 작은 묶음으로 쪼개 남는 worker가 바로 가져가게 한다.
-// 실제 도면 측정값은 (해석기 코드, 측정 코드, 파일 목록)의 해시가 같으면 다시 계산하지 않는다(--no-cache로 끔).
-// 기본 8: 7,275장 측정이 4스레드 6.0초, 8스레드 4.8초, 15스레드 5.2초로 8에서 가장 빠르다(한 스레드 20.7초).
-const THREADS = Math.max(1, Math.min(arg('threads', Math.min(8, os.availableParallelism() - 1)), os.availableParallelism()));
-function runPool(jobs) {
-  return new Promise((resolve, reject) => {
-    const results = new Array(jobs.length);
-    let next = 0, done = 0;
-    const workers = Array.from({ length: Math.min(THREADS, jobs.length) }, () => new Worker(new URL('./lib/term-measure-worker.mjs', import.meta.url)));
-    const feed = (w) => {
-      if (next < jobs.length) w.postMessage({ ...jobs[next], id: next++ });
-    };
-    for (const w of workers) {
-      w.on('message', (m) => {
-        results[m.id] = m;
-        done++;
-        if (done % 20 === 0 || done === jobs.length) process.stdout.write(`\r  ${done}/${jobs.length}`);
-        if (done === jobs.length) {
-          process.stdout.write('\n');
-          workers.forEach((x) => x.terminate());
-          resolve(results);
-        } else feed(w);
-      });
-      w.on('error', reject);
-      feed(w);
-    }
-  });
-}
-const hashOf = (parts) => crypto.createHash('sha256').update(parts.join('\0')).digest('hex').slice(0, 16);
-const modelDir = path.join(root, 'src', 'model');
-const codeHash = hashOf([
-  ...fs.readdirSync(modelDir).sort().map((f) => fs.readFileSync(path.join(modelDir, f), 'utf8')),
-  fs.readFileSync(path.join(root, 'scripts', 'lib', 'term-measure.mjs'), 'utf8'),
-]);
-
-// ---- (가) 실제 세대 ----
-const realFiles = fs.readdirSync(dataDir).filter((f) => f.startsWith(PREFIX) && f.endsWith('.json')).sort();
-const derivedDir = path.join(dataDir, '..', 'derived');
-fs.mkdirSync(derivedDir, { recursive: true });
-const unitsPath = path.join(derivedDir, 'real-units.jsonl');
-const metaPath = path.join(derivedDir, 'real-units.meta.json');
-const cacheKey = hashOf([codeHash, ...realFiles]);
-let real, census;
+// ---- (가) 실제 세대: 병렬 측정 + 캐시(scripts/lib/real-units.mjs) ----
+const THREADS = Math.max(1, arg('threads', defaultThreads()));
+const runPool = (jobs) => runPoolN(jobs, THREADS);
 const tReal = Date.now();
-const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) : null;
-if (!process.argv.includes('--no-cache') && meta?.key === cacheKey && fs.existsSync(unitsPath)) {
-  real = fs.readFileSync(unitsPath, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
-  census = meta.census;
-  console.log(`실제 도면: 캐시 사용(${meta.key}) ${census.drawings}장, 측정 ${real.length}세대`);
-} else {
-  console.log(`실제 도면 ${realFiles.length}장 측정(${THREADS}스레드)`);
-  const CHUNK = 40;
-  const jobs = [];
-  for (let i = 0; i < realFiles.length; i += CHUNK) jobs.push({ type: 'real', dataDir, files: realFiles.slice(i, i + CHUNK) });
-  const res = await runPool(jobs);
-  real = res.flatMap((r) => r.rows); // 묶음 순서 = 파일 이름 순서라 결과 순서가 실행마다 같다
-  census = { drawings: 0, noEntranceDrawings: 0, units: 0, noLiving: 0 };
-  for (const r of res) for (const k in census) census[k] += r.census[k];
-  fs.writeFileSync(unitsPath, real.map((r) => JSON.stringify(r)).join('\n') + '\n');
-  fs.writeFileSync(metaPath, JSON.stringify({ key: cacheKey, codeHash, files: realFiles.length, census, createdAt: new Date().toISOString() }, null, 1));
-}
+const { real, census } = await loadRealUnits({ root, dataDir, threads: THREADS, noCache: process.argv.includes('--no-cache') });
 const realSec = (Date.now() - tReal) / 1000;
 console.log(`  세대 ${census.units}, 측정 ${real.length} (${realSec.toFixed(1)}초)`);
 
