@@ -60,7 +60,7 @@ const MAP = {
 // ---- 병렬 측정(worker_threads) + 캐시 ----
 // 7,275장 분석이 한 스레드로 약 77초 걸려 CPU 스레드 수만큼 나눠 돌린다. 작업은 작은 묶음으로 쪼개 남는 worker가 바로 가져가게 한다.
 // 실제 도면 측정값은 (해석기 코드, 측정 코드, 파일 목록)의 해시가 같으면 다시 계산하지 않는다(--no-cache로 끔).
-// 기본 8: 측정상 4~8스레드에서 처리량이 포화(1→4스레드 77→22초, 8·12·15스레드 21~22초). 분석이 메모리·캐시에 묶여 더 늘리면 메모리만 더 씀.
+// 기본 8: 7,275장 측정이 4스레드 6.0초, 8스레드 4.8초, 15스레드 5.2초로 8에서 가장 빠르다(한 스레드 20.7초).
 const THREADS = Math.max(1, Math.min(arg('threads', Math.min(8, os.availableParallelism() - 1)), os.availableParallelism()));
 function runPool(jobs) {
   return new Promise((resolve, reject) => {

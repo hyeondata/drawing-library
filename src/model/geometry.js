@@ -141,10 +141,35 @@ export function contactLength(polysA, polysB, tau, step = 4) {
     const n = Math.max(1, Math.round(len / step));
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
-      if (distToEdges(ax + t * (bx - ax), ay + t * (by - ay), eb) <= tau) length += len / n;
+      if (withinTau(ax + t * (bx - ax), ay + t * (by - ay), eb, tau)) length += len / n;
     }
   }
   return length;
+}
+
+/**
+ * distToEdges(x, y, edges) <= tau 와 같은 판정을 더 빨리 한다(측정 결과는 바이트 단위로 같음).
+ * - 변의 범위(bbox)를 tau만큼 넓혀도 점이 밖이면 그 변은 tau보다 멀다 → 건너뜀.
+ * - 제곱거리로 비교하되, tau² 근처(상대 1e-9 이내)면 원래와 같은 Math.hypot으로 다시 판정한다.
+ * - tau 이내인 변을 하나 찾으면 바로 멈춘다(최솟값이 아니라 "있는가"만 필요).
+ */
+function withinTau(x, y, edges, tau) {
+  const tau2 = tau * tau;
+  for (const e of edges) {
+    const ax = e[0], ay = e[1], bx = e[2], by = e[3];
+    if (x < (ax < bx ? ax : bx) - tau || x > (ax > bx ? ax : bx) + tau || y < (ay < by ? ay : by) - tau || y > (ay > by ? ay : by) + tau) continue;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 > 0 ? ((x - ax) * dx + (y - ay) * dy) / len2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    const qx = x - (ax + t * dx);
+    const qy = y - (ay + t * dy);
+    const d2 = qx * qx + qy * qy;
+    if (d2 < tau2 * (1 - 1e-9)) return true;
+    if (d2 <= tau2 * (1 + 1e-9) && Math.hypot(qx, qy) <= tau) return true;
+  }
+  return false;
 }
 
 /** A 면적 중 B 안에 들어가는 비율을 격자 표본으로 추정한다(0~1). */
