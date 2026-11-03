@@ -27,12 +27,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.stats.multitest import multipletests
 
 ROOT = Path(__file__).resolve().parent.parent
 RES = ROOT / "evidence" / "results"
-DATA = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT.parent / "aihub-full" / "derived" / "real-units.jsonl"
+_args = [a for a in sys.argv[1:] if not a.startswith("--")]
+DATA = Path(_args[0]) if _args else ROOT.parent / "aihub-full" / "derived" / "real-units.jsonl"
 
 SX = ["livingBedroomRatio", "kitchenBedroomRatio", "genotypeTau", "privacyDepthGap"]
 SX_LABEL = {"livingBedroomRatio": "거실/침실 통합도 비", "kitchenBedroomRatio": "주방/침실 통합도 비", "genotypeTau": "유전형 τ", "privacyDepthGap": "사생활 깊이 차"}
@@ -93,7 +95,90 @@ def compare_verdicts(full: dict, small: dict) -> list[dict]:
     return out
 
 
+def _prep(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df["logArea"] = np.log(df["areaPx"].clip(lower=1))
+    df["beds"] = df["bedrooms"].clip(upper=5).astype(int).astype(str)  # 5개 이상은 한 범주
+    df["gid"] = pd.factorize(df["drawing"])[0]
+    return df
+
+
+def real_associations_fast(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+    """real_associations와 같은 모형을 수식 해석(patsy) 없이 numpy 설계행렬로 직접 푼다.
+    patsy가 회귀 72번에서 대부분의 시간을 썼다(프로파일 3.6초 중 대부분). 결과는 --check로 원래 구현과 대조한다."""
+    df = _prep(df)
+    bed_levels = sorted(df["beds"].unique())
+    res = []
+    for key in keys:
+        col = f"r_{key}"
+        if col not in df:
+            continue
+        for y in SX:
+            ycol = f"y_{y}"
+            m = df[col].notna().to_numpy() & df[ycol].notna().to_numpy()
+            d = df.loc[m]
+            if key == "livingOffCenter":
+                x = d[col].to_numpy(float) * 10  # 0.1 단위당 효과
+            else:
+                x = d[col].astype(bool).to_numpy(float)
+                if x.min() == x.max() or min(x.sum(), (1 - x).sum()) < 30:
+                    res.append({"key": key, "y": y, "n": int(len(d)), "coef": math.nan, "lo": math.nan, "hi": math.nan, "p": math.nan, "note": "한쪽 집단 30 미만"})
+                    continue
+            beds = d["beds"].to_numpy()
+            present = [b for b in bed_levels if (beds == b).any()]
+            # 수식 "Y ~ x + logArea + C(beds)"와 같은 열 구성: 절편, 첫 범주를 뺀 침실 수 더미, x, logArea
+            cols = [np.ones(len(d))] + [(beds == b).astype(float) for b in present[1:]] + [x, d["logArea"].to_numpy()]
+            X = np.column_stack(cols)
+            xi = len(present)  # x 열 위치
+            fit = sm.OLS(d[ycol].to_numpy(float), X).fit(cov_type="cluster", cov_kwds={"groups": d["gid"].to_numpy()})
+            lo, hi = fit.conf_int()[xi]
+            res.append({"key": key, "y": y, "n": int(len(d)), "drawings": int(d["gid"].nunique()), "coef": float(fit.params[xi]), "lo": float(lo), "hi": float(hi), "p": float(fit.pvalues[xi]), "note": ""})
+    out = pd.DataFrame(res)
+    ok = out["p"].notna()
+    out.loc[ok, "p_holm"] = multipletests(out.loc[ok, "p"], method="holm")[1]
+    return out
+
+
+def _boot_one(args):
+    """관계 하나의 군집 부트스트랩. 도면 번호를 batch × C 정수 행렬로 뽑아 도면별 합·개수를 모아 비율을 낸다(gather + 행 합)."""
+    key, s, n, B, seed, batch = args
+    rng = np.random.default_rng(seed)
+    C = len(s)
+    est = np.empty(B)
+    for b0 in range(0, B, batch):
+        m = min(batch, B - b0)
+        idx = rng.integers(0, C, size=(m, C), dtype=np.int32)
+        est[b0:b0 + m] = s[idx].sum(axis=1) / n[idx].sum(axis=1)
+    lo, hi = np.quantile(est, [0.025, 0.975])
+    return key, float(lo), float(hi)
+
+
+def cluster_bootstrap(df: pd.DataFrame, keys: list[str], B: int = 10_000, seed: int = 20261103, batch: int = 500, workers: int | None = None) -> pd.DataFrame:
+    """실제 빈도(관계 비율, 거실 중앙 거리 평균)의 도면 단위 군집 부트스트랩 95% 구간.
+    관계마다 그 관계를 잴 수 있는 도면만 모집단으로 삼는다(JS 구현과 같은 정의).
+    관계 18개를 프로세스로 나눠 동시에 돌린다. 관계마다 씨앗을 따로 둬 실행 순서와 무관하게 결과가 같다."""
+    from concurrent.futures import ProcessPoolExecutor
+    import os
+
+    jobs, meta = [], {}
+    for i, key in enumerate(keys):
+        col = f"r_{key}"
+        if col not in df:
+            continue
+        d = df[df[col].notna()]
+        v = d[col].astype(float).to_numpy()
+        g = pd.factorize(d["drawing"])[0]
+        C = int(g.max() + 1)
+        jobs.append((key, np.bincount(g, weights=v, minlength=C), np.bincount(g, minlength=C).astype(float), B, seed + i, batch))
+        meta[key] = {"n": int(len(v)), "drawings": C, "est": float(v.mean())}
+    workers = workers or min(len(jobs), max(1, (os.cpu_count() or 2) // 2))
+    with ProcessPoolExecutor(max_workers=workers) as ex:
+        res = list(ex.map(_boot_one, jobs))
+    return pd.DataFrame([{"key": k, **meta[k], "lo": lo, "hi": hi} for k, lo, hi in res])
+
+
 def real_associations(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
+    """원래 구현(statsmodels 수식). --check에서 빠른 구현의 기준값으로만 쓴다."""
     df = df.copy()
     df["logArea"] = np.log(df["areaPx"].clip(lower=1))
     df["beds"] = df["bedrooms"].clip(upper=5).astype(int).astype(str)  # 5개 이상은 한 범주
@@ -128,10 +213,29 @@ def real_associations(df: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
 def main() -> None:
     full = json.loads((RES / "term-evidence.json").read_text(encoding="utf8"))
     small = json.loads((RES / "term-evidence-sample35.json").read_text(encoding="utf8"))
+    import time
+
+    T = {}
+    t = time.perf_counter()
     df = load_units(DATA)
+    T["load"] = time.perf_counter() - t
     cmp_rows = compare_verdicts(full, small)
     keys = sorted({r["key"] for r in cmp_rows if r["key"]})
-    assoc = real_associations(df, keys)
+    t = time.perf_counter()
+    assoc = real_associations_fast(df, keys)
+    T["ols"] = time.perf_counter() - t
+    t = time.perf_counter()
+    boot = cluster_bootstrap(df, keys)
+    T["boot"] = time.perf_counter() - t
+    if "--check" in sys.argv:
+        t = time.perf_counter()
+        ref = real_associations(df, keys)
+        T["ols_formula"] = time.perf_counter() - t
+        a, r = assoc.dropna(subset=["coef"]), ref.dropna(subset=["coef"])
+        diff = max(float(np.max(np.abs(a[c].to_numpy() - r[c].to_numpy()))) for c in ["coef", "lo", "hi", "p", "p_holm"])
+        print(f"check: 빠른 OLS vs 수식 OLS 최대 차이 {diff:.2e}")
+        assert diff < 1e-9, diff
+    js_ci = {r["key"]: r.get("real") for r in full["rows"] if r.get("key")}
 
     f2 = lambda x, d=2: "—" if x is None or (isinstance(x, float) and math.isnan(x)) else f"{x:+.{d}f}"
     pc = lambda x: "—" if x is None else f"{100 * x:.1f}%"
@@ -188,17 +292,30 @@ def main() -> None:
         lines.append(f"| `{key}` | " + " | ".join(cells) + " |")
     lines.append("")
     lines.append(f"실제 연관이 유의(Holm)하고 생성 효과가 |0.05| 이상인 칸 {agree_tot}개 중 부호 일치 {agree_n}개.\n")
+    lines.append("## 3. 실제 빈도의 군집 부트스트랩 구간 (numpy, 10,000회)\n")
+    lines.append("도면 단위 복원추출. JS 보고서(`term-evidence.md`)의 2,000회 구간과 나란히 두어 반복 수에 따른 차이가 없는지 확인합니다.\n")
+    lines.append("| 관계 | 실제 | 95% 구간 (numpy 10,000) | 95% 구간 (JS 2,000) | 세대 / 도면 |")
+    lines.append("|---|---|---|---|---|")
+    for _, b in boot.iterrows():
+        j = js_ci.get(b["key"]) or {}
+        fmt = (lambda x: f"{x:.3f}") if b["key"] == "livingOffCenter" else (lambda x: f"{100 * x:.1f}%")
+        jtxt = f"[{fmt(j['lo'])}, {fmt(j['hi'])}]" if j.get("lo") is not None else "—"
+        lines.append(f"| `{b['key']}` | {fmt(b['est'])} | [{fmt(b['lo'])}, {fmt(b['hi'])}] | {jtxt} | {b['n']:,} / {b['drawings']:,} |")
+    lines.append("")
+    lines.append("## 계산 시간\n")
+    lines.append(" · ".join(f"{k} {v:.2f}초" for k, v in T.items()) + "\n")
     lines.append("## 쓰인 도구와 이유\n")
     lines.append("- **JS `scripts/term-evidence.mjs`**: 관계 측정과 공간구문 지표는 웹 평가 모델(`src/model`)과 같은 코드여야 정의가 어긋나지 않으므로 측정은 JS에서 하고 세대별 값을 jsonl로 내보냄.")
     lines.append("- **pandas**: 19,196세대 × 관계·지표 표를 다루기 위해.")
-    lines.append("- **statsmodels**: 군집 강건 표준오차(같은 도면 세대의 상관)와 범주 통제(침실 수)를 갖춘 OLS, 그리고 Holm 다중 비교 보정을 검증된 구현으로 쓰기 위해.")
+    lines.append("- **statsmodels**: 군집 강건 표준오차(같은 도면 세대의 상관)와 범주 통제(침실 수)를 갖춘 OLS, 그리고 Holm 다중 비교 보정을 검증된 구현으로 쓰기 위해. 수식 인터페이스(patsy)는 느려 numpy 설계행렬로 직접 넣고, `--check`로 수식 결과와 1e-9 이내 일치를 확인.")
+    lines.append("- **numpy 벡터화 + 프로세스 병렬 부트스트랩**: 도면 복원추출을 batch × 도면 수 정수 행렬 한 번으로 뽑아 합을 구하고, 관계 18개를 CPU 코어 절반 수의 프로세스로 나눠 계산. 반복 수 10,000회.")
     lines.append("- **uv (analysis/pyproject.toml, uv.lock)**: 시스템 파이썬을 건드리지 않고 의존성 버전을 고정해 재현 가능하게.\n")
     lines.append("## 한계\n")
     lines.append("- 실제 연관은 관측 연관이며 인과가 아닙니다. 침실 수·면적 외의 교란(주동 형식, 연도 등)은 라벨에 없어 통제하지 못했습니다.")
     lines.append("- 표본이 커 작은 계수도 유의해집니다. 계수 크기를 함께 보십시오.")
     lines.append("- 거실·침실이 없는 현관 조각 세대(2,187)와 현관 없는 도면(59장)은 측정에서 빠졌습니다.")
     (RES / "term-evidence-stats.md").write_text("\n".join(lines) + "\n", encoding="utf8")
-    (RES / "term-evidence-stats.json").write_text(json.dumps({"units": int(len(df)), "drawings": int(df["drawing"].nunique()), "compare": cmp_rows, "assoc": assoc.replace({np.nan: None}).to_dict(orient="records")}, ensure_ascii=False, indent=1), encoding="utf8")
+    (RES / "term-evidence-stats.json").write_text(json.dumps({"units": int(len(df)), "drawings": int(df["drawing"].nunique()), "timing": T, "bootstrap": boot.to_dict(orient="records"), "compare": cmp_rows, "assoc": assoc.replace({np.nan: None}).to_dict(orient="records")}, ensure_ascii=False, indent=1), encoding="utf8")
     print(f"세대 {len(df):,}, 도면 {df['drawing'].nunique():,} → {RES / 'term-evidence-stats.md'}")
 
 
