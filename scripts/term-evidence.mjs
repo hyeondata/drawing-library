@@ -3,15 +3,17 @@
 // 실제 세대(AI 허브 239.건축 도면 TL_SPA의 APT_FP_SPA 7,275장, 현관 하나 = 세대 하나)와
 // 생성 평면(무작위 방 순서, 기본 치수)을 **같은 분석 함수(analyze)**로 잰다. 생성기 동작은 바꾸지 않는다.
 // 결과: evidence/results/term-evidence.md, .json, 세대별 측정값 <data>/../derived/real-units.jsonl(통계는 analysis/term_evidence_stats.py)
-// 사용: node scripts/term-evidence.mjs [--samples 200] [--data ../aihub-full/TL_SPA] [--boot 2000]
+// 사용: node scripts/term-evidence.mjs [--samples 200] [--data ../aihub-full/TL_SPA] [--boot 2000] [--threads N] [--no-cache]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defaultParams } from '../src/generate/compare.js';
-import { buildLayout, rng, toLabel } from '../src/generate/layout.js';
-import { buildQubo, decode, encode, frontBedCount, TERMS, weightsOf } from '../src/generate/qubo.js';
+import crypto from 'node:crypto';
+import os from 'node:os';
+import { Worker } from 'node:worker_threads';
+import { rng } from '../src/generate/layout.js';
+import { TERMS } from '../src/generate/qubo.js';
 import { CALIBRATED } from '../src/generate/qubo-weights.js';
-import { analyze } from '../src/model/index.js';
+import { END, SX, specs } from './lib/term-measure.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = path.join(root, 'evidence', 'results');
@@ -29,72 +31,8 @@ if (!fs.existsSync(dataDir)) {
   console.error(`실제 도면 폴더가 없습니다: ${dataDir}\nDrive 도면_논문/1download.tar를 받아 TL_SPA.zip.part0을 이 폴더에 푸십시오.`);
   process.exit(1);
 }
-const SX = ['livingBedroomRatio', 'kitchenBedroomRatio', 'genotypeTau', 'privacyDepthGap'];
 const SX_LABEL = { livingBedroomRatio: '거실/침실 통합도 비', kitchenBedroomRatio: '주방/침실 통합도 비', genotypeTau: '유전형 τ', privacyDepthGap: '사생활 깊이 차' };
-const END = 0.2; // 장축 양 끝 20% 안이면 "끝"
 
-// ---- 세대 하나에서 관계 측정(실제·생성 공통) ----
-// 반환: { 관계 id: true/false/null(해당 실이 없어 판단 불가) , offCenter: 0~0.5 }
-function relations(analysis, unit) {
-  const sp = analysis.spaces;
-  const nodes = unit.nodes.filter((n) => !n.duct);
-  const idx = new Map(unit.nodes.map((n, i) => [i, n]));
-  const adj = new Map(unit.nodes.map((_, i) => [i, new Set()]));
-  // unit.edges는 전역 공간 번호(spa.js localEdges)이므로 세대 안 번호로 바꾼다
-  const loc = new Map(unit.nodes.map((n, i) => [n.space, i]));
-  for (const [ga, gb] of unit.edges) {
-    const a = loc.get(ga), b = loc.get(gb);
-    if (a === undefined || b === undefined) continue;
-    adj.get(a).add(b);
-    adj.get(b).add(a);
-  }
-  const of = (t) => [...idx.entries()].filter(([, n]) => n.type === t && !n.duct).map(([i]) => i);
-  const area = (i) => sp[idx.get(i).space].area;
-  const beds = of('침실').sort((a, b) => area(b) - area(a));
-  const master = beds[0];
-  const others = beds.slice(1);
-  const baths = of('화장실');
-  const pubBaths = master === undefined ? baths : baths.filter((b) => !adj.get(master).has(b));
-  const touch = (A, B) => (A.length && B.length ? A.some((a) => B.some((b) => a !== b && adj.get(a).has(b))) : null);
-  const living = of('거실');
-  const kitchen = of('주방');
-  const entrance = of('현관');
-  const multi = of('다목적공간');
-  // 장축 위치
-  const pts = nodes.map((n) => sp[n.space].center).filter(Boolean);
-  const xs = pts.map((p) => p[0] ?? p.x);
-  const ys = pts.map((p) => p[1] ?? p.y);
-  const spanX = Math.max(...xs) - Math.min(...xs);
-  const spanY = Math.max(...ys) - Math.min(...ys);
-  const axis = spanX >= spanY ? 0 : 1;
-  const lo = axis ? Math.min(...ys) : Math.min(...xs);
-  const len = Math.max(spanX, spanY) || 1;
-  const pos = (i) => {
-    const c = sp[idx.get(i).space].center;
-    return ((axis ? (c[1] ?? c.y) : (c[0] ?? c.x)) - lo) / len;
-  };
-  const atEnd = (I) => (I.length ? I.some((i) => pos(i) <= END || pos(i) >= 1 - END) : null);
-  return {
-    kitchenLiving: touch(kitchen, living),
-    entranceLiving: touch(entrance, living),
-    entranceKitchen: touch(entrance, kitchen),
-    bathKitchen: touch(pubBaths, kitchen),
-    bathEntrance: touch(pubBaths, entrance),
-    bathLiving: touch(pubBaths, living),
-    multiKitchen: multi.length ? touch(multi, kitchen) : null,
-    bedEntrance: touch(beds, entrance),
-    backBedKitchen: touch(others, kitchen),
-    bedLiving: touch(beds, living),
-    bedBed: beds.length >= 2 ? beds.some((a) => beds.some((b) => a !== b && adj.get(a).has(b))) : null,
-    masterKitchen: master === undefined ? null : touch([master], kitchen),
-    bedOverBath: touch(others, pubBaths),
-    masterEnd: master === undefined ? null : atEnd([master]),
-    entranceEnd: atEnd(entrance),
-    kitchenEnd: atEnd(kitchen),
-    otherBedEnd: atEnd(others),
-    livingOffCenter: living.length ? Math.abs(pos(living[0]) - 0.5) : null,
-  };
-}
 // QUBO 항 ↔ 측정 관계. sign: 관계가 있을 때 항이 켜지는 방향(+1) 또는 반대(−1; masterNotEnd는 끝이 "아닐 때" 켜짐)
 const MAP = {
   kitchenLiving: ['kitchenLiving', 1, '주방–거실 맞닿음'],
@@ -119,83 +57,78 @@ const MAP = {
   backBedUnderBed: [null, 1, '생성 문법 고유(앞·뒤 띠)라 실제 도면에서 같은 정의로 잴 수 없음'],
 };
 
-// ---- (가) 실제 세대: 현관 하나 = 세대 하나(unitRule 'entrance') ----
-// 관계는 거실이 있어야 정의되므로(거실 기준 관계가 대부분), 거실이 있는 세대만 측정하고 빠진 수를 함께 보고한다.
-const real = [];
-const census = { drawings: 0, noEntranceDrawings: 0, units: 0, noLiving: 0 };
-const realFiles = fs.readdirSync(dataDir).filter((f) => f.startsWith(PREFIX) && f.endsWith('.json')).sort();
-const tReal = Date.now();
-realFiles.forEach((file, fi) => {
-  const a = analyze(JSON.parse(fs.readFileSync(path.join(dataDir, file), 'utf8')), 'SPA', { unitRule: 'entrance' });
-  census.drawings++;
-  if (!a.units.length) census.noEntranceDrawings++;
-  for (const u of a.units) {
-    census.units++;
-    const types = u.nodes.filter((n) => !n.duct).map((n) => n.type);
-    if (!types.includes('거실')) {
-      census.noLiving++;
-      continue;
+// ---- 병렬 측정(worker_threads) + 캐시 ----
+// 7,275장 분석이 한 스레드로 약 77초 걸려 CPU 스레드 수만큼 나눠 돌린다. 작업은 작은 묶음으로 쪼개 남는 worker가 바로 가져가게 한다.
+// 실제 도면 측정값은 (해석기 코드, 측정 코드, 파일 목록)의 해시가 같으면 다시 계산하지 않는다(--no-cache로 끔).
+// 기본 8: 측정상 4~8스레드에서 처리량이 포화(1→4스레드 77→22초, 8·12·15스레드 21~22초). 분석이 메모리·캐시에 묶여 더 늘리면 메모리만 더 씀.
+const THREADS = Math.max(1, Math.min(arg('threads', Math.min(8, os.availableParallelism() - 1)), os.availableParallelism()));
+function runPool(jobs) {
+  return new Promise((resolve, reject) => {
+    const results = new Array(jobs.length);
+    let next = 0, done = 0;
+    const workers = Array.from({ length: Math.min(THREADS, jobs.length) }, () => new Worker(new URL('./lib/term-measure-worker.mjs', import.meta.url)));
+    const feed = (w) => {
+      if (next < jobs.length) w.postMessage({ ...jobs[next], id: next++ });
+    };
+    for (const w of workers) {
+      w.on('message', (m) => {
+        results[m.id] = m;
+        done++;
+        if (done % 20 === 0 || done === jobs.length) process.stdout.write(`\r  ${done}/${jobs.length}`);
+        if (done === jobs.length) {
+          process.stdout.write('\n');
+          workers.forEach((x) => x.terminate());
+          resolve(results);
+        } else feed(w);
+      });
+      w.on('error', reject);
+      feed(w);
     }
-    real.push({
-      drawing: file,
-      unit: u.index,
-      bedrooms: types.filter((t) => t === '침실').length,
-      // 축척 보정 면적(기준 도면 px²): 도면마다 1px의 실제 길이가 달라 scale²로 나눈다
-      areaPx: Math.round(u.totalArea / (a.scale * a.scale)),
-      rel: relations(a, u),
-      sx: Object.fromEntries(SX.map((k) => [k, u.features[k] ?? null])),
-    });
-  }
-  if (fi % 500 === 0) process.stdout.write(`\r실제 도면 ${fi + 1}/${realFiles.length}`);
-});
-process.stdout.write(`\r실제 도면 ${realFiles.length}장, 세대 ${census.units}, 측정 ${real.length} (${Math.round((Date.now() - tReal) / 1000)}초)\n`);
+  });
+}
+const hashOf = (parts) => crypto.createHash('sha256').update(parts.join('\0')).digest('hex').slice(0, 16);
+const modelDir = path.join(root, 'src', 'model');
+const codeHash = hashOf([
+  ...fs.readdirSync(modelDir).sort().map((f) => fs.readFileSync(path.join(modelDir, f), 'utf8')),
+  fs.readFileSync(path.join(root, 'scripts', 'lib', 'term-measure.mjs'), 'utf8'),
+]);
+
+// ---- (가) 실제 세대 ----
+const realFiles = fs.readdirSync(dataDir).filter((f) => f.startsWith(PREFIX) && f.endsWith('.json')).sort();
 const derivedDir = path.join(dataDir, '..', 'derived');
 fs.mkdirSync(derivedDir, { recursive: true });
-fs.writeFileSync(path.join(derivedDir, 'real-units.jsonl'), real.map((r) => JSON.stringify(r)).join('\n') + '\n');
+const unitsPath = path.join(derivedDir, 'real-units.jsonl');
+const metaPath = path.join(derivedDir, 'real-units.meta.json');
+const cacheKey = hashOf([codeHash, ...realFiles]);
+let real, census;
+const tReal = Date.now();
+const meta = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) : null;
+if (!process.argv.includes('--no-cache') && meta?.key === cacheKey && fs.existsSync(unitsPath)) {
+  real = fs.readFileSync(unitsPath, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  census = meta.census;
+  console.log(`실제 도면: 캐시 사용(${meta.key}) ${census.drawings}장, 측정 ${real.length}세대`);
+} else {
+  console.log(`실제 도면 ${realFiles.length}장 측정(${THREADS}스레드)`);
+  const CHUNK = 40;
+  const jobs = [];
+  for (let i = 0; i < realFiles.length; i += CHUNK) jobs.push({ type: 'real', dataDir, files: realFiles.slice(i, i + CHUNK) });
+  const res = await runPool(jobs);
+  real = res.flatMap((r) => r.rows); // 묶음 순서 = 파일 이름 순서라 결과 순서가 실행마다 같다
+  census = { drawings: 0, noEntranceDrawings: 0, units: 0, noLiving: 0 };
+  for (const r of res) for (const k in census) census[k] += r.census[k];
+  fs.writeFileSync(unitsPath, real.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  fs.writeFileSync(metaPath, JSON.stringify({ key: cacheKey, codeHash, files: realFiles.length, census, createdAt: new Date().toISOString() }, null, 1));
+}
+const realSec = (Date.now() - tReal) / 1000;
+console.log(`  세대 ${census.units}, 측정 ${real.length} (${realSec.toFixed(1)}초)`);
 
-// ---- (나)(다) 생성 평면: 조건 20개 × 템플릿, 무작위 방 순서(보정 스크립트와 같은 표집), 기본 치수 ----
-const targets = { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877, bath: 0.032, entrance: 0.0389, dress: 0.0499, multi: 0.0303 };
-const PREFS = [[], ['livingCentral', 'bath'], ['privacy', 'quiet'], ['kitchenLink', 'entryNear'], ['spacious', 'sunny', 'storage']];
-const SIZES = [[59, 2], [59, 3], [74, 3], [84, 3], [84, 4], [101, 3], [101, 4], [114, 4]];
-const specs = Array.from({ length: 20 }, (_, i) => {
-  const [area, bedrooms] = SIZES[i % SIZES.length];
-  return { area, bedrooms, baths: 2, dress: true, multi: i % 3 === 0, outdoorUnit: true, balcony: i % 4 !== 3, targets, prefs: PREFS[i % PREFS.length] };
-});
-const shuffle = (a, r) => {
-  const b = a.slice();
-  for (let i = b.length - 1; i > 0; i--) {
-    const j = Math.floor(r() * (i + 1));
-    [b[i], b[j]] = [b[j], b[i]];
-  }
-  return b;
-};
-const gen = [];
+// ---- (나)(다) 생성 평면 ----
 const t0 = Date.now();
-specs.forEach((spec, si) => {
-  const kmax = frontBedCount(spec);
-  for (const k of [...new Set([kmax, kmax - 1])].filter((x) => x >= 0)) {
-    const q = buildQubo(spec, { frontBeds: k, weights: 'hand', syntax: false });
-    const r = rng(5000 + si * 10 + k);
-    const seen = new Set();
-    for (let i = 0; i < SAMPLES; i++) {
-      const d = decode(q, encode(q, shuffle(q.bands.front.rooms, r), shuffle(q.bands.back.rooms, r)));
-      const key = `${d.front}|${d.back}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const layout = buildLayout(spec, { ...defaultParams(spec), frontOrder: d.front, backOrder: d.back });
-      let a;
-      try {
-        a = analyze(toLabel(layout), 'SPA');
-      } catch {
-        continue;
-      }
-      if (a.units.length !== 1) continue;
-      gen.push({ group: `${si}/${k}`, rel: relations(a, a.units[0]), sx: Object.fromEntries(SX.map((kk) => [kk, a.units[0].features[kk] ?? null])) });
-    }
-  }
-  process.stdout.write(`\r조건 ${si + 1}/20`);
-});
-process.stdout.write('\n');
+console.log(`생성 평면: 조건 ${specs.length}개(${THREADS}스레드)`);
+const gen = (await runPool(specs.map((_, si) => ({ type: 'gen', si, samples: SAMPLES })))).flatMap((r) => r.rows);
+const genSec = (Date.now() - t0) / 1000;
+console.log(`  생성 ${gen.length}개 (${genSec.toFixed(1)}초)`);
+
 
 // ---- 요약 ----
 const wilson = (k, n) => {
@@ -313,7 +246,7 @@ const sxCell = (r, s) => {
 };
 const md = `# QUBO 항 정의의 근거: 실제 아파트 빈도 · 생성 문법의 우연 빈도 · 공간구문 효과
 
-> 생성: ${new Date().toISOString().slice(0, 10)} · \`node scripts/term-evidence.mjs --samples ${SAMPLES} --boot ${BOOT}\` · ${Math.round((Date.now() - t0) / 1000)}초
+> 생성: ${new Date().toISOString().slice(0, 10)} · \`node scripts/term-evidence.mjs --samples ${SAMPLES} --boot ${BOOT}\` · 실제 ${realSec.toFixed(1)}초, 생성 ${genSec.toFixed(1)}초, ${THREADS}스레드
 > 실제 도면: AI 허브 239.건축 도면 데이터 학습 라벨 \`APT_FP_SPA_*\` ${census.drawings.toLocaleString()}장. **현관 하나 = 세대 하나**로 세어 ${census.units.toLocaleString()}세대(현관 없는 도면 ${census.noEntranceDrawings}장은 0세대). 그중 거실이 없는 ${census.noLiving.toLocaleString()}세대(대부분 한 세대의 현관이 두 폴리곤으로 나뉜 조각)는 관계를 정의할 수 없어 빼고 **${real.length.toLocaleString()}세대**를 측정했습니다.
 > 실제 세대 ${real.length.toLocaleString()}개와 생성 평면 ${gen.length.toLocaleString()}개(조건 20개 × 템플릿, 무작위 방 순서, 기본 치수)를 같은 분석 함수(\`analyze\`)로 쟀습니다. 생성기 동작은 바꾸지 않았습니다.
 
