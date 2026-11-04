@@ -1,0 +1,66 @@
+{
+ "realUnits": 869,
+ "realTouch": 0.9942462600690449,
+ "realDepth1": 0.9942462600690449,
+ "neighbors": {
+  "기타": 720,
+  "거실": 864,
+  "화장실": 538,
+  "드레스룸": 45,
+  "다목적공간": 27,
+  "침실": 108,
+  "주방": 221,
+  "발코니": 24,
+  "실외기실": 3
+ },
+ "rows": [
+  {
+   "set": "hand",
+   "path": "qubo",
+   "n": 600,
+   "depth1": 0.12666666666666668,
+   "livingControl": 1.8333333333333333,
+   "livingBedroomRatio": 1.6615384615384619
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "n": 600,
+   "depth1": 0.3333333333333333,
+   "livingControl": 1.7,
+   "livingBedroomRatio": 1.7610062893081757
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "n": 600,
+   "depth1": 0.17833333333333334,
+   "livingControl": 1.8333333333333333,
+   "livingBedroomRatio": 1.9324324324324327
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "n": 600,
+   "depth1": 0.3566666666666667,
+   "livingControl": 1.7333333333333332,
+   "livingBedroomRatio": 1.8016828906121105
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "n": 600,
+   "depth1": 1,
+   "livingControl": 2.1499999999999995,
+   "livingBedroomRatio": 2.9117647058823537
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "n": 600,
+   "depth1": 0.39,
+   "livingControl": 1.7,
+   "livingBedroomRatio": 1.8045112781954886
+  }
+ ]
+}
