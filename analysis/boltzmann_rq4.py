@@ -8,7 +8,7 @@
   - O0 = β 0(모든 평면 균등). β → ∞ = 동점 최적 전체(이전 실험).
 통계량 f(작을수록 그 원리에 맞음, 실 수가 다른 실제 평면과 비교되도록 상대화):
   O1 거실 RRA · O2 현관 RRA · O3 −(침실 평균 깊이 − 거실·주방 평균 깊이, 현관 기준) · O6 −(현관·욕실 RRA ÷ 거실·주방·침실 RRA)
-  O7 주방 RRA · O9 −거실 매개 중심성(정규화) · O2b 현관에서 거실 깊이(사전 등록 O2 정의의 둘째 부분 '현관–공용 공간 1단계', Seo 2007). 템플릿 안에서는 실 수가 고정이라 O1·O2·O7은 총깊이의 일차식, O3은 깊이 원-핫의 일차식(정확 QUBO와 같은 최적),
+  O7 주방 RRA · O7h 가장 통합된 기타(복도·홀) RRA(없으면 최대 RRA, 정확 QUBO 밖 — 홀은 존재 변수라 뿌리로 쓰려면 추가 정식화 필요) · O9 −거실 매개 중심성(정규화) · O2b 현관에서 거실 깊이(사전 등록 O2 정의의 둘째 부분 '현관–공용 공간 1단계', Seo 2007). 템플릿 안에서는 실 수가 고정이라 O1·O2·O7은 총깊이의 일차식, O3은 깊이 원-핫의 일차식(정확 QUBO와 같은 최적),
   O6(비율)·O9(경로)는 정확 QUBO 밖(열거로만).
 비교 지표(①, 2026-11-04 door-vs-wall: 거실·침실의 현관 깊이는 벽/출입 그래프에서 같음, 고리도·d형·G1은 벽 그래프에서 부풀려져 뺌):
   M1 G2 그래프 거리 기댓값(WL 커널, 같은 침실 수의 실제 B 중 최근접) — 어느 목적에도 쓰지 않음, 같은 벽 그래프 규약 안의 비교
@@ -41,7 +41,7 @@ from syntax_qubo.aligned import AlignedQubo
 from syntax_qubo.model import SUFFIX, load_templates
 
 assert SUFFIX == "-rq4", "SPECS=rq4로 실행(사양 80개 묶음)"
-STATS = ["O1", "O2", "O3", "O6", "O7", "O9", "O2b"]
+STATS = ["O1", "O2", "O3", "O6", "O7", "O9", "O2b", "O7h"]
 MODELS = {
     "O0": [],
     "O1": ["O1"],
@@ -51,6 +51,7 @@ MODELS = {
     "O7": ["O7"],
     "O9": ["O9"],
     "O2b": ["O2b"],
+    "O7h": ["O7h"],
     "C13": ["O1", "O3"],
     "C2b3": ["O2b", "O3"],
     "C136": ["O1", "O3", "O6"],
@@ -64,6 +65,7 @@ NAMES = {
     "O7": "O7 대조: 주방 중심",
     "O9": "O9 공용실 경유",
     "O2b": "O2b 현관–거실 1단계(Seo 2007)",
+    "O7h": "O7h 홀 중심(사전 등록 O7, Guney & Wineman 2008)",
     "C13": "C13 거실 중심 + 공·사 위계",
     "C2b3": "C2b3 현관–거실 1단계 + 공·사 위계",
     "C136": "C136 C13 + 습식 주변화",
@@ -102,6 +104,9 @@ def stats_profile(g):
         mean([R[n] for n in of("주방")]),
         -mean([bc[n] for n in of("거실")]),
         mean([dep[n] for n in of("거실")]),
+        # O7h 홀 중심(사전 등록 O7의 홀 안, Guney & Wineman 2008): 가장 통합된 기타(복도·홀) 노드의 RRA.
+        # 기타 노드가 없으면 그 그래프의 최대 RRA(= 홀 중심성이 없음)로 둔다.
+        min([R[n] for n in of("기타")]) if of("기타") else max(R.values()),
     ]
     prof = np.zeros((len(TYPES), DMAX + 1))
     for i, tp in enumerate(TYPES):
@@ -283,7 +288,7 @@ def main():
     # β 강건성 곡선(단일 목적): β* 배수
     mults = [0, 0.25, 0.5, 1, 2, 4]
     curve = {}
-    for m in ["O1", "O2", "O3", "O6", "O7", "O9", "O2b", "C13", "C2b3"]:
+    for m in ["O1", "O2", "O3", "O6", "O7", "O9", "O2b", "O7h", "C13", "C2b3"]:
         idx = [STATS.index(x) for x in MODELS[m]]
         b = np.array(fits[m]["beta"])
         curve[m] = {str(c): metrics(probs(b * c, idx), range(len(groups)), wB) for c in mults}
