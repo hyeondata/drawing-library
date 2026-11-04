@@ -116,7 +116,7 @@ export const CLAIMS = {
     ko: '단위 평면이 좁고 깊은 형태에서 넓고 얕은 형태로 바뀌었다(환기·조망·일조 개선). 한국은 열 획득과 맞통풍에 초점을 둔다.',
     loc: '출판본 p.1, p.6, p.12',
     quote: '“the forms of unit plans within blocks were changed from narrow and deep to wider and shallow … to improve … the ventilation, the view, and access to sunlight.” (p.6) · “In Korea, the bathrooms are usually in the middle of a unit and do not have windows.” (p.12)',
-    how: '창 폭 비율(거실 70 · 침실 55 · 주방 45 · 욕실 35%)과 미닫이 75%는 이 도구가 정함. 원문은 한국 욕실이 보온 때문에 대개 세대 가운데 창 없이 놓인다고 적으므로, 욕실에 바깥 창을 다는 이 도구의 규칙은 원문과 다름.',
+    how: '창 폭 비율(거실 70 · 침실 55 · 주방 45%)과 미닫이 75%는 이 도구가 정함. 원문(p.12)대로 욕실에는 바깥 창을 달지 않음(2026-11-04 고침; 전에는 욕실 35% 창을 달아 원문과 달랐음).',
   },
   'upasani-dims': {
     ref: 'upasani2020',

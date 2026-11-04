@@ -153,7 +153,7 @@ export function rulesOf(stage, c, spec) {
       const withWin = new Set([...win.map((o) => o.to), ...slide.map((o) => o.from)].filter(Boolean));
       const living = indoor.filter((r) => ['거실', '침실'].includes(r.type));
       const noWin = living.filter((r) => !withWin.has(r.key));
-      add(3, 'rule', '거실·침실·주방·욕실은 가장 긴 바깥 벽 가운데에 창(벽 길이의 거실 70 · 침실 55 · 주방 45 · 욕실 35%)', `창 ${win.filter((o) => o.to).length}개${noWin.length ? ` · 창 없는 거실·침실: ${noWin.map((r) => r.name).join(', ')}` : ' · 거실·침실 모두 창 있음'}`, !noWin.length, [lit('ju-shallow'), assume('창 비율(거실 70·침실 55·주방 45·욕실 35%)은 통상 비율')]);
+      add(3, 'rule', '거실·침실·주방은 가장 긴 바깥 벽 가운데에 창(벽 길이의 거실 70 · 침실 55 · 주방 45%), 욕실은 창 없음(Ju & Oh 2020 p.12)', `창 ${win.filter((o) => o.to).length}개${noWin.length ? ` · 창 없는 거실·침실: ${noWin.map((r) => r.name).join(', ')}` : ' · 거실·침실 모두 창 있음'}`, !noWin.length, [lit('ju-shallow'), assume('창 비율(거실 70·침실 55·주방 45%)은 통상 비율')]);
       break;
     }
     default: {

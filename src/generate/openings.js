@@ -161,8 +161,9 @@ export function placeOpenings(layout) {
     }
   }
 
-  // 5. 거주실·주방·욕실의 바깥 벽 창: 가장 긴 바깥 벽 가운데
-  const winRatio = { 거실: 0.7, 침실: 0.55, 주방: 0.45, 화장실: 0.35, 드레스룸: 0.35, 다목적공간: 0.35 };
+  // 5. 거주실·주방의 바깥 벽 창: 가장 긴 바깥 벽 가운데.
+  //    욕실에는 바깥 창을 달지 않는다: 한국 욕실은 보온 때문에 대개 세대 가운데 창 없이 놓인다(Ju & Oh 2020 p.12, 원문 대조 evidence/16).
+  const winRatio = { 거실: 0.7, 침실: 0.55, 주방: 0.45, 드레스룸: 0.35, 다목적공간: 0.35 };
   for (const room of rooms) {
     if (!winRatio[room.type]) continue;
     const doorSegs = openings.filter((o) => o.entry && o.to === room.key);
