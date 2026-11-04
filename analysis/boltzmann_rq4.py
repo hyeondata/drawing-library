@@ -117,7 +117,7 @@ def comp_of_graph(g):
 
 
 FRAME = os.environ.get("FRAME", "aligned")  # aligned = 현 정렬 틀, split = 뒤 띠를 거실 열에서 나누는 틀(split_frame.py)
-OUT = "boltzmann-rq4" + ("-split" if FRAME == "split" else "")
+OUT = "boltzmann-rq4" + ("-split" if FRAME == "split" else "") + (f"-convex{os.environ['REAL']}" if os.environ.get("REAL") in ("P1", "P2") else "")
 
 
 def _graphs(t):
@@ -289,7 +289,7 @@ def main():
         curve[m] = {str(c): metrics(probs(b * c, idx), range(len(groups)), wB) for c in mults}
 
     # ---- 보고 ----
-    L = ["# RQ4: 정확 볼츠만 분포(dev A에 맞춤) 대 실제 dev B" + (" — 뒤 띠 분할 틀(split_frame.py)" if FRAME == "split" else "") + "\n"]
+    L = ["# RQ4: 정확 볼츠만 분포(dev A에 맞춤) 대 실제 dev B" + (" — 뒤 띠 분할 틀(split_frame.py)" if FRAME == "split" else "") + (f" — 실제 거실 볼록 분할 {os.environ['REAL']}(convex-living.mjs)" if os.environ.get("REAL") in ("P1", "P2") else "") + "\n"]
     L.append(f"> `SPECS=rq4 uv run python boltzmann_rq4.py` · 사양 {len(groups)}개 · 평면(배치) {len(F):,}개 전부 열거 · 실제 dev 서로 다른 그래프 {len(dev):,}개(A {int(half.sum())} / B {int((~half).sum())}, 사양 구성 비율로 가중) · 부트스트랩 {B:,}회(사양 군집 + 실제 B) · test 미사용\n")
     L.append("## 1. 맞춘 β (표준화 통계량 단위, 양수 = 실제가 균등 배치보다 그 원리 쪽)\n")
     L.append("| 모형 | 통계량 | β | 적률 일치 | 사양당 유효 평면 수 (전체 중앙값) |")

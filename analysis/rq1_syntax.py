@@ -25,6 +25,10 @@ import numpy as np
 ROOT = Path(__file__).resolve().parent.parent
 DER = ROOT.parent / "aihub-full" / "derived"
 RES = ROOT / "evidence" / "results"
+# 실제 그래프 규약: 기본 = AI 허브 라벨 그대로, REAL=P1·P2 = 거실을 볼록 공간으로 나눔(scripts/convex-living.mjs)
+_REAL = __import__("os").environ.get("REAL", "")
+REAL_FILE = f"unit-graphs-convex-{_REAL}.jsonl" if _REAL in ("P1", "P2") else "unit-graphs.jsonl"
+OUT_SFX = f"-convex{_REAL}" if _REAL in ("P1", "P2") else ""
 TYPES = ["거실", "주방", "현관", "침실", "화장실", "드레스룸", "다목적공간", "기타", "발코니"]
 PUBLIC = {"거실", "주방"}
 
@@ -174,7 +178,7 @@ def work(lines):
 
 def main():
     t0 = time.time()
-    lines = (DER / "unit-graphs.jsonl").read_text().splitlines()
+    lines = (DER / REAL_FILE).read_text().splitlines()
     chunks = [lines[i::16] for i in range(16)]
     with ProcessPoolExecutor(16) as ex:
         res = [r for part in ex.map(work, chunks) for r in part]
@@ -220,8 +224,8 @@ def main():
         L.append(f"| {tp} | {c:,} | {c / len(rows):.1%} |")
     L.append("\n- '기타'는 복도·홀(문헌의 중앙홀·전이공간)이다. 홀을 거실에 합칠지에 따라 O1(거실 중심)과 O7(홀 중심)의 판정이 달라진다(Seo 2003은 독립, Choi 2014는 제외).")
     L.append("- 2026-11-04 고침(원문 대조, Confluence 09-12d): H*를 HHG 1987 식으로, 상대 엔트로피를 Turner 식으로, d형에 링크 > 2 조건을 넣었다.")
-    RES.joinpath("rq1-syntax.md").write_text("\n".join(L) + "\n")
-    RES.joinpath("rq1-syntax.json").write_text(json.dumps({"n_units": n_all, "n_graphs": len(rows), "top": dict(top)}, ensure_ascii=False, indent=1))
+    RES.joinpath(f"rq1-syntax{OUT_SFX}.md").write_text("\n".join(L) + "\n")
+    RES.joinpath(f"rq1-syntax{OUT_SFX}.json").write_text(json.dumps({"n_units": n_all, "n_graphs": len(rows), "top": dict(top)}, ensure_ascii=False, indent=1))
     print("\n".join(L))
 
 

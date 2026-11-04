@@ -30,6 +30,9 @@ from rq1_syntax import DER, graph_of, measures
 DROP = {"발코니", "실외기실"}
 
 SUFFIX = "-rq4" if os.environ.get("SPECS") == "rq4" else ""  # 사양 묶음(scripts/lib/rq4-specs.mjs)
+# 실제 그래프 규약: 기본 = AI 허브 라벨 그대로(거실 라벨이 복도 포함), P1·P2 = 거실을 볼록 공간으로 나눔(scripts/convex-living.mjs)
+REAL = os.environ.get("REAL", "")
+REAL_FILE = f"unit-graphs-convex-{REAL}.jsonl" if REAL in ("P1", "P2") else "unit-graphs.jsonl"
 
 
 def clean(o):
@@ -62,7 +65,7 @@ def beds(g):
 def load_dev():
     """dev 묶음의 정리된 그래프, 같은 그래프(실 유형 라벨 포함 WL 해시)는 하나만."""
     dev = []
-    for line in (DER / "unit-graphs.jsonl").read_text().splitlines():
+    for line in (DER / REAL_FILE).read_text().splitlines():
         o = json.loads(line)
         if o["split"] != "dev":
             continue
