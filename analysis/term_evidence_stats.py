@@ -302,6 +302,47 @@ def main() -> None:
         jtxt = f"[{fmt(j['lo'])}, {fmt(j['hi'])}]" if j.get("lo") is not None else "—"
         lines.append(f"| `{b['key']}` | {fmt(b['est'])} | [{fmt(b['lo'])}, {fmt(b['hi'])}] | {jtxt} | {b['n']:,} / {b['drawings']:,} |")
     lines.append("")
+    # ---- 4. 같은 평면 중복을 뺐을 때(통계 처리 보강) ----
+    # 왜: 세대의 55%가 다른 세대와 특징이 완전히 같은 중복이라(한 평면 263번) n이 부풀어 구간이 실제보다 좁고 p가 작게 나올 수 있다.
+    # 평가 기준 분포와 같은 거르기(침실 1~5, 주방·화장실 있음, 같은 평면 한 번)를 한 8,331개 평면으로 빈도와 연관을 다시 잰다.
+    t = time.perf_counter()
+    bu = DATA.parent / "baseline-units.jsonl"
+    dd = None
+    if bu.exists():
+        kept = {(o["drawing"], o["unit"]) for o in (json.loads(l) for l in bu.read_text(encoding="utf8").splitlines() if l.strip())}
+        dd = df[[(d, u) in kept for d, u in zip(df["drawing"], df["unit"])]]
+        assoc_d = real_associations_fast(dd, keys)
+        boot_d = cluster_bootstrap(dd, keys, B=2000)
+        T["dedup"] = time.perf_counter() - t
+        lines.append("## 4. 같은 평면 중복을 뺐을 때\n")
+        lines.append(f"평가 기준 분포와 같은 거르기(침실 1~5개, 주방·화장실 있음, **같은 평면은 한 번만**)를 한 {len(dd):,}개 평면(도면 {dd['drawing'].nunique():,}장)으로 다시 잽니다. 군집 부트스트랩 2,000회. 판정은 실제 빈도 구간이 생성 우연 빈도를 포함하지 않을 때 보상(실제가 더 많음)·벌점(실제가 더 적음)입니다.\n")
+        lines.append("| 관계 | 전체 19,196세대 | 중복 제거 | 생성 우연 | 판정(전체 → 중복 제거) |")
+        lines.append("|---|---|---|---|---|")
+        gen = {r["key"]: r["gen"] for r in cmp_rows if r["key"]}
+        same_v = tot_v = 0
+        def vd(lo, hi, g):
+            if g is None: return "—"
+            return "보상" if lo > g else ("벌점" if hi < g else "불확실")
+        for _, b in boot.iterrows():
+            bd = boot_d[boot_d.key == b["key"]]
+            if bd.empty: continue
+            bd = bd.iloc[0]
+            g = gen.get(b["key"])
+            fmt = (lambda x: f"{x:.3f}") if b["key"] == "livingOffCenter" else (lambda x: f"{100 * x:.1f}%")
+            v1, v2 = vd(b["lo"], b["hi"], g), vd(bd["lo"], bd["hi"], g)
+            if v1 != "—":
+                tot_v += 1; same_v += int(v1 == v2)
+            gtxt = "—" if g is None else fmt(g)
+            lines.append(f"| `{b['key']}` | {fmt(b['est'])} [{fmt(b['lo'])}, {fmt(b['hi'])}] | {fmt(bd['est'])} [{fmt(bd['lo'])}, {fmt(bd['hi'])}] | {gtxt} | {v1} → {v2}{'' if v1 == v2 else ' **바뀜**'} |")
+        a1 = assoc.dropna(subset=["coef"]).set_index(["key", "y"])
+        a2 = assoc_d.dropna(subset=["coef"]).set_index(["key", "y"])
+        common = a1.index.intersection(a2.index)
+        sig1 = a1.loc[common, "p_holm"] < 0.05
+        sig2 = a2.loc[common, "p_holm"] < 0.05
+        sgn = np.sign(a1.loc[common, "coef"]) == np.sign(a2.loc[common, "coef"])
+        lines.append("")
+        lines.append(f"- 방향 판정: {tot_v}개 관계 중 {same_v}개 유지.")
+        lines.append(f"- 공간구문 연관(OLS, 같은 모형): 칸 {len(common)}개 중 전체에서 유의 {int(sig1.sum())}개 → 중복 제거 뒤에도 유의하고 부호가 같은 칸 {int((sig1 & sig2 & sgn).sum())}개, 부호가 뒤집힌 칸 {int((~sgn).sum())}개.\n")
     lines.append("## 계산 시간\n")
     lines.append(" · ".join(f"{k} {v:.2f}초" for k, v in T.items()) + "\n")
     lines.append("## 쓰인 도구와 이유\n")
@@ -315,7 +356,7 @@ def main() -> None:
     lines.append("- 표본이 커 작은 계수도 유의해집니다. 계수 크기를 함께 보십시오.")
     lines.append("- 거실·침실이 없는 현관 조각 세대(2,187)와 현관 없는 도면(59장)은 측정에서 빠졌습니다.")
     (RES / "term-evidence-stats.md").write_text("\n".join(lines) + "\n", encoding="utf8")
-    (RES / "term-evidence-stats.json").write_text(json.dumps({"units": int(len(df)), "drawings": int(df["drawing"].nunique()), "timing": T, "bootstrap": boot.to_dict(orient="records"), "compare": cmp_rows, "assoc": assoc.replace({np.nan: None}).to_dict(orient="records")}, ensure_ascii=False, indent=1), encoding="utf8")
+    (RES / "term-evidence-stats.json").write_text(json.dumps({"units": int(len(df)), "drawings": int(df["drawing"].nunique()), "timing": T, "bootstrap": boot.to_dict(orient="records"), "compare": cmp_rows, "assoc": assoc.replace({np.nan: None}).to_dict(orient="records"), "dedup": None if dd is None else {"units": int(len(dd)), "bootstrap": boot_d.to_dict(orient="records"), "assoc": assoc_d.replace({np.nan: None}).to_dict(orient="records")}}, ensure_ascii=False, indent=1), encoding="utf8")
     print(f"세대 {len(df):,}, 도면 {df['drawing'].nunique():,} → {RES / 'term-evidence-stats.md'}")
 
 
