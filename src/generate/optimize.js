@@ -1,7 +1,7 @@
 // 사양에 맞는 평면 변형을 여러 개 만들고 평가 모델 점수 + 목표 면적 부합 + 선택한 선호 점수로 골라낸다.
 // 무작위 탐색 뒤 상위 안을 국소 탐색(hill climbing)으로 다듬는다. 브라우저 Web Worker와 Node 테스트가 함께 쓴다.
 import { evaluate } from '../model/index.js';
-import { MIN_SIDE, buildLayout, mutate, noiseExposure, randomParams, rng, toLabel } from './layout.js';
+import { MIN_SIDE, buildLayout, mutate, noiseExposure, randomParams, rng, sharedEdge, toLabel } from './layout.js';
 
 export { MIN_SIDE };
 import { ALL_CHOICES } from './preferences.js';
@@ -53,7 +53,13 @@ export function scoreLayout(spec, layout, baseline) {
   // 문 동선: 현관에서 문으로 갈 수 없는 실, 침실을 지나야 하는 실은 감점(평가 모델은 인접 그래프라 이것을 보지 못한다).
   const doorIssues = layout.doorCheck ? layout.doorCheck.unreachable.length + layout.doorCheck.throughBedroom.length : 0;
   objective -= 15 * doorIssues;
-  return { label, unit: stripUnit(unit), model: unit.score, fit, prefs, prefScore, objective, noise, actual, narrow, doorIssues };
+  // 현관–거실 직결: 한국 실제 아파트(AI 허브 dev 묶음) 세대의 99.4%에서 현관이 거실과 맞닿는다(evidence/results/entrance-living-diagnosis.md).
+  // 평가 모델 규칙 livingNear는 깊이 2까지 통과시켜, 이것이 없으면 면적 부합이 조금 나은 깊이 2 평면이 뽑혔다. 감점 크기는 문 동선과 같은 단위(15).
+  const ent = layout.rooms.find((r) => r.key === 'entrance');
+  const liv = layout.rooms.find((r) => r.key === 'living');
+  const entryLiving = Boolean(ent && liv && sharedEdge(ent, liv) > 0);
+  if (!entryLiving) objective -= 15;
+  return { label, unit: stripUnit(unit), model: unit.score, fit, prefs, prefScore, objective, noise, actual, narrow, doorIssues, entryLiving };
 }
 
 /** Worker로 넘길 때 무거운 부분(정렬된 기준값 배열)을 뺀다. */

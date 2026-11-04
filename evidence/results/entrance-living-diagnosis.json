@@ -26,25 +26,25 @@
    "set": "hand",
    "path": "full",
    "n": 600,
-   "depth1": 0.3333333333333333,
+   "depth1": 0.36666666666666664,
    "livingControl": 1.7,
-   "livingBedroomRatio": 1.7610062893081757
+   "livingBedroomRatio": 1.7700453857791227
   },
   {
    "set": "calibrated",
    "path": "qubo",
    "n": 600,
-   "depth1": 0.17833333333333334,
-   "livingControl": 1.8333333333333333,
-   "livingBedroomRatio": 1.9324324324324327
+   "depth1": 0.9666666666666667,
+   "livingControl": 2.1166666666666663,
+   "livingBedroomRatio": 2.9759519038076157
   },
   {
    "set": "calibrated",
    "path": "full",
    "n": 600,
-   "depth1": 0.3566666666666667,
+   "depth1": 0.4716666666666667,
    "livingControl": 1.7333333333333332,
-   "livingBedroomRatio": 1.8016828906121105
+   "livingBedroomRatio": 1.8666666666666665
   },
   {
    "set": "maxent",
@@ -58,9 +58,9 @@
    "set": "maxent",
    "path": "full",
    "n": 600,
-   "depth1": 0.39,
+   "depth1": 0.42833333333333334,
    "livingControl": 1.7,
-   "livingBedroomRatio": 1.8045112781954886
+   "livingBedroomRatio": 1.8055555555555554
   }
  ]
 }

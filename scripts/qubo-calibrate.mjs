@@ -171,7 +171,8 @@ const DIR = (() => {
   return TERMS.map((t) => (dir[t.id] !== undefined ? dir[t.id] : t.id === 'masterNotEnd' ? 1 : t.id === 'backBedUnderBed' ? -1 : 0));
 })();
 //   규칙 항은 부호만이 아니라 값도 손 가중치로 고정한다(규칙은 점수로 맞출 대상이 아님; 최대 엔트로피 추정과 같은 처리).
-const RULE = new Set(['masterNotEnd', 'backBedUnderBed']);
+// entranceLiving: 한국 실제 세대 99.4%가 현관–거실 직결(evidence/results/entrance-living-diagnosis.md)이라 데이터 규칙으로 고정. J에 맞추면 0이 되었다.
+const RULE = new Set(['masterNotEnd', 'backBedUnderBed', 'entranceLiving']);
 const project = (w) => w.map((v, i) => (RULE.has(TERMS[i].id) ? TERMS[i].hand : DIR[i] && Math.sign(v) === -DIR[i] ? 0 : v));
 
 // 직접 최적화: 학습 그룹의 평균 후회(에너지 최소 배치의 점수 − 그룹 최고)를 키우는 방향으로 가중치를 무작위 국소 탐색.
@@ -256,7 +257,7 @@ md.push('');
 md.push(`\`node scripts/qubo-calibrate.mjs --samples ${SAMPLES}${SIGNED ? " --signed" : ""}\`로 만든 파일입니다(${meta.generatedAt}). 조건 ${meta.specs}개(평형 59~114㎡, 방 2~4개, 선호 5가지)의 템플릿 QUBO ${meta.groups}개에서 배치 ${meta.samples.toLocaleString()}개를 열거·표본추출해 평면으로 풀고 순위 점수를 쟀습니다(${Math.round((Date.now() - t0) / 1000)}초).`);
 md.push('');
 md.push('방법을 비교했습니다. (1) 릿지: 같은 QUBO 안에서만 에너지를 비교하므로 점수를 조건·템플릿별 백분위 순위로, 항 값을 중심화해 회귀하고 w = −β(최대 절댓값 8). 전체 순서를 맞춥니다. (2) 직접: 학습 조건에서 \'에너지 최소 배치의 후회\'를 줄이도록 가중치를 무작위 국소 탐색(시작점: 손 가중치와 릿지 해). QUBO를 정확히 풀었을 때 나오는 평면을 좋게 만드는 것이 목적이라 이쪽이 실제 목표에 가깝습니다. 교차검증 후회가 가장 작은 방법을 고릅니다.');
-if (SIGNED) md.push('', '(3) 부호 제약 직접(`--signed`, 현재 채택): 항의 부호는 한국 실제 아파트 관계 빈도가 정한 방향(evidence/results/qubo-maxent.md의 데이터 방향)을 따르게 하고(어기면 0), 규칙 항(masterNotEnd = 6, backBedUnderBed = −2)은 고정한 채 크기만 직접 방법으로 맞춥니다. 부호까지 점수에 맞추면 데이터와 반대 부호가 나오고 안방 끝 규칙과 충돌했기 때문입니다(evidence/17 §5).');
+if (SIGNED) md.push('', '(3) 부호 제약 직접(`--signed`, 현재 채택): 항의 부호는 한국 실제 아파트 관계 빈도가 정한 방향(evidence/results/qubo-maxent.md의 데이터 방향)을 따르게 하고(어기면 0), 규칙 항(masterNotEnd = 6, backBedUnderBed = −2, entranceLiving = −5: 실제 세대 99.4% 현관–거실 직결)은 고정한 채 크기만 직접 방법으로 맞춥니다. 부호까지 점수에 맞추면 데이터와 반대 부호가 나오고 안방 끝 규칙과 충돌했기 때문입니다(evidence/17 §5).');
 md.push('');
 md.push('## 검증: 조건을 통째로 빼고 맞춘 교차검증(5겹)');
 md.push('');
