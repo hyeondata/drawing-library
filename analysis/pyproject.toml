@@ -11,6 +11,8 @@ dependencies = [
     "scikit-learn>=1.9.1",
     "dimod>=0.12.23",
     "dwave-samplers>=1.8.0",
+    "minorminer>=0.2.23",
+    "dwave-networkx>=0.8.19",
 ]
 
 [tool.uv]
