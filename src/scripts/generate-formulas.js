@@ -26,7 +26,7 @@ const OUTS = [
   { key: 'hall', label: '복도 폭(m)', f: (L) => Math.max(0, ...L.rooms.filter((r) => r.type === '기타').map((r) => Math.min(r.w, r.h))) },
   { key: 'master', label: '안방 면적(㎡)', f: (L) => area(L.rooms.find((r) => r.key === 'master')) },
   { key: 'W', label: '평면 폭 W(m)', f: (L) => L.W },
-  { key: 'narrow', label: '최소 폭 미달 실(개)', f: (L) => L.rooms.filter((r) => (r.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[r.type]) && Math.min(r.w, r.h) < (r.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[r.type]) - EPS).length },
+  { key: 'narrow', label: '최소 폭 미달 실(개)', f: (L) => L.rooms.filter((r) => r.minW && Math.min(r.w, r.h) < r.minW - EPS).length },
   { key: 'door', label: '문 동선 문제(개)', f: (L) => (L.doorCheck ? L.doorCheck.unreachable.length + L.doorCheck.throughBedroom.length : 0) },
 ];
 const area = (r) => (r ? r.w * r.h : 0);
@@ -123,7 +123,7 @@ function drawCards(L, P) {
   const master = L.rooms.find((r) => r.key === 'master');
   const suite = L.rooms.filter((r) => r.key === 'bathMaster' || r.key === 'dress');
   const front = L.rooms.filter((r) => Math.abs(r.y + r.h - L.D) < EPS && r.type !== '발코니' && r.type !== '실외기실' && r.type !== '기타').sort((a, b) => a.x - b.x);
-  const minOf = (r) => (r.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[r.type] || 0);
+  const minOf = (r) => r.minW || 0;
   const vars = (keys) => `<span class="gen-fx-vars">영향 변수: ${keys.map((k) => `<button type="button" class="chip" data-focus="${k}">${esc(P.find((q) => q.key === k)?.label || k)}</button>`).join(' ')}</span>`;
   const cards = [
     {

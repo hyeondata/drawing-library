@@ -99,10 +99,10 @@ export function rulesOf(stage, c, spec) {
       break;
     }
     case 4: {
-      const minOf = (r) => (r.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[r.type] || 0);
+      const minOf = (r) => r.minW || 0;
       const bandRooms = [...front, ...back].filter((r) => minOf(r));
       const bad = bandRooms.filter((r) => r.w < minOf(r) - 1e-6);
-      add(1, 'rule', '띠 폭을 나눌 때 최소 폭을 먼저: 욕실 1.5 · 현관 1.2 · 주방 2.2 · 침실 2.4 · 안방 3.0 · 거실 3.6m', bad.length ? `미달: ${bad.map((r) => `${r.name} ${f2(r.w)}m < ${minOf(r)}m`).join(', ')}` : `모두 지킴(${bandRooms.map((r) => `${r.name} ${f2(r.w)}`).join(' · ')}m)`, !bad.length, [lit('upasani-dims'), lit('rodrigues-shc'), assume('최소 폭 값(욕실 1.5·현관 1.2·주방 2.2·침실 2.4·안방 3.0·거실 3.6m)은 통상 치수')]);
+      add(1, 'rule', `띠 폭을 나눌 때 최소 폭을 먼저: ${['화장실', '현관', '주방', '침실', '안방', '거실'].map((t) => `${t === '화장실' ? '욕실' : t} ${f2(L.minSide?.[t] ?? MIN_SIDE[t])}`).join(' · ')}m`, bad.length ? `미달: ${bad.map((r) => `${r.name} ${f2(r.w)}m < ${minOf(r)}m`).join(', ')}` : `모두 지킴(${bandRooms.map((r) => `${r.name} ${f2(r.w)}`).join(' · ')}m)`, !bad.length, [lit('upasani-dims'), lit('rodrigues-shc'), data('최소 폭 = 실제 한국 아파트(AI 허브 dev 묶음)의 실별 짧은 변 ÷ 침실 한 변의 하위 5% × 이 평면의 침실 한 변. 법정 최소 실 폭은 없음(주택건설기준 규정 제13조)')]);
       const sumF = front.reduce((s, r) => s + r.w, 0);
       add(2, 'rule', '남는 폭은 (원하는 폭 − 최소 폭)에 비례해 나눔. 원하는 폭 = 실 면적 ÷ 깊이', `앞 띠 폭 합 ${f2(sumF)}m = W ${f2(L.W)}m`, Math.abs(sumF - L.W) < 0.05, [assume('남는 폭을 (원하는 폭 − 최소 폭)에 비례해 나누는 방식은 이 도구의 설계')]);
       add(3, 'search', '작은방 폭 w · 안방 깊이 비율 g · 실별 면적 배수는 치수 다듬기(30번)로 정함', `w ${f2(p.bedWidth ?? 3)}m · g ${f2(p.masterDepth ?? 1)}`, null, [lit('michalek-hybrid'), lit('rodrigues-shc')]);

@@ -489,7 +489,7 @@ const bandsOf = (layout) => {
   const living = layout.rooms.find((r) => r.key === 'living');
   return { front, back, Df: living ? living.h : layout.D / 2, Db: living ? living.y : layout.D / 2 };
 };
-const minOf = (r) => (r.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[r.type] || 0);
+const minOf = (r) => r.minW || 0;
 function matrixSvg(rooms, label) {
   // 행 = 실, 열 = 칸(왼쪽부터). 칠한 칸 = 배정(x = 1). 위아래로 쌓인 실은 같은 칸.
   const cols = [];

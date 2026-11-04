@@ -38,10 +38,10 @@ export function scoreLayout(spec, layout, baseline) {
   const errs = [];
   for (const k of Object.keys(actual)) if (actual[k] !== null) errs.push(Math.abs(actual[k] - spec.targets[k] * spec.area) / (spec.targets[k] * spec.area));
   const fit = Math.max(0, 100 - 250 * (errs.reduce((s, e) => s + e, 0) / errs.length));
-  // 짧은 변이 MIN_SIDE보다 좁은 실은 쓰기 어려운 실로 보고 감점한다.
+  // 짧은 변이 그 실의 최소 폭(r.minW, 실제 아파트 하위 5%에서 정함)보다 좁은 실은 쓰기 어려운 실로 보고 감점한다.
   // 거실·침실은 긴 변이 짧은 변의 2배를 넘어도 쓰기 어렵다고 본다.
   const narrow = layout.rooms.filter(
-    (r) => (MIN_SIDE[r.type] && Math.min(r.w, r.h) < MIN_SIDE[r.type]) || (r.key === 'master' && Math.min(r.w, r.h) < MIN_SIDE.안방) || ((r.type === '침실' || r.type === '거실') && Math.max(r.w, r.h) / Math.min(r.w, r.h) > 2),
+    (r) => (r.minW && Math.min(r.w, r.h) < r.minW - 1e-6) || ((r.type === '침실' || r.type === '거실') && Math.max(r.w, r.h) / Math.min(r.w, r.h) > 2),
   ).length;
 
   const prefs = ALL_CHOICES.filter((c) => spec.prefs.includes(c.key)).map((c) => ({ key: c.key, score: c.score(ctx) }));

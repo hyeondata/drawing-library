@@ -6,17 +6,26 @@
 import { toAihubSPA } from './aihub.js';
 import { placeFixtures } from './fixtures.js';
 import { placeOpenings } from './openings.js';
+import { MIN_WIDTH_RATIO } from './min-width.js';
 
 export const BALCONY_DEPTH = 1.5;
 
-/**
- * 실 종류별 최소 폭(m). 치수 제약을 둔 평면 생성 연구(Upasani et al. 2020)처럼 실마다 하한을 두되,
- * 값은 국내 아파트 통상 치수(욕실 1.5m, 현관 1.2m 등)를 쓴 설계 가정이다. 안방은 key 'master'에 따로 적용한다.
- */
 /** 최소 면적(m²): 최소 폭 × 통상 깊이(작은방 2.4×2.7m, 안방 3.0×3.3m, 욕실 1.5×2.0m 등). 작은 평형에서 면적비만 따르면 실이 너무 작아진다. */
 export const MIN_AREA = { bedroom: 6.5, master: 9.9, bath: 3.0, entrance: 2.2, dress: 2.5 };
 
-export const MIN_SIDE = { 안방: 3.0, 거실: 3.6, 침실: 2.4, 주방: 2.2, 화장실: 1.5, 현관: 1.2, 드레스룸: 1.3, 다목적공간: 1.1 };
+/**
+ * 실 종류별 최소 폭(m) = 실제 한국 아파트에서 잰 비(MIN_WIDTH_RATIO, 하위 5%) × 이 사양의 침실 한 변(√침실 면적 중앙값, 안방 포함).
+ * 도면 축척을 몰라도 되도록 실제 평면에서도 같은 세대 침실 한 변에 대한 비로 쟀다(scripts/min-width-from-data.mjs).
+ * 2026-11-04 전에는 통상 치수 가정(거실 3.6·안방 3.0·침실 2.4·주방 2.2·욕실 1.5·현관 1.2m)이었다. 안방은 key 'master'에 따로 적용한다.
+ */
+export function minSidesFor(spec) {
+  const beds = programOf(spec).filter((r) => r.type === '침실').map((r) => Math.sqrt(r.area)).sort((a, b) => a - b);
+  const n = beds.length;
+  const side = n ? (n % 2 ? beds[(n - 1) / 2] : (beds[n / 2 - 1] + beds[n / 2]) / 2) : 3;
+  return Object.fromEntries(Object.entries(MIN_WIDTH_RATIO).map(([t, k]) => [t, Math.round(k * side * 100) / 100]));
+}
+/** 화면 설명용: 84㎡·3침실 기준 사양의 최소 폭. 생성은 사양마다 minSidesFor(spec)를 쓴다. */
+export const MIN_SIDE_REFERENCE_SPEC = { area: 84, bedrooms: 3, baths: 2, dress: true, multi: false, targets: { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877, bath: 0.032, entrance: 0.0389, dress: 0.0499, multi: 0.0303 } };
 export const OUTDOOR_UNIT = { w: 1.4, d: 1.5 };
 
 /**
@@ -126,6 +135,7 @@ export function mutate(p, spec, r) {
  * 반환: { W, D, rooms: [{ key, type, name, x, y, w, h }] } — y가 작을수록 뒤(북측), 앞 띠 아래에 발코니.
  */
 export function buildLayout(spec, p) {
+  const MIN_SIDE = minSidesFor(spec);
   const program = programOf(spec).map((room, i) => ({ ...room, area: room.area * (p.areaMul[i % p.areaMul.length] || 1) }));
   const by = Object.fromEntries(program.map((room) => [room.key, room]));
   // 면적 배수는 실 사이 비율만 바꾸고, 전체는 고른 전용면적에 맞춘다.
@@ -321,7 +331,11 @@ export function buildLayout(spec, p) {
     const k = rooms.find((rm) => rm.key === 'kitchen');
     rooms.push({ key: 'outdoor', type: '실외기실', name: '실외기실', x: k.x, y: -OUTDOOR_UNIT.d, w: Math.min(OUTDOOR_UNIT.w, k.w), h: OUTDOOR_UNIT.d });
   }
-  const layout = { W, D, rooms };
+  for (const rm of rooms) {
+    const m = rm.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[rm.type];
+    if (m) rm.minW = m;
+  }
+  const layout = { W, D, rooms, minSide: MIN_SIDE };
   // 문·창·설비(예시 도면의 STR·OBJ에 해당)와 문 동선 점검
   const { openings, unreachable, throughBedroom } = placeOpenings(layout);
   layout.openings = openings;
@@ -366,3 +380,6 @@ export function noiseExposure(rooms) {
 export function toLabel(layout) {
   return toAihubSPA(layout);
 }
+
+/** 화면 설명용 최소 폭(84㎡·3침실 기준 사양). */
+export const MIN_SIDE = minSidesFor(MIN_SIDE_REFERENCE_SPEC);
