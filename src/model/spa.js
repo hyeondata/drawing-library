@@ -397,7 +397,9 @@ function analyzeUnit(unit, spaces, edges, rootless, stranded, T) {
 export function analyzeSPA(parsed, opts = {}) {
   const spaces = parsed.items.filter((it) => it.group === '공간');
   const T = scaledThresholds(drawingScale(spaces));
-  const edges = buildAdjacency(spaces, T);
+  // opts.edgeFilter(a, b): 인접 링크 중 남길 것만(예: 문이 있는 링크만 남겨 출입 그래프로 재기). 없으면 벽 인접 그래프 그대로.
+  const all = buildAdjacency(spaces, T);
+  const edges = opts.edgeFilter ? all.filter(([i, j]) => opts.edgeFilter(spaces[i], spaces[j])) : all;
   const { units, unitOf, rootless, stranded } = assignUnits(spaces, edges, opts.unitRule === 'entrance');
   return {
     kind: 'SPA',
