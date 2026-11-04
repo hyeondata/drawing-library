@@ -6,12 +6,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildLayout, sharedEdge } from '../src/generate/layout.js';
 import { defaultParams } from '../src/generate/compare.js';
-import { specs } from './lib/term-measure.mjs';
+import { specs, suffix } from './lib/rq4-specs.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const T = JSON.parse(fs.readFileSync(path.join(root, 'analysis', 'syntax_qubo', 'templates.json'), 'utf8'));
+const T = JSON.parse(fs.readFileSync(path.join(root, 'analysis', 'syntax_qubo', `templates${suffix}.json`), 'utf8'));
 const perms = (a) => (a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map((q) => [x, ...q])));
-const out = fs.createWriteStream(path.join(root, '..', 'aihub-full', 'derived', 'aligned-graphs.jsonl'));
+const out = fs.createWriteStream(path.join(root, '..', 'aihub-full', 'derived', `aligned-graphs${suffix}.jsonl`));
 let n = 0;
 T.forEach((t, ti) => {
   const spec = { ...specs[Number(t.id.split('/')[0])], prefs: [] };

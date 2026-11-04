@@ -2,7 +2,7 @@
 
 - 실제 dev 서로 다른 그래프를 반으로 나눈다(heldout_compare와 같은 시드): A = 가중치·목적 선택, B = 평가. test는 쓰지 않는다.
 - 선택 기준(A): 목적과 분리된 G2 최근접 그래프 거리, |G3 H* δ|, |G3 기저 DF δ| 세 지표의 평균 순위. G1은 깊이 계열에 순환이라 선택에서 뺀다.
-- 평가(B): 사양(20개) 단위 군집 부트스트랩 2,000회. 같은 사양 표본을 모든 목적에 써서 목적 간 차이를 짝지어 본다.
+- 평가(B): 사양 단위 군집 부트스트랩 2,000회. 같은 사양 표본을 모든 목적에 써서 목적 간 차이를 짝지어 본다.
   사양 안의 도면들(템플릿·동점 배치)은 서로 독립이 아니므로 도면 단위가 아니라 사양 단위로 다시 뽑는다.
 사용: uv run python combo_compare.py → ../evidence/results/combo-compare.md/json
 """
@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections import Counter
 
 import numpy as np
@@ -22,6 +23,8 @@ from real_vs_generated import RES
 from rq1_syntax import measures
 
 B = 2000
+
+SUFFIX = "-rq4" if os.environ.get("SPECS") == "rq4" else ""  # 사양 묶음(scripts/lib/rq4-specs.mjs)
 
 
 def cliffs_fast(a, b_sorted):
@@ -48,7 +51,7 @@ def main():
     sigs = {k: Counter(sig(g) for g, h in zip(dev, m) if h) for k, m in pools.items()}
 
     plans = []
-    for line in (RES / "objective-plans.jsonl").read_text().splitlines():
+    for line in (RES / f"objective-plans{SUFFIX}.jsonl").read_text().splitlines():
         o = json.loads(line)
         f = o.get("features") or {}
         g = clean(f["graph"]) if f.get("graph") else None
@@ -144,9 +147,9 @@ def main():
         L.append(f"| {OBJ[o]} | {fmt(d['cov_O0'], '+.1%')} | {fmt(d['nn_O0'])} | {fmt(d['dH_O0'], '+.2f')} | {fmt(d['dB_O0'], '+.2f')} | {fmt(d['nn_best'])} | {fmt(d['dH_best'], '+.2f')} | {fmt(d['dB_best'], '+.2f')} |")
     L.append("\n✱ = 95% 구간이 0을 포함하지 않음.")
     L.append("\n- 조합 가중치는 템플릿 안 최소–최대 정규화 뒤의 가중치다(objective_orders.py). 템플릿별 상수 배율이라 QUBO의 선형 결합으로 그대로 옮겨진다.")
-    L.append("- 모든 지표가 벽 인접 그래프다. 사양 20개 군집이라 구간이 넓을 수 있다.")
-    RES.joinpath("combo-compare.md").write_text("\n".join(L) + "\n")
-    RES.joinpath("combo-compare.json").write_text(json.dumps(out, indent=1, ensure_ascii=False))
+    L.append(f"- 모든 지표가 벽 인접 그래프다. 사양 {len(specs)}개 군집 부트스트랩이다. G2는 거리값이 이산적이라 중앙값 구간이 한쪽으로 치우칠 수 있다.")
+    RES.joinpath(f"combo-compare{SUFFIX}.md").write_text("\n".join(L) + "\n")
+    RES.joinpath(f"combo-compare{SUFFIX}.json").write_text(json.dumps(out, indent=1, ensure_ascii=False))
     print("\n".join(L))
 
 

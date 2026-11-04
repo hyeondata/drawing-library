@@ -1,0 +1,600 @@
+{
+ "n": 80,
+ "units": 12297,
+ "mix": {
+  "(3, 2, True, False)": {
+   "share": 0.44100515892827424,
+   "specs": 35
+  },
+  "(2, 2, True, False)": {
+   "share": 0.037277417207522055,
+   "specs": 2
+  },
+  "(3, 2, False, False)": {
+   "share": 0.22216674987518722,
+   "specs": 17
+  },
+  "(4, 2, True, False)": {
+   "share": 0.16816442003661175,
+   "specs": 13
+  },
+  "(3, 2, True, True)": {
+   "share": 0.08828424030620736,
+   "specs": 7
+  },
+  "(2, 1, False, False)": {
+   "share": 0.009652188384090531,
+   "specs": 2
+  },
+  "(4, 2, True, True)": {
+   "share": 0.016974538192710935,
+   "specs": 2
+  },
+  "(4, 2, False, False)": {
+   "share": 0.016475287069395907,
+   "specs": 2
+  }
+ },
+ "specs": [
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 114,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 125,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 135,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 114,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 125,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 135,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 114,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 125,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 135,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 94,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 59,
+   "bedrooms": 2,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 64,
+   "bedrooms": 2,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 2,
+   "baths": 1,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 59,
+   "bedrooms": 2,
+   "baths": 1,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 114,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 125,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 135,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  }
+ ]
+}

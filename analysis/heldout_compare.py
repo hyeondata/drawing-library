@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import os
 import zlib
 from collections import Counter
 
@@ -27,6 +28,8 @@ from real_vs_generated import RES
 from rq1_syntax import DER, graph_of, measures
 
 DROP = {"발코니", "실외기실"}
+
+SUFFIX = "-rq4" if os.environ.get("SPECS") == "rq4" else ""  # 사양 묶음(scripts/lib/rq4-specs.mjs)
 
 
 def clean(o):
@@ -80,7 +83,7 @@ def load_dev():
 def main():
     dev = load_dev()
     gen = {}
-    for line in (RES / "objective-plans.jsonl").read_text().splitlines():
+    for line in (RES / f"objective-plans{SUFFIX}.jsonl").read_text().splitlines():
         o = json.loads(line)
         f = o.get("features") or {}
         if not f.get("graph"):
@@ -133,8 +136,8 @@ def main():
     L.append(f"| 실제 dev 값 | | | | {np.nanmedian(hdev):.2f} | {np.nanmedian(bdf):.2f} |")
     L.append("\n- G1·G2는 클수록/작을수록 실제와 같은 그래프가 나온다는 뜻이다. 실제끼리의 기준값과 비교해 읽는다.")
     L.append("- 모든 지표가 벽 인접 그래프(평가 모델과 같은 규약)다. 문 그래프로 다시 재야 할 수 있다(TL_STR).")
-    RES.joinpath("heldout-compare.md").write_text("\n".join(L) + "\n")
-    RES.joinpath("heldout-compare.json").write_text(json.dumps(summary, indent=1))
+    RES.joinpath(f"heldout-compare{SUFFIX}.md").write_text("\n".join(L) + "\n")
+    RES.joinpath(f"heldout-compare{SUFFIX}.json").write_text(json.dumps(summary, indent=1))
     print("\n".join(L))
 
 

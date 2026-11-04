@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import numpy as np
 import pandas as pd
@@ -41,6 +42,8 @@ CIRC = {
     **{k: {"livingBedroomRatio", "livingControl", "privacyDepthGap"} for k in ("C13_0.25", "C13_0.5", "C13_0.75", "C136")},
 }
 
+SUFFIX = "-rq4" if os.environ.get("SPECS") == "rq4" else ""  # 사양 묶음(scripts/lib/rq4-specs.mjs)
+
 
 def cliffs(a, b):
     a, b = np.asarray(a, float), np.asarray(b, float)
@@ -56,7 +59,7 @@ def main():
     real = load_real()
     dev = real[real.split == "dev"]
     gen = pd.DataFrame(
-        [{"obj": o["obj"], "bedrooms": o["bedrooms"], "fit": o["fit"], "narrow": o["narrow"], "door": o["door"], **{k: (o["features"] or {}).get(k) for k in FEAT}} for o in map(json.loads, (RES / "objective-plans.jsonl").read_text().splitlines())]
+        [{"obj": o["obj"], "bedrooms": o["bedrooms"], "fit": o["fit"], "narrow": o["narrow"], "door": o["door"], **{k: (o["features"] or {}).get(k) for k in FEAT}} for o in map(json.loads, (RES / f"objective-plans{SUFFIX}.jsonl").read_text().splitlines())]
     )
     rng = np.random.default_rng(0)
     L = ["# RQ4 예비: 공간구문 목적별 생성 도면 대 실제 한국 아파트(dev)\n"]
@@ -90,8 +93,8 @@ def main():
     L.append("- 평균 |δ|가 작을수록 그 목적으로 만든 도면이 실제 한국 아파트의 공간구문 분포에 가깝다. 순환 지표는 빼고 평균했다.")
     L.append("- 예비 결과다: 비교 지표가 아직 목적과 일부 겹치고(본 판정은 평면형 분포·그래프 편집 거리·difference factor 같은 분리된 지표로), 목적마다 최적 배치 하나(동점 여러 개)만 봤다. 본 판정은 볼츠만 표본(가중치를 dev에 맞춤)과 test 묶음, 외부 검증 프로그램으로 한다.")
     L.append("- 템플릿 40개는 사양 20개(59~114㎡)에서 나왔다. 도면은 정렬 모드(QUBO 맞닿음 = 실제 맞닿음)로 그렸다. 기존 생성기는 다른 배치 방식이라 맞닿음 충실도가 다르다(align-check).")
-    RES.joinpath("objective-compare.md").write_text("\n".join(L) + "\n")
-    RES.joinpath("objective-compare.json").write_text(json.dumps(summary, indent=1))
+    RES.joinpath(f"objective-compare{SUFFIX}.md").write_text("\n".join(L) + "\n")
+    RES.joinpath(f"objective-compare{SUFFIX}.json").write_text(json.dumps(summary, indent=1))
     print("\n".join(L))
 
 

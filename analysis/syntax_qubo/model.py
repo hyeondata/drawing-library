@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -64,7 +65,11 @@ class Template:
         return self.m if band == "front" else self.k
 
 
-def load_templates(path: Path = HERE / "templates.json") -> list[Template]:
+SUFFIX = "-rq4" if os.environ.get("SPECS") == "rq4" else ""  # 사양 묶음(scripts/lib/rq4-specs.mjs와 같은 규약)
+
+
+def load_templates(path: Path | None = None) -> list[Template]:
+    path = path or HERE / f"templates{SUFFIX}.json"
     return [Template(**o) for o in json.loads(path.read_text())]
 
 

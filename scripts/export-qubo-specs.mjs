@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { templates } from '../src/generate/compare.js';
 import { programOf } from '../src/generate/layout.js';
-import { specs } from './lib/term-measure.mjs';
+import { specs, suffix } from './lib/rq4-specs.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = [];
@@ -20,5 +20,5 @@ specs.forEach((spec0, si) => {
     out.push({ id: `${si}/${t.k}`, spec: { area: spec.area, bedrooms: spec.bedrooms, multi: spec.multi }, front: front.rooms, back: back.rooms, m: front.slots, k: back.slots, suite, types });
   }
 });
-fs.writeFileSync(path.join(root, 'analysis', 'syntax_qubo', 'templates.json'), JSON.stringify(out, null, 1));
+fs.writeFileSync(path.join(root, 'analysis', 'syntax_qubo', `templates${suffix}.json`), JSON.stringify(out, null, 1));
 console.log(out.length, 'templates', out.map((o) => `${o.m}+${o.k}`).join(' '));

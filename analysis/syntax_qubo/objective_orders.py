@@ -30,7 +30,7 @@ from pathlib import Path
 import networkx as nx
 
 from .aligned import AlignedQubo
-from .model import load_templates
+from .model import SUFFIX, load_templates
 
 RES = Path(__file__).resolve().parents[2] / "evidence" / "results"
 
@@ -90,7 +90,7 @@ def main():
             rec.setdefault("ties", {})[key] = len(ties)
         out.append(rec)
         print(t.id, rec["n"], rec["ties"])
-    RES.joinpath("objective-orders.json").write_text(json.dumps(out, ensure_ascii=False))
+    RES.joinpath(f"objective-orders{SUFFIX}.json").write_text(json.dumps(out, ensure_ascii=False))
 
 
 if __name__ == "__main__":

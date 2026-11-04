@@ -7,11 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { realize, compareAlgorithms } from '../src/generate/compare.js';
 import { analyze } from '../src/model/index.js';
 import { rng, toLabel } from '../src/generate/layout.js';
-import { specs } from './lib/term-measure.mjs';
+import { specs, suffix } from './lib/rq4-specs.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public/data/baseline.json'), 'utf8'));
-const recs = JSON.parse(fs.readFileSync(path.join(root, 'evidence/results/objective-orders.json'), 'utf8'));
+const recs = JSON.parse(fs.readFileSync(path.join(root, `evidence/results/objective-orders${suffix}.json`), 'utf8'));
 const out = [];
 // 특징 + 공간 그래프(실제 세대와 같은 형식: scripts/export-unit-graphs.mjs) — 목적과 분리된 비교 지표(analysis/heldout_compare.py)용
 const feat = (layout) => {
@@ -40,5 +40,5 @@ specs.forEach((s0, si) => {
     if (b) out.push({ obj: 'legacy', t: `${si}`, bedrooms: spec.bedrooms, fit: b.fit, narrow: b.narrow, door: b.doorIssues, J: b.objective, features: feat(b.layout) });
   }
 });
-fs.writeFileSync(path.join(root, 'evidence/results/objective-plans.jsonl'), out.map((o) => JSON.stringify(o)).join('\n') + '\n');
+fs.writeFileSync(path.join(root, `evidence/results/objective-plans${suffix}.jsonl`), out.map((o) => JSON.stringify(o)).join('\n') + '\n');
 console.log('plans', out.length);
