@@ -9,6 +9,8 @@ dependencies = [
     "statsmodels",
     "scipy",
     "scikit-learn>=1.9.1",
+    "dimod>=0.12.23",
+    "dwave-samplers>=1.8.0",
 ]
 
 [tool.uv]
