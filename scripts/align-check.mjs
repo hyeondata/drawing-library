@@ -15,20 +15,42 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const T = JSON.parse(fs.readFileSync(path.join(root, 'analysis', 'syntax_qubo', 'templates.json'), 'utf8'));
 const perms = (a) => (a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map((q) => [x, ...q])));
 const ov = (i, j, m, k) => Math.min((i + 1) / m, (j + 1) / k) - Math.max(i / m, j / k) > 1e-12;
-function modelPairs(t, fp, bp, aligned) {
+function modelPairs(t, fp, bp, aligned, singleSuiteTouchesBed) {
   const m = fp.length, k = bp.length, P = new Set();
-  const add = (a, b) => P.add([a, b].sort().join('|'));
-  for (let i = 0; i + 1 < m; i++) add(fp[i], fp[i + 1]);
-  for (let j = 0; j + 1 < k; j++) add(bp[j], bp[j + 1]);
+  const add = (a, b) => a !== b && P.add([a, b].sort().join('|'));
   const im = fp.indexOf('master');
   const suite = ['dress', 'bathMaster'].filter((s) => t.suite.includes(s));
-  const low = aligned && suite.length ? suite.at(-1) : null; // 뒤 띠와 맞닿는 부속실
-  for (let i = 0; i < m; i++) for (let j = 0; j < k; j++) if (ov(i, j, m, k)) add(i === im && low ? low : fp[i], bp[j]);
-  if (aligned && suite.length) {
-    add('master', suite[0]);
-    if (suite.length === 2) add(suite[0], suite[1]);
-    for (const n of [im - 1, im + 1]) if (n >= 0 && n < m) for (const s of suite) add(s, fp[n]);
-  } else for (const s of suite) add(s, 'master');
+  if (!aligned) {
+    for (let i = 0; i + 1 < m; i++) add(fp[i], fp[i + 1]);
+    for (let j = 0; j + 1 < k; j++) add(bp[j], bp[j + 1]);
+    for (let i = 0; i < m; i++) for (let j = 0; j < k; j++) if (ov(i, j, m, k)) add(fp[i], bp[j]);
+    for (const s of suite) add(s, 'master');
+    return P;
+  }
+  // 정렬 모드: 안방 앞 띠 전체 깊이, 부속실은 뒤 띠의 안방 아래 열(위에서 드레스룸 → 부부욕실).
+  // 뒤 띠 칸은 '안방을 뺀 앞 칸(m−1개)'과 겹침으로 맞닿는다. 작은방 연속 구간마다 복도 하나(거실·안방이 끊음).
+  const isBed = (r) => r !== 'living' && r !== 'master';
+  const hallOf = {};
+  for (let i = 0; i < m; i++) if (isBed(fp[i])) hallOf[i] = i > 0 && isBed(fp[i - 1]) ? hallOf[i - 1] : `hall:${fp[i]}`;
+  for (let i = 0; i + 1 < m; i++) add(fp[i], fp[i + 1]);
+  for (let j = 0; j + 1 < k; j++) add(bp[j], bp[j + 1]);
+  const rest = fp.filter((r) => r !== 'master'); // 안방 제외 앞 칸
+  const mm = rest.length;
+  for (let i = 0; i < m; i++) {
+    if (!hallOf[i]) continue;
+    add(hallOf[i], fp[i]);
+    for (const n of [i - 1, i + 1]) if (n >= 0 && n < m && (fp[n] === 'living' || fp[n] === 'master')) add(hallOf[i], fp[n]);
+  }
+  rest.forEach((r, i) => {
+    const fi = fp.indexOf(r);
+    for (let j = 0; j < k; j++) if (ov(i, j, mm, k)) add(hallOf[fi] || r, bp[j]);
+  });
+  if (suite.length) {
+    const chain = ['master', ...suite];
+    for (let a = 0; a + 1 < chain.length; a++) add(chain[a], chain[a + 1]);
+    const endBack = im === 0 ? bp[0] : bp[k - 1]; // 부속실 열 옆의 뒤 띠 실
+    for (const s2 of suite) add(s2, endBack);
+  }
   return P;
 }
 const out = {};
@@ -38,13 +60,23 @@ for (const mode of ['legacy', 'aligned']) {
   for (const t of T) {
     const spec = { ...specs[Number(t.id.split('/')[0])], prefs: [] };
     const target = Object.fromEntries(programOf(spec).map((r) => [r.key, r.area]));
+    let sstb = null;
     for (const fp of perms(t.front)) for (const bp of perms(t.back)) {
+      if (fp[0] !== 'master' && fp.at(-1) !== 'master') continue; // 생성기는 안방을 끝 칸에 둔다(decode, Seo 2007 89%)
       const L = buildLayout(spec, { ...defaultParams(spec), frontOrder: fp, backOrder: bp, align: mode === 'aligned' });
       n++;
       const R = Object.fromEntries(L.rooms.map((r) => [r.key, r]));
-      const P = modelPairs(t, fp, bp, mode === 'aligned');
-      const nodes = [...t.front, ...t.back, ...t.suite];
-      const frontSet = new Set([...t.front, ...(mode === 'aligned' ? t.suite : [])]);
+      // 기하의 복도(hall0, hall1…)를 모형 이름(hall:<위에 있는 첫 작은방>)으로
+      const halls = [];
+      for (const h of L.rooms.filter((r) => r.type === '기타')) {
+        const above = fp.filter((key) => R[key] && R[key].x < h.x + h.w - 1e-6 && R[key].x + R[key].w > h.x + 1e-6 && key !== 'living' && key !== 'master').sort((a, b) => R[a].x - R[b].x);
+        const name = above.length ? `hall:${fp.filter((x) => above.includes(x))[0]}` : h.key;
+        R[name] = h;
+        halls.push(name);
+      }
+      const P = modelPairs(t, fp, bp, mode === 'aligned', sstb);
+      const nodes = [...t.front, ...t.back, ...t.suite, ...(mode === 'aligned' ? halls : [])];
+      const frontSet = new Set([...t.front, ...(mode === 'aligned' ? [...t.suite, ...halls] : [])]);
       for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
         const u = nodes[i], v = nodes[j];
         const s = P.has([u, v].sort().join('|'));
