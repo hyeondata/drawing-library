@@ -12,6 +12,10 @@ SA로 그 최적에 도달하는지는 RQ3에서 따로 본다. 여기서는 '�
   O6 습식·서비스 주변화: (현관·욕실 평균 RRA) ÷ (거실·주방·침실 평균 RRA) 최대
   O7 대조(주방 중심): 주방 총깊이 최소
   O9 공용실 경유: 거실 선택도(betweenness) 최대
+  C13_w 조합: w·n(O1) + (1−w)·n(O3), n = 템플릿 안 최소–최대 정규화(w = 0.25, 0.5, 0.75)
+  C136 조합: n(O1) + n(O3) + n(O6) 같은 가중치
+  조합의 QUBO 근거: 템플릿마다 침실 수가 고정이라 O1(총깊이)·O3(평균 깊이 차)는 깊이 원-핫의 선형식이고,
+  템플릿별 상수로 정규화한 가중합도 같은 QUBO의 선형 결합이다(O6은 비율이라 정확 QUBO에선 대용 — 여기선 열거로만 본다).
 사용: uv run python -m syntax_qubo.objective_orders → ../evidence/results/objective-orders.json
 """
 
@@ -71,6 +75,14 @@ def main():
                 rows.append((rp, bp, objectives(g, t.types)))
         pick = lambda cand: rnd.sample(cand, min(20, len(cand)))  # noqa: E731
         rec = {"t": ti, "id": t.id, "n": len(rows), "orders": {"O0": [(["master", *rp], list(bp)) for rp, bp, _ in pick(rows)]}}
+        keys = list(rows[0][2])
+        lo = {k: min(r[2][k] for r in rows) for k in keys}
+        hi = {k: max(r[2][k] for r in rows) for k in keys}
+        nz = lambda r, k: (r[2][k] - lo[k]) / (hi[k] - lo[k]) if hi[k] > lo[k] else 0.0  # noqa: E731
+        for r in rows:
+            for w in (0.25, 0.5, 0.75):
+                r[2][f"C13_{w}"] = w * nz(r, "O1") + (1 - w) * nz(r, "O3")
+            r[2]["C136"] = nz(r, "O1") + nz(r, "O3") + nz(r, "O6")
         for key in rows[0][2]:
             best = min(r[2][key] for r in rows)
             ties = [r for r in rows if abs(r[2][key] - best) < 1e-9]

@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import zlib
 from collections import Counter
 
 import networkx as nx
@@ -42,7 +43,7 @@ def sig(g):
 
 def wl(g):
     h = g.copy()
-    nx.set_node_attributes(h, {n: f"t{abs(hash(tp)) % 997}" for n, tp in g.nodes(data="type")}, "c")
+    nx.set_node_attributes(h, {n: f"t{zlib.crc32(tp.encode()) % 997}" for n, tp in g.nodes(data="type")}, "c")
     feats = Counter()
     for n, hs in nx.weisfeiler_lehman_subgraph_hashes(h, node_attr="c", iterations=2).items():
         feats[f"0:{h.nodes[n]['c']}"] += 1
@@ -55,7 +56,8 @@ def beds(g):
     return sum(1 for _, t in g.nodes(data="type") if t == "침실")
 
 
-def main():
+def load_dev():
+    """dev 묶음의 정리된 그래프, 같은 그래프(실 유형 라벨 포함 WL 해시)는 하나만."""
     dev = []
     for line in (DER / "unit-graphs.jsonl").read_text().splitlines():
         o = json.loads(line)
@@ -64,16 +66,19 @@ def main():
         g = clean(o)
         if g is not None:
             dev.append(g)
-    # 같은 그래프 중복 제거(실 유형 라벨 포함 WL 해시)
     seen, uniq = set(), []
     for g in dev:
         h = g.copy()
-        nx.set_node_attributes(h, {n: f"t{abs(hash(tp)) % 997}" for n, tp in g.nodes(data="type")}, "c")
+        nx.set_node_attributes(h, {n: f"t{zlib.crc32(tp.encode()) % 997}" for n, tp in g.nodes(data="type")}, "c")
         k = nx.weisfeiler_lehman_graph_hash(h, node_attr="c", iterations=3)
         if k not in seen:
             seen.add(k)
             uniq.append(g)
-    dev = uniq
+    return uniq
+
+
+def main():
+    dev = load_dev()
     gen = {}
     for line in (RES / "objective-plans.jsonl").read_text().splitlines():
         o = json.loads(line)

@@ -25,6 +25,10 @@ OBJ = {
     "O6": "O6 습식·서비스 주변화",
     "O7": "O7 대조: 주방 중심",
     "O9": "O9 공용실 경유(거실 선택도 최대)",
+    "C13_0.25": "C13 조합 0.25·O1 + 0.75·O3",
+    "C13_0.5": "C13 조합 0.5·O1 + 0.5·O3",
+    "C13_0.75": "C13 조합 0.75·O1 + 0.25·O3",
+    "C136": "C136 조합 O1 + O3 + O6",
 }
 # 목적과 같은 계열(순환) 지표
 CIRC = {
@@ -34,6 +38,7 @@ CIRC = {
     "O6": set(),
     "O7": {"kitchenBedroomRatio"},
     "O9": {"livingControl"},
+    **{k: {"livingBedroomRatio", "livingControl", "privacyDepthGap"} for k in ("C13_0.25", "C13_0.5", "C13_0.75", "C136")},
 }
 
 
