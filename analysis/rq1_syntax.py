@@ -77,33 +77,47 @@ def measures(g: nx.Graph) -> dict:
             for n in comp:
                 cyc_count[n] += rings
     stype = {}
+    # Hillier 1996(SITM pp.250–251): a = 링크 하나(막다른), b = 링크 둘 이상·고리 밖, c = 링크 둘 이상·고리 하나,
+    # d = 링크 셋 이상이고 고리 둘 이상에 걸침. (2026-11-04 고침: d에 링크 > 2 조건이 빠져 있었다)
     for n in g:
         if deg[n] <= 1:
             stype[n] = "a"
         elif cyc_count[n] == 0:
             stype[n] = "b"
-        elif cyc_count[n] == 1:
-            stype[n] = "c"
-        else:
+        elif cyc_count[n] >= 2 and deg[n] > 2:
             stype[n] = "d"
-    # 상대 엔트로피(현관 기준 깊이 분포; Hillier et al. 1987 개념, 최대 엔트로피 log2(최대깊이)로 나눔)
+        else:
+            stype[n] = "c"
+    # 상대 엔트로피(Turner 2001, Hillier et al. 1987 식; 식은 2차 자료 arXiv 2005.08106로만 확인, 부호 규약 미확인): Σ_d −p_d·ln(p_d / q_d), q_d = 평균 깊이 L의 푸아송 기대 분포. 이 식이면 −KL(≤ 0).
+    # (2026-11-04 고침: 전에는 정규화 엔트로피 −Σp log₂p / log₂(최대깊이)였다 — 다른 양)
     dd = Counter(v for n, v in dep.items() if n != ent)
-    p = np.array(list(dd.values()), float) / (k - 1)
-    ent_h = float(-(p * np.log2(p)).sum())
-    ent_rel = ent_h / math.log2(max(dd)) if max(dd) > 1 else 0.0
+    Ld = sum(d * c for d, c in dd.items()) / (k - 1)
+    ent_rel = 0.0
+    for d, c in dd.items():
+        p_d = c / (k - 1)
+        q_d = (Ld**d) * math.exp(-Ld) / math.factorial(d)
+        ent_rel += -p_d * math.log(p_d / q_d)
     # 이해도: 연결도와 통합도의 상관
     xs = np.array([deg[n] for n in g], float)
     ys = np.array([integ[n] for n in g], float)
     intel = float(np.corrcoef(xs, ys)[0, 1]) if xs.std() > 0 and ys.std() > 0 else float("nan")
-    # difference factor H* (Hillier et al. 1987): 세 공간(거실·주방·침실 평균)의 RA
+    # difference factor H* (Hillier, Hanson & Graham 1987 p.365): 세 공간 값 a, b, c와 합 t로 H = −Σ(a/t)ln(a/t),
+    # H* = (H − ln2)/(ln3 − ln2). 0에 가까울수록 분화가 강함(Hanson 1998). 세 공간 = 거실·주방·침실 평균의 RRA(이 연구의 규약).
+    # (2026-11-04 고침: 전에는 H/ln3) 기저 difference factor(BDF): 세 값 = 그래프의 RRA 최대·평균·최소(SITM p.73).
     def mean_by(tp, d):
         v = [d[n] for n in g if t[n] == tp]
         return float(np.mean(v)) if v else float("nan")
-    a3 = np.array([mean_by("거실", ra), mean_by("주방", ra), mean_by("침실", ra)])
-    q = a3 / a3.sum()
-    H = float(-(q[q > 0] * np.log(q[q > 0])).sum())
-
-    Hstar = H / math.log(3)
+    rra = {n: ra[n] / D for n in g}
+    def hstar(vals):
+        a3 = np.array(vals, float)
+        if not np.all(a3 > 0):
+            return float("nan")
+        q = a3 / a3.sum()
+        H = float(-(q * np.log(q)).sum())
+        return (H - math.log(2)) / (math.log(3) - math.log(2))
+    Hstar = hstar([mean_by("거실", rra), mean_by("주방", rra), mean_by("침실", rra)])
+    rv = list(rra.values())
+    BDF = hstar([max(rv), float(np.mean(rv)), min(rv)])
     # 공용실 경유율: 현관→각 침실 최단경로 중 하나라도 거실·주방을 지나는 침실의 비율
     beds = [n for n in g if t[n] == "침실"]
     through = []
@@ -131,6 +145,7 @@ def measures(g: nx.Graph) -> dict:
         "intelligibility": intel,
         "entropy_rel": ent_rel,
         "Hstar": Hstar,
+        "BDF": BDF,
         "through_public": float(np.mean(through)) if through else float("nan"),
         "top_type": t[top],
         "living_top": t[top] == "거실",
@@ -193,8 +208,9 @@ def main():
     for s, name in zip("abcd", ["a 막다른", "b 통과", "c 고리 하나", "d 고리 교차"]):
         L.append(f"| 공간 유형 {name} 비율 | {q([r['stype'][s] for r in rows])} |")
     L.append(f"| 이해도(연결도–통합도 r) | {q([r['intelligibility'] for r in rows])} |")
-    L.append(f"| 상대 엔트로피(현관 깊이 분포) | {q([r['entropy_rel'] for r in rows])} |")
-    L.append(f"| H*(거실·주방·침실 RA, ln3 정규화) | {q([r['Hstar'] for r in rows])} |")
+    L.append(f"| 상대 엔트로피(Turner 식, 2차 확인; = −KL) | {q([r['entropy_rel'] for r in rows])} |")
+    L.append(f"| H*(거실·주방·침실 RRA, HHG 1987 식) | {q([r['Hstar'] for r in rows])} |")
+    L.append(f"| 기저 difference factor(RRA 최대·평균·최소) | {q([r['BDF'] for r in rows])} |")
     L.append(f"| 공용실(거실·주방) 경유 침실 비율 | {q([r['through_public'] for r in rows])} |")
     top = Counter(r["top_type"] for r in rows)
     L.append("\n## 가장 통합된 유형(유전형 1위) — 반례 포함\n")
@@ -203,7 +219,7 @@ def main():
     for tp, c in top.most_common():
         L.append(f"| {tp} | {c:,} | {c / len(rows):.1%} |")
     L.append("\n- '기타'는 복도·홀(문헌의 중앙홀·전이공간)이다. 홀을 거실에 합칠지에 따라 O1(거실 중심)과 O7(홀 중심)의 판정이 달라진다(Seo 2003은 독립, Choi 2014는 제외).")
-    L.append("- H*의 정규화는 Hillier et al. 1987 원문 식 확인 전이라 ln3으로 나눈 값이다(0~1, 1이면 세 공간의 RA가 같음 = 분화 약함).")
+    L.append("- 2026-11-04 고침(원문 대조, Confluence 09-12d): H*를 HHG 1987 식으로, 상대 엔트로피를 Turner 식으로, d형에 링크 > 2 조건을 넣었다.")
     RES.joinpath("rq1-syntax.md").write_text("\n".join(L) + "\n")
     RES.joinpath("rq1-syntax.json").write_text(json.dumps({"n_units": n_all, "n_graphs": len(rows), "top": dict(top)}, ensure_ascii=False, indent=1))
     print("\n".join(L))
