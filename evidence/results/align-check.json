@@ -23,12 +23,12 @@
    "agree": 1
   },
   "cross": {
-   "precision": 0.989939024390244,
+   "precision": 1,
    "recall": 1,
-   "agree": 0.9975275342773657
+   "agree": 1
   },
-  "areaErr": 0.33883062394492747,
-  "narrowPerPlan": 3.34037558685446,
-  "doorIssuesPerPlan": 3.141431924882629
+  "areaErr": 0.3356627556335963,
+  "narrowPerPlan": 3.347417840375587,
+  "doorIssuesPerPlan": 3.2071596244131455
  }
 }

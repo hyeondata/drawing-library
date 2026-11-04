@@ -407,10 +407,14 @@ function finishAligned(spec, p, { by, front, frontWidths, rooms, bayOf, D, W, Df
       continue;
     }
     const i = Math.floor(t);
-    const margin = Math.min(0.45, (Xs[i + 1] - Xs[i]) / 3);
-    const lo = Math.max(Xs[i] + margin, B.at(-1) + 0.3);
-    const hi = Xs[i + 1] - margin;
-    B.push(lo <= hi ? Math.min(hi, Math.max(lo, want)) : phi(u));
+    // 같은 앞 칸 안에 들어가는 뒤 경계가 여럿이면 뒤에 올 경계 몫(간격 gap)을 남겨 둔다. 그래야 순서가 뒤집히지 않는다.
+    const later = Array.from({ length: k - 1 - j }, (_, q) => (j + 1 + q) / k).filter((v) => Math.floor(v * mm + 1e-12) === i && Math.abs(v * mm - Math.round(v * mm)) > 1e-9).length;
+    const width = Xs[i + 1] - Xs[i];
+    const margin = Math.min(0.45, width / 4);
+    const gap = Math.min(0.3, (width - 2 * margin) / (later + 2));
+    const lo = Math.max(Xs[i] + margin, B.at(-1) + gap);
+    const hi = Xs[i + 1] - margin - later * gap;
+    B.push(lo <= hi ? Math.min(hi, Math.max(lo, want)) : Math.max(B.at(-1) + 1e-3, Math.min(Xs[i + 1] - 1e-3, phi(u))));
   }
   B.push(Xs[mm]);
   back.forEach((room, j) => rooms.push({ key: room.key, type: room.type, name: room.name, x: B[j], y: 0, w: B[j + 1] - B[j], h: Db }));
