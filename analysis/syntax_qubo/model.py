@@ -42,6 +42,12 @@ class Template:
     suite: list[str]
     types: dict[str, str]
     spec: dict = field(default_factory=dict)
+    # 정렬 모드(layout.js p.align): 부속실이 안방 칸 안에서 안방 → 드레스룸 → 부부욕실 순으로 쌓이고, 맨 아래 부속실이 안방 대신 뒤 띠와 맞닿는다.
+    aligned: bool = True
+
+    @property
+    def low_suite(self):
+        return self.suite[-1] if (self.aligned and self.suite) else None
 
     @property
     def rooms(self) -> list[str]:
@@ -79,10 +85,23 @@ def room_graph(t: Template, front_perm: tuple[str, ...], back_perm: tuple[str, .
     at = {("front", s): r for s, r in enumerate(front_perm)} | {("back", s): r for s, r in enumerate(back_perm)}
     g = nx.Graph()
     g.add_nodes_from(t.nodes)
+    low = t.low_suite
     for a, b in slot_adjacency(t.m, t.k):
-        g.add_edge(at[a], at[b])
-    for s in t.suite:
-        g.add_edge(s, "master")
+        u, v = at[a], at[b]
+        if low and a[0] != b[0] and u == "master":
+            u = low  # 안방 칸 아래는 부속실이 뒤 띠와 맞닿는다
+        g.add_edge(u, v)
+        if low and a[0] == b[0] == "front" and "master" in (u, v):
+            nb = v if u == "master" else u
+            for s in t.suite:
+                g.add_edge(s, nb)  # 부속실은 안방 칸 안이라 안방의 앞 띠 이웃과도 맞닿는다
+    if t.aligned and t.suite:
+        chain = ["master"] + t.suite
+        for a, b in zip(chain, chain[1:]):
+            g.add_edge(a, b)
+    else:
+        for s in t.suite:
+            g.add_edge(s, "master")
     return g
 
 
@@ -140,11 +159,30 @@ class SyntaxQubo:
 
     # ---- 인접 a_uv: z 선형 결합. 부속실–안방은 상수 1 ----
     def adjacency_terms(self, u, v) -> tuple[float, list[str]]:
-        """a_uv = const + Σ z. 반환 (const, [z 이름])."""
-        if (u in self.t.suite and v == "master") or (v in self.t.suite and u == "master"):
+        """a_uv = const + A. 반환 (const, [A 이름])."""
+        t = self.t
+        if t.aligned and t.suite:
+            chain = ["master"] + t.suite
+            if any({u, v} == {a, b} for a, b in zip(chain, chain[1:])):
+                return 1.0, []
+            su = u if u in t.suite else v if v in t.suite else None
+            if su is not None:
+                other = v if su == u else u
+                if other in t.suite or other == "master":
+                    return 0.0, []
+                # 부속실–앞 띠 이웃: 안방–이웃 맞닿음과 같다. 맨 아래 부속실–뒤 띠: 안방–뒤 칸 맞닿음과 같다.
+                if other in t.front or (other in t.back and su == t.low_suite):
+                    return self.adjacency_terms("master", other) if other in t.front else self._raw_adj("master", other)
+                return 0.0, []
+            if "master" in (u, v) and (v in t.back or u in t.back):
+                return 0.0, []  # 정렬 모드: 안방은 뒤 띠와 맞닿지 않는다(부속실이 사이에 있음)
+        elif (u in t.suite and v == "master") or (v in t.suite and u == "master"):
             return 1.0, []
-        if u in self.t.suite or v in self.t.suite:
+        elif u in t.suite or v in t.suite:
             return 0.0, []
+        return self._raw_adj(u, v)
+
+    def _raw_adj(self, u, v) -> tuple[float, list[str]]:
         pairs = self.z_of.get(frozenset((u, v)), [])
         if not pairs:
             return 0.0, []

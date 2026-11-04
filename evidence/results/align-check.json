@@ -1,0 +1,34 @@
+{
+ "legacy": {
+  "layouts": 32904,
+  "same": {
+   "precision": 0.9884580905423577,
+   "recall": 0.6849045616305403,
+   "agree": 0.8848438725151054
+  },
+  "cross": {
+   "precision": 0.41326301930134185,
+   "recall": 0.6621631478250136,
+   "agree": 0.70967425331661
+  },
+  "areaErr": 0.24725068048925605,
+  "narrowPerPlan": 1.5048626306831996,
+  "doorIssuesPerPlan": 4.543550936056406
+ },
+ "aligned": {
+  "layouts": 32904,
+  "same": {
+   "precision": 1,
+   "recall": 1,
+   "agree": 1
+  },
+  "cross": {
+   "precision": 0.9978158785628481,
+   "recall": 1,
+   "agree": 0.9994615695248351
+  },
+  "areaErr": 0.3841948046012794,
+  "narrowPerPlan": 3.4790906880622416,
+  "doorIssuesPerPlan": 6.552516411378556
+ }
+}

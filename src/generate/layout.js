@@ -166,17 +166,26 @@ export function buildLayout(spec, p) {
   const backBeds = regular.filter((b) => !frontRegular.includes(b));
   // 작은방은 폭(bedWidth)을 먼저 정하고 깊이는 면적에서 구한다. 거실보다 얕으면 그 뒤를 복도(기타)로 쓴다.
   // 남는 깊이가 0.4m 미만이면 앞 띠 깊이에 맞추고, 1.1m 미만이면 복도 폭 1.1m를 확보한다.
+  // 정렬 모드(p.align, QUBO 해 전용): QUBO 칸 모형의 맞닿음이 실제 평면에서도 그대로 성립하게 만든다(연구 실험용, 기본값 아님).
+  //   - 작은방을 얕게 두지 않는다(뒤에 복도가 생기면 앞·뒤 띠 맞닿음이 끊긴다).
+  //   - 부속실은 안방 칸 안에서 안방 뒤에 쌓는다(안방 → 드레스룸 → 부부욕실 → 뒤 띠).
+  //   - 뒤 띠 칸 경계는 앞 띠 실제 폭에 대한 단조 사상 φ로 정한다(아래). 그래서 '앞 칸 i와 뒤 칸 j가 겹친다'가 칸 모형과 같다.
+  const align = Boolean(p.align && p.frontOrder && p.backOrder);
   const other = frontRegular[0];
   let bedD = other ? Math.min(Df, other.area / (p.bedWidth ?? 3)) : Df;
   if (Df - bedD < 0.4) bedD = Df;
   else if (Df - bedD < 1.1) bedD = Df - 1.1;
+  if (align) bedD = Df;
   // 안방도 얕게 둘 수 있다. 그 뒤는 부속실(부부욕실·드레스룸)이 차지한다.
   const hasSuite = Boolean(by.bathMaster || by.dress);
-  const masterD = hasSuite && Df * (p.masterDepth ?? 1) < Df - 0.6 ? Df * p.masterDepth : Df;
+  let masterD = hasSuite && Df * (p.masterDepth ?? 1) < Df - 0.6 ? Df * p.masterDepth : Df;
+  if (align) masterD = Df; // 정렬 모드에서는 아래에서 부속실 깊이를 뺀다
   const depthOf = (room) => (room === master ? masterD : room.type === '침실' ? bedD : Df);
   const minW = (room) => (room === master ? MIN_SIDE.안방 : MIN_SIDE[room.type] || 0);
+  // 정렬 모드: 부속실이 안방 칸 안에 들어가므로 안방 칸 폭은 (안방 + 부속실) 면적으로 정한다.
+  const suiteArea = align ? (by.dress?.area || 0) + (by.bathMaster?.area || 0) : 0;
   const frontWidths = allocate(
-    front.map((room) => room.area / depthOf(room)),
+    front.map((room) => (room.area + (room === master ? suiteArea : 0)) / depthOf(room)),
     front.map(minW),
     W,
   );
@@ -198,6 +207,7 @@ export function buildLayout(spec, p) {
   });
   gaps.forEach((g, i) => rooms.push({ key: `hall${i}`, type: '기타', name: '복도', x: g.x, y: Db, w: g.w, h: Df - bedD }));
   const bayOf = Object.fromEntries(rooms.map((rm) => [rm.key, rm]));
+  if (align) return finishAligned(spec, p, { program, by, front, frontWidths, rooms, bayOf, A, D, W, Df, Db, MIN_SIDE });
   const centerOf = (key) => bayOf[key].x + bayOf[key].w / 2;
 
   // ---- 뒤 띠: 기준 실의 x 위치(앞 띠)에 맞춰 늘어놓는다 ----
@@ -337,6 +347,84 @@ export function buildLayout(spec, p) {
   }
   const layout = { W, D, rooms, minSide: MIN_SIDE };
   // 문·창·설비(예시 도면의 STR·OBJ에 해당)와 문 동선 점검
+  const { openings, unreachable, throughBedroom } = placeOpenings(layout);
+  layout.openings = openings;
+  layout.fixtures = placeFixtures(layout, openings);
+  layout.doorCheck = { unreachable, throughBedroom };
+  return layout;
+}
+
+/**
+ * 정렬 모드의 나머지(부속실·뒤 띠·발코니·문). 앞 띠는 buildLayout이 이미 놓았다.
+ * 뒤 칸 j의 경계 = φ(j/k), φ는 앞 칸 경계 i/m ↦ X_i(앞 띠 실제 누적 폭)를 잇는 단조 증가 구간 선형 사상.
+ * 단조 사상은 구간의 겹침(양의 길이)을 보존하므로, 칸 모형에서 겹치는 앞·뒤 칸 쌍과 실제로 겹치는 쌍이 같다.
+ * 대가: 뒤 띠 실의 폭이 면적이 아니라 앞 띠 폭에서 정해져 면적이 목표와 어긋날 수 있다(결과에 그대로 남겨 비교한다).
+ */
+function finishAligned(spec, p, { by, front, frontWidths, rooms, bayOf, D, W, Df, Db, MIN_SIDE }) {
+  const m = front.length;
+  const back = p.backOrder.map((key) => by[key]).filter(Boolean);
+  const k = back.length;
+  const X = [0];
+  for (const w of frontWidths) X.push(X.at(-1) + w);
+  const phi = (u) => {
+    const t = u * m;
+    const i = Math.min(m - 1, Math.floor(t + 1e-12));
+    return X[i] + (X[i + 1] - X[i]) * (t - i);
+  };
+  // 뒤 칸 경계의 자유도: 칸 모형에서 경계 j/k가 앞 칸 i의 안쪽(i/m < j/k < (i+1)/m)에 있으면, 실제 경계를 (X_i, X_{i+1}) 안
+  // 어디에 두어도 겹침 양상이 같다. 앞 칸 경계와 일치(j/k = i/m)하면 X_i에 고정한다. 그 범위 안에서 뒤 띠 실 면적에 가장 맞게 고른다.
+  // 여유(margin, 최대 0.45 m)는 앞 칸 경계에서 떨어뜨려 맞닿는 길이를 남긴다.
+  const desired = back.map((r) => r.area / Db);
+  const dsum = desired.reduce((a, b) => a + b, 0);
+  const B = [0];
+  for (let j = 1; j < k; j++) {
+    const u = j / k;
+    const t = u * m;
+    const want = (W * desired.slice(0, j).reduce((a, b) => a + b, 0)) / dsum;
+    if (Math.abs(t - Math.round(t)) < 1e-9) {
+      B.push(X[Math.round(t)]);
+      continue;
+    }
+    const i = Math.floor(t);
+    const margin = Math.min(0.45, (X[i + 1] - X[i]) / 3);
+    const lo = Math.max(X[i] + margin, B.at(-1) + 0.3);
+    const hi = X[i + 1] - margin;
+    B.push(lo <= hi ? Math.min(hi, Math.max(lo, want)) : phi(u));
+  }
+  B.push(W);
+  back.forEach((room, j) => {
+    rooms.push({ key: room.key, type: room.type, name: room.name, x: B[j], y: 0, w: B[j + 1] - B[j], h: Db });
+  });
+  // 부속실: 안방 칸 안, 안방 뒤(뒤 띠 쪽)에 안방 → 드레스룸 → 부부욕실 순으로 쌓는다(Ham & Lee 2017: 드레스룸은 대개 안방과 안방 욕실 사이).
+  const mb = bayOf.master;
+  const suite = [by.dress, by.bathMaster].filter(Boolean);
+  if (suite.length) {
+    const need = suite.reduce((s, it) => s + it.area, 0) / mb.w;
+    const sd = Math.min(need, Df * 0.5); // 안방 깊이를 앞 띠의 절반 아래로 줄이지 않는다
+    mb.h = Df - sd;
+    mb.y = D - mb.h;
+    let y = mb.y;
+    const tot = suite.reduce((s, it) => s + it.area, 0);
+    for (const it of suite) {
+      const h = (sd * it.area) / tot;
+      y -= h;
+      rooms.push({ key: it.key, type: it.type, name: it.name, x: mb.x, y, w: mb.w, h });
+    }
+  }
+  if (spec.balcony) {
+    const ou = spec.outdoorUnit ? OUTDOOR_UNIT.w : 0;
+    const left = p.masterEnd === 'left';
+    rooms.push({ key: 'balcony', type: '발코니', name: '발코니', x: left ? ou : 0, y: D, w: W - ou, h: BALCONY_DEPTH });
+    if (ou) rooms.push({ key: 'outdoor', type: '실외기실', name: '실외기실', x: left ? 0 : W - ou, y: D, w: ou, h: BALCONY_DEPTH });
+  } else if (spec.outdoorUnit) {
+    const kk = rooms.find((rm) => rm.key === 'kitchen');
+    rooms.push({ key: 'outdoor', type: '실외기실', name: '실외기실', x: kk.x, y: -OUTDOOR_UNIT.d, w: Math.min(OUTDOOR_UNIT.w, kk.w), h: OUTDOOR_UNIT.d });
+  }
+  for (const rm of rooms) {
+    const mm = rm.key === 'master' ? MIN_SIDE.안방 : MIN_SIDE[rm.type];
+    if (mm) rm.minW = mm;
+  }
+  const layout = { W, D, rooms, minSide: MIN_SIDE, aligned: true };
   const { openings, unreachable, throughBedroom } = placeOpenings(layout);
   layout.openings = openings;
   layout.fixtures = placeFixtures(layout, openings);
