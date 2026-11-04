@@ -116,28 +116,46 @@ def comp_of_graph(g):
     return (c["침실"], min(c["화장실"], 2), c["드레스룸"] > 0, c["다목적공간"] > 0)
 
 
-def enum_template(ti):
-    t = load_templates()[ti]
+FRAME = os.environ.get("FRAME", "aligned")  # aligned = 현 정렬 틀, split = 뒤 띠를 거실 열에서 나누는 틀(split_frame.py)
+OUT = "boltzmann-rq4" + ("-split" if FRAME == "split" else "")
+
+
+def _graphs(t):
+    if FRAME == "split":
+        import split_frame as sf
+
+        rest = [r for r in t.front if r != "master"]
+        for rp in itertools.permutations(rest):
+            for bp in itertools.permutations(t.back):
+                for kL, c in sf.splits(len(rp), len(bp), rp.index("living")):
+                    yield sf.graph(t, sf.rects(t, rp, bp, kL, c))
+        return
     q = AlignedQubo(t)
-    out = []
     for rp in itertools.permutations(q.rest):
         for bp in itertools.permutations(t.back):
             g0 = q.graph(rp, bp)
-            if not nx.is_connected(g0):
-                continue
             g = nx.Graph()
             for v in g0:
                 g.add_node(v, type=t.types.get(v, "기타"))
             g.add_edges_from(g0.edges)
-            f, prof = stats_profile(g)
-            out.append((f, prof, dict(wl(g)), beds(g)))
+            yield g
+
+
+def enum_template(ti):
+    t = load_templates()[ti]
+    out = []
+    for g in _graphs(t):
+        if not nx.is_connected(g):
+            continue
+        f, prof = stats_profile(g)
+        out.append((f, prof, dict(wl(g)), beds(g)))
     return ti, int(t.id.split("/")[0]), out
 
 
 def main():
     ts = load_templates()
     with ProcessPoolExecutor(16) as ex:
-        res = list(ex.map(enum_template, range(len(ts))))
+        res = [r for r in ex.map(enum_template, range(len(ts))) if r[2]]
     spec_ids = sorted({s for _, s, _ in res})
     arr_spec, F, P, W, BD = [], [], [], [], []
     for _, s, out in res:
@@ -271,7 +289,7 @@ def main():
         curve[m] = {str(c): metrics(probs(b * c, idx), range(len(groups)), wB) for c in mults}
 
     # ---- 보고 ----
-    L = ["# RQ4: 정확 볼츠만 분포(dev A에 맞춤) 대 실제 dev B\n"]
+    L = ["# RQ4: 정확 볼츠만 분포(dev A에 맞춤) 대 실제 dev B" + (" — 뒤 띠 분할 틀(split_frame.py)" if FRAME == "split" else "") + "\n"]
     L.append(f"> `SPECS=rq4 uv run python boltzmann_rq4.py` · 사양 {len(groups)}개 · 평면(배치) {len(F):,}개 전부 열거 · 실제 dev 서로 다른 그래프 {len(dev):,}개(A {int(half.sum())} / B {int((~half).sum())}, 사양 구성 비율로 가중) · 부트스트랩 {B:,}회(사양 군집 + 실제 B) · test 미사용\n")
     L.append("## 1. 맞춘 β (표준화 통계량 단위, 양수 = 실제가 균등 배치보다 그 원리 쪽)\n")
     L.append("| 모형 | 통계량 | β | 적률 일치 | 사양당 유효 평면 수 (전체 중앙값) |")
@@ -279,7 +297,7 @@ def main():
     for m in MODELS:
         fz = fits[m]
         L.append(f"| {NAMES[m]} | {', '.join(fz['stats']) or '—'} | {', '.join(f'{x:+.2f}' for x in fz['beta']) or '0'} | {'예' if fz['ok'] else '**아니오(경계)**'} | {fz['eff_n']:.0f} / {fz['n_arr']:.0f} |")
-    L.append("\n'아니오(경계)' = 실제 A 평균이 이 틀(판상형 정렬 모드)로 만들 수 있는 범위 밖이라 β가 한계(±50)에 닿음.\n")
+    L.append("\n'아니오(경계)' = 실제 A 평균이 이 틀로 만들 수 있는 범위 밖이라 β가 한계(±50)에 닿음.\n")
     L.append("| 통계량 | 실제 A 평균 | 틀의 최선(사양별 최소의 평균) | 틀 균등 평균 | 틀의 최악 |")
     L.append("|---|---|---|---|---|")
     for j, n in enumerate(STATS):
@@ -322,8 +340,8 @@ def main():
     L.append("- 모든 그래프는 벽 인접 그래프다. M2·M3는 출입 그래프와 같음이 확인된 양(door-vs-wall, dev 10세대)이고, M1은 같은 규약 안의 비교, M4·M5는 참고.")
     L.append("- 생성 쪽은 판상형 정렬 모드 틀 안의 평면뿐이다. 실제와의 남은 거리(기준선 대비)는 틀이 설명하지 못하는 부분을 포함한다.")
     L.append("- 실제 쪽은 같은 그래프를 하나로 묶은 서로 다른 그래프 집합이다(빈도 정보는 쓰지 않음).")
-    RES.joinpath("boltzmann-rq4.md").write_text("\n".join(L) + "\n")
-    RES.joinpath("boltzmann-rq4.json").write_text(json.dumps({"fits": fits, "point": point, "diff": diff, "curve": curve, "ref": {"nn": ref_nn, "tv": ref_tv.tolist()}, "ci": {m: {k: ci(v) for k, v in d.items()} for m, d in boot.items()}}, ensure_ascii=False, indent=1))
+    RES.joinpath(f"{OUT}.md").write_text("\n".join(L) + "\n")
+    RES.joinpath(f"{OUT}.json").write_text(json.dumps({"fits": fits, "point": point, "diff": diff, "curve": curve, "ref": {"nn": ref_nn, "tv": ref_tv.tolist()}, "ci": {m: {k: ci(v) for k, v in d.items()} for m, d in boot.items()}}, ensure_ascii=False, indent=1))
     print("\n".join(L))
 
 
