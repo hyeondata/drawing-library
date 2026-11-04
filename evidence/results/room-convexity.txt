@@ -1,0 +1,4 @@
+기타 95149 solidity median 1.00 p10 0.93 | rectangularity median 0.99 p10 0.80 | share rect<0.85 0.12
+침실 44508 solidity median 0.98 p10 0.90 | rectangularity median 0.98 p10 0.82 | share rect<0.85 0.13
+주방 14434 solidity median 0.96 p10 0.86 | rectangularity median 0.93 p10 0.78 | share rect<0.85 0.31
+거실 13734 solidity median 0.74 p10 0.56 | rectangularity median 0.59 p10 0.43 | share rect<0.85 0.99

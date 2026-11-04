@@ -46,12 +46,29 @@ for (const f of files) {
       const [b, fr] = pr(g);
       return { type: sp(g).type, side: fr <= BL + 0.1 * (FL - BL) ? 'behind' : 'beside' };
     });
+    // 가로축(앞–뒤에 수직): 거실 가로 범위와 침실 가로 범위의 관계
+    const lat = [-ax[1], ax[0]];
+    const pl = (g) => { const v = sp(g).polys.flat().map(([x, y]) => x * lat[0] + y * lat[1]); return [Math.min(...v), Math.max(...v)]; };
+    const latAll = inside.map(pl);
+    const WU = Math.max(...latAll.map((e) => e[1])) - Math.min(...latAll.map((e) => e[0]));
+    const [l0, l1] = pl(L);
+    // 앞 띠 줄: 앞변이 세대 앞변에서 깊이 20% 안인 실(발코니 제외)을 가로 순서로
+    const frontRow = inside.filter((g) => FU - pr(g)[1] <= 0.2 * DU).sort((p, q) => pl(p)[0] - pl(q)[0]);
+    const li = frontRow.indexOf(L);
     const beds = inside.filter((g) => sp(g).type === '침실').map((g) => {
       const [b, fr] = pr(g);
-      return { band: FU - fr <= 0.2 * DU ? 'front' : 'back', touchesLiving: C(L, g) > 0 };
+      const [q0, q1] = pl(g);
+      const latOv = Math.min(l1, q1) - Math.max(l0, q0);
+      const gap = latOv > 0 ? 0 : (q0 >= l1 ? q0 - l1 : l0 - q1) / WU;
+      const band = FU - fr <= 0.2 * DU ? 'front' : 'back';
+      const touches = C(L, g) > 0;
+      const dir = !touches ? null : latOv > 0.1 * Math.min(l1 - l0, q1 - q0) ? (b >= FL - 0.1 * DU ? 'front' : 'behind') : 'side';
+      const rank = band === 'front' && li >= 0 ? Math.abs(frontRow.indexOf(g) - li) : null;
+      const viaHall = !touches && inside.some((h) => sp(h).type === '기타' && C(h, g) > 0 && C(h, L) > 0);
+      return { band, touchesLiving: touches, dir, latGap: gap, frontRank: rank, viaHall, depthFrac: (fr - b) / DU };
     });
     const halls = inside.filter((g) => sp(g).type === '기타').map((g) => ({ touchesLiving: C(L, g) > 0, touchesBed: inside.some((h) => sp(h).type === '침실' && C(g, h) > 0) }));
-    out.write(JSON.stringify({ drawing: f, unit: u.index, axisFrom, agree, livingDepth: (FL - BL) / DU, livingFront: (FU - FL) / DU, behindLiving: (BL - BU) / DU, nb, beds, halls, kinds: inside.map((g) => sp(g).type) }) + '\n');
+    out.write(JSON.stringify({ drawing: f, unit: u.index, axisFrom, agree, frontRow: frontRow.map((g) => sp(g).type), livingIndex: li, livingDepth: (FL - BL) / DU, livingFront: (FU - FL) / DU, behindLiving: (BL - BU) / DU, nb, beds, halls, kinds: inside.map((g) => sp(g).type) }) + '\n');
     n++;
   }
 }
