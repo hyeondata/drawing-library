@@ -13,9 +13,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public/data/baseline.json'), 'utf8'));
 const recs = JSON.parse(fs.readFileSync(path.join(root, 'evidence/results/objective-orders.json'), 'utf8'));
 const out = [];
+// 특징 + 공간 그래프(실제 세대와 같은 형식: scripts/export-unit-graphs.mjs) — 목적과 분리된 비교 지표(analysis/heldout_compare.py)용
 const feat = (layout) => {
   const a = analyze(toLabel(layout), 'SPA');
-  return a.units.length === 1 ? a.units[0].features : null;
+  if (a.units.length !== 1) return null;
+  const u = a.units[0];
+  const idx = new Map(u.members.map((g, l) => [g, l]));
+  return { ...u.features, graph: { nodes: u.nodes.map((x) => ({ type: x.type, duct: x.duct })), edges: u.edges.map(([i, j]) => [idx.get(i), idx.get(j)]) } };
 };
 for (const rec of recs) {
   const si = Number(rec.id.split('/')[0]);
