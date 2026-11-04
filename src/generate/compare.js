@@ -40,8 +40,8 @@ function tweak(p, spec, r) {
 }
 
 /** 순서(QUBO 해) 하나를 평면으로: 기본값으로 만들고 연속값을 refine번 다듬는다(모든 풀이기에 같은 횟수). */
-export function realize(spec, order, baseline, r, refine) {
-  const p0 = { ...defaultParams(spec), frontOrder: order.front, backOrder: order.back };
+export function realize(spec, order, baseline, r, refine, align = false) {
+  const p0 = { ...defaultParams(spec), frontOrder: order.front, backOrder: order.back, ...(align ? { align: true } : {}) };
   let best = null;
   let p = p0;
   for (let i = 0; i <= refine; i++) {
@@ -98,7 +98,7 @@ export function templates(spec, weights = 'calibrated') {
   return [...new Set([kmax, kmax - 1])].filter((k) => k >= 0).map((k) => ({ k, q: buildQubo(spec, { frontBeds: k, weights }) }));
 }
 
-export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'calibrated', onProgress } = {}) {
+export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'calibrated', align = false, onProgress } = {}) {
   const tpls = templates(spec, weights);
   const q = tpls[0].q;
   const results = [];
@@ -160,7 +160,7 @@ export function compareAlgorithms(spec, { baseline, algorithms, seed = 1, budget
         const sig = `${order.front}|${order.back}`;
         if (seen.has(sig)) continue;
         seen.add(sig);
-        const cand = realize(spec, order, baseline, r, refine);
+        const cand = realize(spec, order, baseline, r, refine, align);
         if (!cand) continue;
         cand.energy = smp.e;
         cand.template = t.k;
