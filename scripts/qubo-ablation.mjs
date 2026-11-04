@@ -6,6 +6,7 @@
 //   −항       : full에서 그 항 하나만 0
 //   noSyntax  : 공간구문 대리 항 끔(λ = 0)
 //   hand      : 손 가중치 + 공간구문 대리 항(보정의 효과)
+//   maxent    : 실제 아파트 관계 빈도로 추정한 가중치(scripts/qubo-maxent.mjs) + 공간구문 대리 항
 //   onehot    : 모든 항 0, 원-핫 제약만(= 무작위 방 순서; QUBO 전체의 효과)
 // 차이는 같은 (조건, 시드)끼리 짝지어(설정 − full) 평균을 내고, 조건 20개를 단위로 다시 뽑는 부트스트랩(2000회)으로 95% 구간을 낸다.
 // 결과: evidence/results/qubo-ablation.md, .json
@@ -49,6 +50,7 @@ function settings(spec) {
   for (const t of TERMS) out.push({ id: `-${t.id}`, term: t.id, W: { ...full, [t.id]: 0 } });
   out.push({ id: 'noSyntax', W: weightsOf('calibrated') });
   out.push({ id: 'hand', W: withSyntax(weightsOf('hand'), spec.prefs).weights });
+  out.push({ id: 'maxent', W: withSyntax(weightsOf('maxent'), spec.prefs).weights });
   out.push({ id: 'onehot', W: Object.fromEntries(TERMS.map((t) => [t.id, 0])) });
   return out;
 }
@@ -178,7 +180,7 @@ if (!isMainThread) {
   const label = (id) => {
     const t = TERMS.find((x) => `-${x.id}` === id);
     if (t) return `− ${t.label} (\`${t.id}\`)`;
-    return { noSyntax: '공간구문 대리 항 끔 (λ = 0)', hand: '손 가중치(보정 안 함)', onehot: '**모든 항 끔(무작위 방 순서)**' }[id] || id;
+    return { noSyntax: '공간구문 대리 항 끔 (λ = 0)', hand: '손 가중치(보정 안 함)', maxent: '최대 엔트로피 가중치(실제 빈도로 추정)', onehot: '**모든 항 끔(무작위 방 순서)**' }[id] || id;
   };
   const n = cases.length;
   const termRows = table.filter((t) => t.id.startsWith('-')).sort((a, b) => a.objective.mean - b.objective.mean);

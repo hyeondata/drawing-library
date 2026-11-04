@@ -160,10 +160,26 @@ function evaluateWeights(gs, w) {
 }
 const handW = TERMS.map((t) => t.hand);
 
+// 부호 제약(--signed): 항의 부호는 한국 실제 아파트 데이터가 정한 방향을 따르고, 크기만 평가 점수로 맞춘다.
+//   데이터 방향 = evidence/results/qubo-maxent.json의 dir(개발 묶음 실제 빈도 vs 모든 배치가 같은 확률일 때 생성 빈도; −1 보상, +1 벌점, 0 제약 없음).
+//   규칙 항(masterNotEnd: 안방은 끝 ≥ 0, backBedUnderBed: 복도로 묶음 ≤ 0)은 손 가중치의 부호를 따른다.
+//   왜: 부호까지 점수에 맞추면 새 기준에서 8개 항의 부호가 뒤집히고 안방 끝 규칙과 충돌했다(evidence/17 §5).
+const SIGNED = process.argv.includes('--signed');
+const DIR = (() => {
+  const f = path.join(root, 'evidence/results/qubo-maxent.json');
+  const dir = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')).dir : {};
+  return TERMS.map((t) => (dir[t.id] !== undefined ? dir[t.id] : t.id === 'masterNotEnd' ? 1 : t.id === 'backBedUnderBed' ? -1 : 0));
+})();
+//   규칙 항은 부호만이 아니라 값도 손 가중치로 고정한다(규칙은 점수로 맞출 대상이 아님; 최대 엔트로피 추정과 같은 처리).
+const RULE = new Set(['masterNotEnd', 'backBedUnderBed']);
+const project = (w) => w.map((v, i) => (RULE.has(TERMS[i].id) ? TERMS[i].hand : DIR[i] && Math.sign(v) === -DIR[i] ? 0 : v));
+
 // 직접 최적화: 학습 그룹의 평균 후회(에너지 최소 배치의 점수 − 그룹 최고)를 키우는 방향으로 가중치를 무작위 국소 탐색.
 // 후회는 계단 함수라 경사가 없으므로 섭동 + 수락(개선 또는 동률이면 ρ가 나아질 때)으로 찾는다. 시작점은 손 가중치와 릿지 해.
-function direct(train, starts, iters = 1500, seed = 7) {
+function direct(train, starts, iters = 1500, seed = 7, signed = false) {
   const r = rng(seed);
+  const projectIf = (w) => (signed ? project(w) : w);
+  starts = starts.map(projectIf);
   const score = (w) => {
     const m = evaluateWeights(train, w);
     return m.regret - 2 * m.rho; // 후회를 주로, 동률이면 상관이 더 강한 쪽
@@ -179,8 +195,9 @@ function direct(train, starts, iters = 1500, seed = 7) {
         const i = Math.floor(r() * T);
         cand[i] += (r() - 0.5) * 4;
       }
-      const cs = score(cand);
-      if (cs >= sc) (w = cand), (sc = cs);
+      const c2 = projectIf(cand);
+      const cs = score(c2);
+      if (cs >= sc) (w = c2), (sc = cs);
     }
     if (!best || sc > best.sc) best = { w, sc };
   }
@@ -194,7 +211,7 @@ const ridgeW = (gs, l) => {
   const sc = 8 / Math.max(...w.map(Math.abs));
   return w.map((v) => v * sc);
 };
-const METHODS = { hand: () => handW, ...Object.fromEntries(LAMBDAS.map((l) => [`ridge λ=${l}`, (gs) => ridgeW(gs, l)])), direct: (gs) => direct(gs, [handW, ridgeW(gs, 1)]) };
+const METHODS = { hand: () => handW, ...Object.fromEntries(LAMBDAS.map((l) => [`ridge λ=${l}`, (gs) => ridgeW(gs, l)])), direct: (gs) => direct(gs, [handW, ridgeW(gs, 1)]), 'direct-signed': (gs) => direct(gs, [handW, ridgeW(gs, 1)], 1500, 7, true) };
 const cv = {};
 for (const [name, fit] of Object.entries(METHODS)) {
   const acc = { rho: 0, regret: 0, topPct: 0 };
@@ -207,10 +224,12 @@ for (const [name, fit] of Object.entries(METHODS)) {
   cv[name] = acc;
   console.log(name, JSON.stringify(acc));
 }
-const bestMethod = Object.keys(METHODS).filter((k) => k !== 'hand').reduce((a, b) => (cv[b].regret > cv[a].regret ? b : a));
+// --signed면 부호 제약 방법을 쓴다(설계 원칙). 아니면 교차검증 후회가 가장 작은 방법.
+const bestMethod = SIGNED ? 'direct-signed' : Object.keys(METHODS).filter((k) => k !== 'hand' && k !== 'direct-signed').reduce((a, b) => (cv[b].regret > cv[a].regret ? b : a));
 const bestLambda = bestMethod;
 const raw = METHODS[bestMethod](groups);
-const scale = 8 / Math.max(...raw.map(Math.abs));
+// 부호 제약 방법은 규칙 항 값을 고정했으므로 크기를 다시 맞추지 않는다.
+const scale = bestMethod === 'direct-signed' ? 1 : 8 / Math.max(...raw.map(Math.abs));
 const weights = Object.fromEntries(TERMS.map((t, i) => [t.id, Math.round(raw[i] * scale * 100) / 100]));
 // 아래 가중치 표는 전체 조건으로 다시 맞춘 값(최대 절댓값 8로 맞춤).
 const full = { hand: evaluateWeights(groups, handW), calibrated: evaluateWeights(groups, TERMS.map((t) => weights[t.id])) };
@@ -234,9 +253,10 @@ const f = (v, d = 3) => (Number.isFinite(v) ? v.toFixed(d) : '—');
 const md = [];
 md.push('# QUBO 가중치 보정');
 md.push('');
-md.push(`\`node scripts/qubo-calibrate.mjs --samples ${SAMPLES}\`로 만든 파일입니다(${meta.generatedAt}). 조건 ${meta.specs}개(평형 59~114㎡, 방 2~4개, 선호 5가지)의 템플릿 QUBO ${meta.groups}개에서 배치 ${meta.samples.toLocaleString()}개를 열거·표본추출해 평면으로 풀고 순위 점수를 쟀습니다(${Math.round((Date.now() - t0) / 1000)}초).`);
+md.push(`\`node scripts/qubo-calibrate.mjs --samples ${SAMPLES}${SIGNED ? " --signed" : ""}\`로 만든 파일입니다(${meta.generatedAt}). 조건 ${meta.specs}개(평형 59~114㎡, 방 2~4개, 선호 5가지)의 템플릿 QUBO ${meta.groups}개에서 배치 ${meta.samples.toLocaleString()}개를 열거·표본추출해 평면으로 풀고 순위 점수를 쟀습니다(${Math.round((Date.now() - t0) / 1000)}초).`);
 md.push('');
-md.push('두 방법을 비교했습니다. (1) 릿지: 같은 QUBO 안에서만 에너지를 비교하므로 점수를 조건·템플릿별 백분위 순위로, 항 값을 중심화해 회귀하고 w = −β(최대 절댓값 8). 전체 순서를 맞춥니다. (2) 직접: 학습 조건에서 \'에너지 최소 배치의 후회\'를 줄이도록 가중치를 무작위 국소 탐색(시작점: 손 가중치와 릿지 해). QUBO를 정확히 풀었을 때 나오는 평면을 좋게 만드는 것이 목적이라 이쪽이 실제 목표에 가깝습니다. 교차검증 후회가 가장 작은 방법을 고릅니다.');
+md.push('방법을 비교했습니다. (1) 릿지: 같은 QUBO 안에서만 에너지를 비교하므로 점수를 조건·템플릿별 백분위 순위로, 항 값을 중심화해 회귀하고 w = −β(최대 절댓값 8). 전체 순서를 맞춥니다. (2) 직접: 학습 조건에서 \'에너지 최소 배치의 후회\'를 줄이도록 가중치를 무작위 국소 탐색(시작점: 손 가중치와 릿지 해). QUBO를 정확히 풀었을 때 나오는 평면을 좋게 만드는 것이 목적이라 이쪽이 실제 목표에 가깝습니다. 교차검증 후회가 가장 작은 방법을 고릅니다.');
+if (SIGNED) md.push('', '(3) 부호 제약 직접(`--signed`, 현재 채택): 항의 부호는 한국 실제 아파트 관계 빈도가 정한 방향(evidence/results/qubo-maxent.md의 데이터 방향)을 따르게 하고(어기면 0), 규칙 항(masterNotEnd = 6, backBedUnderBed = −2)은 고정한 채 크기만 직접 방법으로 맞춥니다. 부호까지 점수에 맞추면 데이터와 반대 부호가 나오고 안방 끝 규칙과 충돌했기 때문입니다(evidence/17 §5).');
 md.push('');
 md.push('## 검증: 조건을 통째로 빼고 맞춘 교차검증(5겹)');
 md.push('');

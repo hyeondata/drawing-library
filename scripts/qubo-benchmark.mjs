@@ -16,8 +16,10 @@ const arg = (name, def) => {
   return i > 0 ? Number(process.argv[i + 1]) : def;
 };
 const SEEDS = arg('seeds', 30);
-const WEIGHTS = process.argv.includes('--hand') ? 'hand' : 'calibrated';
-const SUFFIX = WEIGHTS === 'hand' ? '-hand' : '';
+// 가중치 세트: --hand(손) | --weights maxent(실제 아파트 빈도로 추정) | 기본 calibrated(평가 모델로 보정)
+const wi = process.argv.indexOf('--weights');
+const WEIGHTS = wi > 0 ? process.argv[wi + 1] : process.argv.includes('--hand') ? 'hand' : 'calibrated';
+const SUFFIX = WEIGHTS === 'calibrated' ? '' : `-${WEIGHTS}`;
 const BUDGET = arg('budget', 100);
 const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public/data/baseline.json'), 'utf8'));
 
@@ -152,7 +154,7 @@ posthoc.forEach((t, i) => (t.holm = Math.min(1, Math.max(...posthoc.slice(0, i +
 // ---- 결과 파일 ----
 const fmt = (v, d = 1) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
 const lines = [];
-lines.push(`# QUBO 풀이기 비교 실험 (${WEIGHTS === 'hand' ? '손으로 정한 가중치' : '평가 모델로 보정한 가중치'})`);
+lines.push(`# QUBO 풀이기 비교 실험 (${{ hand: '손으로 정한 가중치', calibrated: '평가 모델로 보정한 가중치', maxent: '실제 아파트 관계 빈도로 추정한 가중치(최대 엔트로피)' }[WEIGHTS]})`);
 lines.push('');
 lines.push(`\`node scripts/qubo-benchmark.mjs --seeds ${SEEDS} --budget ${BUDGET}\`로 만든 파일입니다. 풀이기마다 ${BUDGET}ms를 이 기계에서 평가 횟수로 보정해 고정했으므로 시드가 같으면 결과가 같습니다. '기존'은 평가 모델을 800번 부르는 직접 탐색이라 예산 단위가 다릅니다.`);
 lines.push('');

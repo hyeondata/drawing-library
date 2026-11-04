@@ -7,6 +7,7 @@
 // 해를 판상형 문법(layout.js)으로 풀어 낸 뒤 평가 모델이 채점한다.
 import { programOf } from './layout.js';
 import { CALIBRATED } from './qubo-weights.js';
+import { MAXENT } from './qubo-weights-maxent.js';
 import { SYNTAX, SYNTAX_LAMBDA } from './syntax-weights.js';
 
 /**
@@ -22,7 +23,7 @@ export const TERMS = [
   { id: 'bathEntrance', hand: -3, label: '공용욕실–현관 옆', why: '규칙 publicBath' },
   { id: 'bathLiving', hand: -2, label: '공용욕실–거실 맞닿음', why: '공용욕실이 공용 공간에 닿음' },
   { id: 'multiKitchen', hand: -3, label: '다목적실–주방 옆', why: '팬트리' },
-  { id: 'bedEntrance', hand: 4, pref: ['privacy', 1.6], label: '침실–현관 맞닿음', why: '공·사 깊이; Park et al. 2024' },
+  { id: 'bedEntrance', hand: 4, pref: ['privacy', 1.6], label: '침실–현관 맞닿음', why: '공·사 깊이; Ham & Lee 2017' },
   { id: 'backBedEntrance', hand: 3, pref: ['privacy', 1.6], label: '뒤 침실–현관 옆', why: '사생활' },
   { id: 'backBedUnderBed', hand: -2, label: '뒤 침실이 앞 침실 뒤', why: '복도로 묶임' },
   { id: 'backBedKitchen', hand: 2, pref: ['quiet', 1.6], label: '뒤 침실–주방 옆', why: '방음' },
@@ -37,10 +38,11 @@ export const TERMS = [
   { id: 'bedOverBath', hand: 0, label: '앞 침실–공용욕실 맞닿음', why: '보정 후보' },
 ];
 
-/** 가중치 세트: 'calibrated'(평가 모델로 보정, 기본) | 'hand' | { id: w }. */
+/** 가중치 세트: 'calibrated'(평가 모델로 보정, 기본) | 'maxent'(실제 아파트 관계 빈도로 추정, scripts/qubo-maxent.mjs) | 'hand' | { id: w }. */
 export function weightsOf(set = 'calibrated') {
   if (set && typeof set === 'object') return set;
   if (set === 'calibrated' && CALIBRATED) return CALIBRATED.weights;
+  if (set === 'maxent' && MAXENT) return MAXENT.weights;
   return Object.fromEntries(TERMS.map((t) => [t.id, t.hand]));
 }
 

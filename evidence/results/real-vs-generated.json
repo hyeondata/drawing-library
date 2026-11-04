@@ -1,0 +1,510 @@
+{
+ "n_test": 2775,
+ "n_dev": 5220,
+ "rows": [
+  {
+   "tag": "기준선: 실제 dev 대 실제 test",
+   "n_gen": 600,
+   "auc": 0.5183293055555555,
+   "lo": 0.4823700694444445,
+   "hi": 0.5564802430555555,
+   "null_hi": 0.5358280208333333,
+   "p": 0.19607843137254902,
+   "verdict": "실질적으로 구별되지 않음"
+  },
+  {
+   "tag": "손 가중치 · QUBO 최적해",
+   "n_gen": 600,
+   "auc": 0.9998530555555556,
+   "lo": 0.9991684722222223,
+   "hi": 1.0,
+   "null_hi": 0.5498239930555555,
+   "p": 0.0196078431372549,
+   "verdict": "구별됨"
+  },
+  {
+   "tag": "평가 모델 보정 · QUBO 최적해",
+   "n_gen": 600,
+   "auc": 0.9999269444444444,
+   "lo": 0.9997927083333333,
+   "hi": 0.9999987499999999,
+   "null_hi": 0.5417005902777777,
+   "p": 0.0196078431372549,
+   "verdict": "구별됨"
+  },
+  {
+   "tag": "최대 엔트로피(실제 빈도) · QUBO 최적해",
+   "n_gen": 600,
+   "auc": 0.9994069444444446,
+   "lo": 0.9984988194444445,
+   "hi": 0.999999375,
+   "null_hi": 0.5410435416666667,
+   "p": 0.0196078431372549,
+   "verdict": "구별됨"
+  },
+  {
+   "tag": "손 가중치 · 생성기 전체(SA+J)",
+   "n_gen": 600,
+   "auc": 0.9950422222222223,
+   "lo": 0.9927934027777777,
+   "hi": 0.9964122916666667,
+   "null_hi": 0.5416523611111111,
+   "p": 0.0196078431372549,
+   "verdict": "구별됨"
+  },
+  {
+   "tag": "평가 모델 보정 · 생성기 전체(SA+J)",
+   "n_gen": 600,
+   "auc": 0.9930055555555557,
+   "lo": 0.9912863194444445,
+   "hi": 0.9945047916666666,
+   "null_hi": 0.5361374305555555,
+   "p": 0.0196078431372549,
+   "verdict": "구별됨"
+  },
+  {
+   "tag": "최대 엔트로피(실제 빈도) · 생성기 전체(SA+J)",
+   "n_gen": 600,
+   "auc": 0.9954249999999998,
+   "lo": 0.9937299305555555,
+   "hi": 0.9969779166666667,
+   "null_hi": 0.5521885069444444,
+   "p": 0.0196078431372549,
+   "verdict": "구별됨"
+  }
+ ],
+ "metrics": [
+  {
+   "set": "hand",
+   "path": "qubo",
+   "key": "livingBedroomRatio",
+   "real_med": 2.4223602484472053,
+   "gen_med": 1.6615384615384619,
+   "delta": -0.629563492063492,
+   "inside90": 0.43166666666666664
+  },
+  {
+   "set": "hand",
+   "path": "qubo",
+   "key": "kitchenBedroomRatio",
+   "real_med": 1.1054284432480932,
+   "gen_med": 0.9310344827586208,
+   "delta": -0.3934891134367858,
+   "inside90": 0.6483333333333333
+  },
+  {
+   "set": "hand",
+   "path": "qubo",
+   "key": "genotypeTau",
+   "real_med": 0.6,
+   "gen_med": 0.4,
+   "delta": -0.5219907240091555,
+   "inside90": 0.7283333333333334
+  },
+  {
+   "set": "hand",
+   "path": "qubo",
+   "key": "privacyDepthGap",
+   "real_med": 0.75,
+   "gen_med": 1.0,
+   "delta": 0.6228813559322034,
+   "inside90": 0.8183333333333334
+  },
+  {
+   "set": "hand",
+   "path": "qubo",
+   "key": "livingDepth",
+   "real_med": 1.0,
+   "gen_med": 2.0,
+   "delta": 0.8697284306657054,
+   "inside90": 0.12666666666666668
+  },
+  {
+   "set": "hand",
+   "path": "qubo",
+   "key": "ringiness",
+   "real_med": 0.5517241379310345,
+   "gen_med": 0.6470588235294118,
+   "delta": 0.4463375375375375,
+   "inside90": 0.98
+  },
+  {
+   "set": "hand",
+   "path": "qubo",
+   "key": "livingControl",
+   "real_med": 2.6166666666666667,
+   "gen_med": 1.8333333333333333,
+   "delta": -0.79773993993994,
+   "inside90": 0.46
+  },
+  {
+   "set": "hand",
+   "path": "qubo",
+   "key": "meanIntegration",
+   "real_med": 1.822402662622889,
+   "gen_med": 1.5988061299024245,
+   "delta": -0.5373537537537538,
+   "inside90": 1.0
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "key": "livingBedroomRatio",
+   "real_med": 2.4223602484472053,
+   "gen_med": 1.9324324324324327,
+   "delta": -0.4575727513227514,
+   "inside90": 0.8233333333333334
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "key": "kitchenBedroomRatio",
+   "real_med": 1.1054284432480932,
+   "gen_med": 1.2413793103448274,
+   "delta": 0.20846986647419702,
+   "inside90": 0.9133333333333333
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "key": "genotypeTau",
+   "real_med": 0.6,
+   "gen_med": 0.6,
+   "delta": -0.12405312612938196,
+   "inside90": 1.0
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "key": "privacyDepthGap",
+   "real_med": 0.75,
+   "gen_med": 1.0,
+   "delta": 0.8007170332972713,
+   "inside90": 0.9333333333333333
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "key": "livingDepth",
+   "real_med": 1.0,
+   "gen_med": 2.0,
+   "delta": 0.8180617639990387,
+   "inside90": 0.17833333333333334
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "key": "ringiness",
+   "real_med": 0.5517241379310345,
+   "gen_med": 0.6,
+   "delta": 0.31646006006006006,
+   "inside90": 0.9633333333333334
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "key": "livingControl",
+   "real_med": 2.6166666666666667,
+   "gen_med": 1.8333333333333333,
+   "delta": -0.7654552552552553,
+   "inside90": 0.415
+  },
+  {
+   "set": "calibrated",
+   "path": "qubo",
+   "key": "meanIntegration",
+   "real_med": 1.822402662622889,
+   "gen_med": 1.641235942565531,
+   "delta": -0.5183195195195196,
+   "inside90": 1.0
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "key": "livingBedroomRatio",
+   "real_med": 2.4223602484472053,
+   "gen_med": 2.9117647058823537,
+   "delta": 0.16885942760942763,
+   "inside90": 0.8566666666666667
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "key": "kitchenBedroomRatio",
+   "real_med": 1.1054284432480932,
+   "gen_med": 0.9559774455537737,
+   "delta": -0.2822681342475641,
+   "inside90": 0.7366666666666667
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "key": "genotypeTau",
+   "real_med": 0.6,
+   "gen_med": 0.5270462766947299,
+   "delta": -0.1903764606673895,
+   "inside90": 0.9833333333333333
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "key": "privacyDepthGap",
+   "real_med": 0.75,
+   "gen_med": 1.0,
+   "delta": 0.7844512561605962,
+   "inside90": 0.7566666666666667
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "key": "livingDepth",
+   "real_med": 1.0,
+   "gen_med": 1.0,
+   "delta": -0.003604902667627974,
+   "inside90": 1.0
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "key": "ringiness",
+   "real_med": 0.5517241379310345,
+   "gen_med": 0.5789473684210527,
+   "delta": 0.2216684684684685,
+   "inside90": 0.9966666666666667
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "key": "livingControl",
+   "real_med": 2.6166666666666667,
+   "gen_med": 2.1499999999999995,
+   "delta": -0.5409375375375375,
+   "inside90": 0.875
+  },
+  {
+   "set": "maxent",
+   "path": "qubo",
+   "key": "meanIntegration",
+   "real_med": 1.822402662622889,
+   "gen_med": 1.8251860698121702,
+   "delta": 0.0256876876876877,
+   "inside90": 0.9766666666666667
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "key": "livingBedroomRatio",
+   "real_med": 2.4223602484472053,
+   "gen_med": 1.7547362734884437,
+   "delta": -0.6261189273689274,
+   "inside90": 0.5183333333333333
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "key": "kitchenBedroomRatio",
+   "real_med": 1.1054284432480932,
+   "gen_med": 1.1214953271028036,
+   "delta": 0.02277637435342228,
+   "inside90": 0.7066666666666667
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "key": "genotypeTau",
+   "real_med": 0.6,
+   "gen_med": 0.5270462766947299,
+   "delta": -0.24128177328032768,
+   "inside90": 0.8966666666666666
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "key": "privacyDepthGap",
+   "real_med": 0.75,
+   "gen_med": 1.0,
+   "delta": 0.29352025483832195,
+   "inside90": 0.735
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "key": "livingDepth",
+   "real_med": 1.0,
+   "gen_med": 2.0,
+   "delta": 0.6630617639990386,
+   "inside90": 0.3333333333333333
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "key": "ringiness",
+   "real_med": 0.5517241379310345,
+   "gen_med": 0.631578947368421,
+   "delta": 0.5045735735735735,
+   "inside90": 0.8833333333333333
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "key": "livingControl",
+   "real_med": 2.6166666666666667,
+   "gen_med": 1.7,
+   "delta": -0.8505891891891892,
+   "inside90": 0.37333333333333335
+  },
+  {
+   "set": "hand",
+   "path": "full",
+   "key": "meanIntegration",
+   "real_med": 1.822402662622889,
+   "gen_med": 1.6858588512141952,
+   "delta": -0.37987567567567565,
+   "inside90": 0.985
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "key": "livingBedroomRatio",
+   "real_med": 2.4223602484472053,
+   "gen_med": 1.8016828906121105,
+   "delta": -0.5800468975468975,
+   "inside90": 0.56
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "key": "kitchenBedroomRatio",
+   "real_med": 1.1054284432480932,
+   "gen_med": 1.12869523350987,
+   "delta": 0.04222543004932039,
+   "inside90": 0.7183333333333334
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "key": "genotypeTau",
+   "real_med": 0.6,
+   "gen_med": 0.6,
+   "delta": -0.2230671003493555,
+   "inside90": 0.9033333333333333
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "key": "privacyDepthGap",
+   "real_med": 0.75,
+   "gen_med": 0.8999999999999999,
+   "delta": 0.2964418800336579,
+   "inside90": 0.7383333333333333
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "key": "livingDepth",
+   "real_med": 1.0,
+   "gen_med": 2.0,
+   "delta": 0.6397284306657053,
+   "inside90": 0.3566666666666667
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "key": "ringiness",
+   "real_med": 0.5517241379310345,
+   "gen_med": 0.631578947368421,
+   "delta": 0.5002642642642642,
+   "inside90": 0.8916666666666667
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "key": "livingControl",
+   "real_med": 2.6166666666666667,
+   "gen_med": 1.7333333333333332,
+   "delta": -0.8391513513513514,
+   "inside90": 0.4066666666666667
+  },
+  {
+   "set": "calibrated",
+   "path": "full",
+   "key": "meanIntegration",
+   "real_med": 1.822402662622889,
+   "gen_med": 1.7022135703183183,
+   "delta": -0.33009309309309304,
+   "inside90": 0.9783333333333334
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "key": "livingBedroomRatio",
+   "real_med": 2.4223602484472053,
+   "gen_med": 1.8019595621177293,
+   "delta": -0.5914814814814815,
+   "inside90": 0.5466666666666666
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "key": "kitchenBedroomRatio",
+   "real_med": 1.1054284432480932,
+   "gen_med": 1.0909090909090913,
+   "delta": -0.01568025983399496,
+   "inside90": 0.6783333333333333
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "key": "genotypeTau",
+   "real_med": 0.6,
+   "gen_med": 0.6,
+   "delta": -0.24026442597277436,
+   "inside90": 0.8916666666666667
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "key": "privacyDepthGap",
+   "real_med": 0.75,
+   "gen_med": 0.8999999999999999,
+   "delta": 0.26466582521937726,
+   "inside90": 0.7133333333333334
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "key": "livingDepth",
+   "real_med": 1.0,
+   "gen_med": 2.0,
+   "delta": 0.6064011055034848,
+   "inside90": 0.39
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "key": "ringiness",
+   "real_med": 0.5517241379310345,
+   "gen_med": 0.631578947368421,
+   "delta": 0.4828624624624624,
+   "inside90": 0.93
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "key": "livingControl",
+   "real_med": 2.6166666666666667,
+   "gen_med": 1.7,
+   "delta": -0.8512438438438438,
+   "inside90": 0.35333333333333333
+  },
+  {
+   "set": "maxent",
+   "path": "full",
+   "key": "meanIntegration",
+   "real_med": 1.822402662622889,
+   "gen_med": 1.6716526384495636,
+   "delta": -0.38468948948948944,
+   "inside90": 0.9766666666666667
+  }
+ ]
+}

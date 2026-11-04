@@ -4,7 +4,7 @@
 // 대리 항 에너지 E_s(x) = Σ_t v_t φ_t(x), v = −β(낮은 에너지 = 변수가 큼). 생성 때 선호를 고르면 E = E_보정 + λ·s·E_s.
 // 검증: 조건 단위 5겹 교차검증 — (1) 대리 항과 실제 변수의 스피어만 ρ, (2) 에너지 최소 배치의 변수 백분위가 얼마나 오르는지와 종합 점수 비용.
 // 변수와 근거(SCI(E)/SSCI): 거실/침실 통합도 비·주방/침실 통합도 비(Byun & Choi 2016, JAABE SCIE; Choi et al. 2014 SCIE),
-// 거실 중심 유전형 τ(Hillier, Hanson & Graham 1987, EPB SSCI; Byun & Choi 2016), 공·사 깊이 차(Ham & Lee 2017 SCIE·SSCI; Park et al. 2024 SCIE).
+// 거실 중심 유전형 τ(Hillier, Hanson & Graham 1987, EPB SSCI; Byun & Choi 2016), 공·사 깊이 차(Ham & Lee 2017 SCIE·SSCI).
 // 대리 모델: Jin 2011(Swarm Evol. Comput., SCIE). 결과: src/generate/syntax-weights.js, evidence/results/syntax-surrogate.md
 // 사용: node scripts/syntax-surrogate.mjs [--samples 600]
 import fs from 'node:fs';
@@ -28,7 +28,7 @@ const targets = { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877,
 export const VARS = {
   livingBedroomRatio: { label: '거실/침실 통합도 비', pref: 'livingCentral', refs: 'Byun & Choi 2016; Choi et al. 2014' },
   genotypeTau: { label: '거실 중심 유전형 순위 부합도 τ', pref: 'livingCentral', refs: 'Hillier, Hanson & Graham 1987; Byun & Choi 2016' },
-  privacyDepthGap: { label: '공·사 깊이 차', pref: 'privacy', refs: 'Ham & Lee 2017; Park et al. 2024' },
+  privacyDepthGap: { label: '공·사 깊이 차', pref: 'privacy', refs: 'Ham & Lee 2017' },
   kitchenBedroomRatio: { label: '주방/침실 통합도 비', pref: 'kitchenLink', refs: 'Byun & Choi 2016; Choi et al. 2014' },
 };
 const KEYS = Object.keys(VARS);
