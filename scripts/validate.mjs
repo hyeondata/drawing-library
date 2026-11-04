@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MODEL_VERSION } from '../src/model/config.js';
-import { analyze, extractFeatures, scoreAnalysis } from '../src/model/index.js';
+import { analyze, extractFeatures, poolFor as poolForBaseline, scoreAnalysis } from '../src/model/index.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const labelsDir = path.join(root, 'public', 'data', 'labels');
@@ -188,13 +188,47 @@ const DAMAGES = [
 ];
 
 // ---------- 실행 ----------
-const files = fs.readdirSync(labelsDir).filter((f) => f.includes('_SPA_')).sort();
-const drawings = files.map((f) => {
-  const label = JSON.parse(fs.readFileSync(path.join(labelsDir, f), 'utf8'));
-  return { id: f.replace('.json', ''), label, analysis: analyze(label, 'SPA') };
-});
-const pool = drawings.flatMap((d) => extractFeatures(d.analysis).map(({ features }) => ({ drawing: d.id, features })));
-const poolFor = (id) => pool.filter((e) => e.drawing !== id).map((e) => e.features);
+// 기본: 전체 데이터 모드. AI 허브 APT_FP_SPA 7,275장 중 검증(test) 묶음(data/split.json)에서 도면 N장을 고정 순서로 골라 손상하고,
+//   기준은 웹과 같은 전체 기준 분포(public/data/baseline.json, 서로 다른 평면 8,331개)로 채점한다.
+//   검증 묶음 도면을 쓰는 까닭: 손상할 원래 도면이 기준 분포의 개발 부분과 겹치지 않게(자기 자신을 기준으로 채점하는 효과를 줄임).
+// --sample: 예전 방식(저장소 샘플 20장, 서로를 기준으로 도면 단위 제외). 비교용.
+const argN = (name, def) => {
+  const i = process.argv.indexOf(`--${name}`);
+  return i > 0 ? Number(process.argv[i + 1]) : def;
+};
+const SAMPLE_MODE = process.argv.includes('--sample');
+let drawings, poolFor, sourceNote;
+if (SAMPLE_MODE) {
+  const files = fs.readdirSync(labelsDir).filter((f) => f.includes('_SPA_')).sort();
+  drawings = files.map((f) => {
+    const label = JSON.parse(fs.readFileSync(path.join(labelsDir, f), 'utf8'));
+    return { id: f.replace('.json', ''), label, analysis: analyze(label, 'SPA') };
+  });
+  const pool = drawings.flatMap((d) => extractFeatures(d.analysis).map(({ features }) => ({ drawing: d.id, features })));
+  poolFor = (id) => pool.filter((e) => e.drawing !== id).map((e) => e.features);
+  sourceNote = `저장소 샘플 공간 도면 ${drawings.length}장, 서로를 기준으로(도면 단위 제외)`;
+} else {
+  const dataDir = path.resolve(process.argv.includes('--data') ? process.argv[process.argv.indexOf('--data') + 1] : path.join(root, '..', 'aihub-full', 'TL_SPA'));
+  if (!fs.existsSync(dataDir)) {
+    console.error(`실제 도면 폴더가 없습니다: ${dataDir} (샘플로 돌리려면 --sample)`);
+    process.exit(1);
+  }
+  const N = argN('n', 300);
+  const test = JSON.parse(fs.readFileSync(path.join(root, 'data', 'split.json'), 'utf8')).test;
+  // 고정 간격으로 고른다(난수 없이 재현)
+  const step = Math.max(1, Math.floor(test.length / N));
+  const picked = test.filter((_, i) => i % step === 0).slice(0, N);
+  const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public', 'data', 'baseline.json'), 'utf8'));
+  drawings = [];
+  for (const f of picked) {
+    const label = JSON.parse(fs.readFileSync(path.join(dataDir, f), 'utf8'));
+    const analysis = analyze(label, 'SPA');
+    if (analysis.units.length) drawings.push({ id: f.replace('.json', ''), label, analysis });
+  }
+  const full = poolForBaseline(baseline, 'SPA');
+  poolFor = () => full;
+  sourceNote = `AI 허브 APT_FP_SPA 검증(test) 묶음 도면 ${drawings.length}장, 기준 = 전체 기준 분포(서로 다른 평면 ${baseline.summary.SPA.all.n.toLocaleString('en-US')}개)`;
+}
 const groupScores = (r) => {
   const g = {};
   for (const u of r.units) for (const [k, v] of Object.entries(u.groups)) g[k] = (g[k] || 0) + v.score / r.units.length;
@@ -273,9 +307,9 @@ const f2 = (v) => (Number.isFinite(v) ? v.toFixed(2) : '–');
 const GN = { syntax: '공간구문', area: '면적', shape: '형태', exposure: '외기', rules: '정합성' };
 const md = `# 손상 실험·판별 타당도 결과
 
-> 자동 생성 파일입니다(\`npm run validate\`). 모델 v${MODEL_VERSION}, 공간 도면 ${drawings.length}장(${unitRows.length}세대), 난수 시드 고정.
+> 자동 생성 파일입니다(\`npm run validate\`). 모델 v${MODEL_VERSION}, ${sourceNote}, ${unitRows.length}세대, 난수 시드 고정.
 > 실제 평면을 일부러 망가뜨렸을 때 점수가 떨어지는지(알려진 집단 타당도), 손상 종류에 맞는 하위 점수가 가장 크게 반응하는지 봅니다.
-> 손상 도면은 원래 도면을 뺀 기준 분포로 채점합니다.
+> ${SAMPLE_MODE ? '손상 도면은 원래 도면을 뺀 기준 분포로 채점합니다.' : '손상할 도면은 검증 묶음에서 골라, 기준 분포를 만든 평면과 같은 도면이 섞이는 효과를 줄였습니다(기준 분포 자체는 웹과 같은 전체 8,331개).'}
 
 ## 1. 손상별 점수 하락
 
@@ -317,8 +351,7 @@ ${gkeys.map((a, i) => `| ${GN[a] ?? a} | ${corr[i].map(f2).join(' | ')} |`).join
 ## 읽는 법과 한계
 
 - 손상 실험은 일반적인 지표 검증 관행을 빌린 설계이며, 평면 평가 분야의 확립된 표준은 아닙니다(투고 검토 보고서).
-- 표본이 20도면이라 구간이 넓습니다. 기준 분포를 키운 뒤 다시 실행해야 합니다.
-- 정합성 규칙(관문)은 기준 표본에서 걸린 평면이 없어, 이 실험이 관문 규칙이 작동하는지 보는 유일한 시험입니다.
+${SAMPLE_MODE ? '- 표본이 20도면이라 구간이 넓습니다.\n' : ''}- 정합성 규칙(관문)은 기준 표본에서 걸린 평면이 없어, 이 실험이 관문 규칙이 작동하는지 보는 유일한 시험입니다.
 `;
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'validation.md'), md);

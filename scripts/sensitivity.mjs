@@ -8,7 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GATE_CAP, MODEL_VERSION, THRESHOLDS, WEIGHTS, Z_ZERO_SCORE } from '../src/model/config.js';
-import { analyze, extractFeatures, gradeOf, scoreAnalysis } from '../src/model/index.js';
+import { analyze, extractFeatures, gradeOf, scoreAnalysis, summarizePool } from '../src/model/index.js';
+import { STRATA } from '../src/model/config.js';
 import { kendallTauB } from '../src/model/syntax.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -79,10 +80,58 @@ const poolExcluding = (pool, id) => {
   if (!m.has(id)) m.set(id, pool.filter((e) => e.drawing !== id).map((e) => e.features));
   return m.get(id);
 };
-const scoreAll = (drawings, pool, options) => drawings.map((d) => scoreAnalysis(d.analysis, poolExcluding(pool, d.id), options).score);
+// 기준이 요약형(전체 데이터)이면 그대로, 세대 목록(샘플)이면 평가 도면을 빼고 쓴다.
+const refOf = (pool, id) => (pool.summary ? pool : poolExcluding(pool, id));
+const scoreAll = (drawings, pool, options) => drawings.map((d) => scoreAnalysis(d.analysis, refOf(pool, d.id), options).score);
 
-const drawings = loadSPA().map((d) => ({ ...d, analysis: analyze(d.label, 'SPA') }));
-const pool = buildPool(drawings);
+// 기본: 전체 데이터 모드. 평가할 도면 = 검증(test) 묶음에서 고정 간격 N장, 기준 = 웹과 같은 전체 기준 분포(서로 다른 평면 8,331개, 요약형).
+// --sample: 예전 방식(샘플 20장이 서로를 기준으로).
+const SAMPLE_MODE = process.argv.includes('--sample');
+const dataDir = path.resolve(process.argv.includes('--data') ? process.argv[process.argv.indexOf('--data') + 1] : path.join(root, '..', 'aihub-full', 'TL_SPA'));
+// 실제 도면 거르기(scripts/build-baseline-full.mjs와 같은 규칙): 침실 1~5, 주방·화장실 있음, 같은 평면은 한 번
+const keyOf = (f) => JSON.stringify(f, (_, v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v));
+function filterUnits(rows) {
+  const seen = new Set();
+  return rows.filter((r) => {
+    const f = r.features;
+    if (f.bedroomCount < 1 || f.bedroomCount > 5 || !(f['ratio_주방'] > 0) || !(f['ratio_화장실'] > 0)) return false;
+    const k = keyOf(f);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+let drawings, pool, sourceNote, baseRows;
+if (SAMPLE_MODE) {
+  drawings = loadSPA().map((d) => ({ ...d, analysis: analyze(d.label, 'SPA') }));
+  pool = buildPool(drawings);
+  sourceNote = `샘플 공간 도면 ${drawings.length}장(${pool.length}세대)이 서로를 기준으로`;
+} else {
+  if (!fs.existsSync(dataDir)) {
+    console.error(`실제 도면 폴더가 없습니다: ${dataDir} (샘플로 돌리려면 --sample)`);
+    process.exit(1);
+  }
+  const N = arg('n', 300);
+  const test = JSON.parse(fs.readFileSync(path.join(root, 'data', 'split.json'), 'utf8')).test;
+  const step = Math.max(1, Math.floor(test.length / N));
+  drawings = test
+    .filter((_, i) => i % step === 0)
+    .slice(0, N)
+    .map((f) => {
+      const label = JSON.parse(fs.readFileSync(path.join(dataDir, f), 'utf8'));
+      return { id: f.replace('.json', ''), label, analysis: analyze(label, 'SPA') };
+    })
+    .filter((d) => d.analysis.units.length);
+  pool = JSON.parse(fs.readFileSync(path.join(root, 'public', 'data', 'baseline.json'), 'utf8')).summary.SPA;
+  // 부트스트랩용: 기준 분포에 들어간 평면의 특징(도면별)
+  const derived = path.join(dataDir, '..', 'derived');
+  const kept = new Set(fs.readFileSync(path.join(derived, 'baseline-units.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => {
+    const o = JSON.parse(l);
+    return `${o.drawing}#${o.unit}`;
+  }));
+  baseRows = fs.readFileSync(path.join(derived, 'real-units.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((o) => kept.has(`${o.drawing}#${o.unit}`)).map((o) => ({ drawing: o.drawing, features: o.features }));
+  sourceNote = `AI 허브 검증(test) 묶음 도면 ${drawings.length}장, 기준 = 전체 기준 분포(서로 다른 평면 ${pool.all.n.toLocaleString('en-US')}개)`;
+}
 const base = scoreAll(drawings, pool, {});
 const baseRanks = ranksOf(base);
 
@@ -148,7 +197,17 @@ const meanShift = rankRows.reduce((s, r) => s + r.shift, 0) / rankRows.length;
 // ---------- 2. 도면 단위 부트스트랩 ----------
 const ids = drawings.map((d) => d.id);
 const bootScores = drawings.map(() => []);
-for (let b = 0; b < BOOT; b++) {
+const bootDrawings = SAMPLE_MODE ? null : [...new Set(baseRows.map((r) => r.drawing))];
+const byDrawing = SAMPLE_MODE ? null : baseRows.reduce((m, r) => (m.get(r.drawing) || m.set(r.drawing, []).get(r.drawing)).push(r.features) && m, new Map());
+for (let b = 0; b < BOOT && !SAMPLE_MODE; b++) {
+  // 전체 데이터: 기준 분포를 만든 도면을 복원추출해 기준 분포를 다시 만들고(요약형) 평가 도면을 다시 채점
+  const feats = [];
+  for (let k = 0; k < bootDrawings.length; k++) feats.push(...byDrawing.get(bootDrawings[Math.floor(rand() * bootDrawings.length)]));
+  const p = summarizePool(feats, STRATA);
+  drawings.forEach((d, i) => bootScores[i].push(scoreAnalysis(d.analysis, p, {}).score));
+  if ((b + 1) % 20 === 0) process.stdout.write(`\r  부트스트랩 ${b + 1}/${BOOT}`);
+}
+for (let b = 0; b < BOOT && SAMPLE_MODE; b++) {
   const pick = Array.from({ length: ids.length }, () => ids[Math.floor(rand() * ids.length)]);
   const resampled = pick.flatMap((id, k) => pool.filter((e) => e.drawing === id).map((e) => ({ drawing: `${id}#${k}`, src: id, features: e.features })));
   drawings.forEach((d, i) => {
@@ -174,26 +233,51 @@ const variants = [
   { name: 'ductMaxArea 20000', ductMaxArea: 20000 },
 ];
 const featMedian = (p, key) => quantile(p.map((e) => e.features[key]).filter(Number.isFinite), 0.5);
+// 전체 데이터: 문턱값마다 기준 분포를 다시 만들어야 하므로 전체 7,275장 중 고정 간격 1/5(약 1,455장)로 기준을 만든다.
+//   비교 기준(기본 행)도 같은 부분집합·같은 방식으로 만들어, 차이가 문턱값에서만 오게 한다.
+const allFiles = SAMPLE_MODE ? [] : fs.readdirSync(dataDir).filter((f) => f.startsWith('APT_FP_SPA_') && f.endsWith('.json')).sort().filter((_, i) => i % 5 === 0);
+function variantPool() {
+  const rows = [];
+  for (const f of allFiles) {
+    const a = analyze(JSON.parse(fs.readFileSync(path.join(dataDir, f), 'utf8')), 'SPA', { unitRule: 'entrance' });
+    for (const u of a.units) if (u.nodes.some((n) => n.type === '거실' && !n.duct)) rows.push({ drawing: f, features: u.features });
+  }
+  return filterUnits(rows);
+}
+let subsetBase = null;
+if (!SAMPLE_MODE) {
+  const rows = variantPool();
+  subsetBase = { rows, scores: scoreAll(drawings, summarizePool(rows.map((r) => r.features), STRATA), {}) };
+}
 const thresholdRows = [];
 for (const v of variants) {
   Object.assign(THRESHOLDS, original, v);
   delete THRESHOLDS.name;
   const ds = drawings.map((d) => ({ ...d, analysis: analyze(d.label, 'SPA') }));
-  const p = buildPool(ds);
-  const s = scoreAll(ds, p, {});
+  let p, s;
+  if (SAMPLE_MODE) {
+    p = buildPool(ds);
+    s = scoreAll(ds, p, {});
+  } else {
+    p = variantPool();
+    s = scoreAll(ds, summarizePool(p.map((r) => r.features), STRATA), {});
+  }
+  const ref = SAMPLE_MODE ? base : subsetBase.scores;
   thresholdRows.push({
     name: v.name,
-    tau: kendallTauB(s, base),
-    meanAbsDiff: s.reduce((acc, x, i) => acc + Math.abs(x - base[i]), 0) / s.length,
+    tau: kendallTauB(s, ref),
+    meanAbsDiff: s.reduce((acc, x, i) => acc + Math.abs(x - ref[i]), 0) / s.length,
     rlb: featMedian(p, 'livingBedroomRatio'),
     gtau: featMedian(p, 'genotypeTau'),
     gap: featMedian(p, 'privacyDepthGap'),
     livingCentral: ds.flatMap((d) => d.analysis.units).filter((u) => u.rules.find((r) => r.id === 'livingCentral')?.pass).length,
+    evalUnits: ds.flatMap((d) => d.analysis.units).length,
     units: p.length,
   });
 }
 Object.assign(THRESHOLDS, original);
-const baseRow = { rlb: featMedian(pool, 'livingBedroomRatio'), gtau: featMedian(pool, 'genotypeTau'), gap: featMedian(pool, 'privacyDepthGap') };
+const basePoolRows = SAMPLE_MODE ? pool : subsetBase.rows;
+const baseRow = { rlb: featMedian(basePoolRows, 'livingBedroomRatio'), gtau: featMedian(basePoolRows, 'genotypeTau'), gap: featMedian(basePoolRows, 'privacyDepthGap'), units: basePoolRows.length };
 
 // ---------- 출력 ----------
 fs.mkdirSync(outDir, { recursive: true });
@@ -202,7 +286,7 @@ const f2 = (v) => (v === null || v === undefined || Number.isNaN(v) ? '–' : v.
 const short = (id) => id.replace('APT_FP_SPA_', '');
 const md = `# 민감도·불확실성 분석 결과
 
-> 자동 생성 파일입니다(\`npm run sensitivity\`). 모델 v${MODEL_VERSION}, 공간 도면 ${drawings.length}장(${pool.length}세대), 난수 시드 고정.
+> 자동 생성 파일입니다(\`npm run sensitivity\`). 모델 v${MODEL_VERSION}, ${sourceNote}, 난수 시드 고정.
 > 방법은 [5. 채점 방식](../05-채점-방식.md#불확실성민감도-분석)에 있습니다.
 
 ## 1. 몬테카를로(${RUNS}회): 설정을 흔들어도 순위가 유지되는가
@@ -223,15 +307,18 @@ ${Object.entries(sensitivity)
 | --- | --- | --- | --- | --- | --- |
 ${rankRows
   .sort((a, b) => a.rank - b.rank)
+  .filter((_, i, a) => a.length <= 25 || i % Math.ceil(a.length / 20) === 0)
   .map((r) => `| ${short(r.id)} | ${f1(r.score)} | ${r.rank} | ${f1(r.median)} | ${Math.round(r.p05)}~${Math.round(r.p95)} | ${f2(r.shift)} |`)
   .join('\n')}
 
 ## 2. 도면 단위 부트스트랩(${BOOT}회): 기준 분포가 달라지면 점수가 얼마나 흔들리는가
 
+${SAMPLE_MODE ? '' : `기준 분포를 만든 도면 ${bootDrawings.length.toLocaleString('en-US')}장을 도면 단위로 복원추출해 기준 분포를 다시 만들고 채점합니다. 도면이 많아 표는 점수 순으로 고르게 20장만 보입니다.\n`}
 | 도면 | 점수 | 95% 구간 | 구간 폭 | 등급이 바뀔 확률 |
 | --- | --- | --- | --- | --- |
 ${bootRows
   .sort((a, b) => b.score - a.score)
+  .filter((_, i, a) => a.length <= 25 || i % Math.ceil(a.length / 20) === 0)
   .map((r) => `| ${short(r.id)} | ${f1(r.score)} | ${f1(r.lo)}~${f1(r.hi)} | ${f1(r.hi - r.lo)} | ${Math.round(r.gradeChange * 100)}% |`)
   .join('\n')}
 
@@ -240,16 +327,16 @@ ${bootRows
 
 ## 3. 링크 판정 문턱값: 그래프 규약이 바뀌면 결과가 유지되는가
 
-기본값: minContact ${original.minContact}px, adjacencyGap ${original.adjacencyGap}px, ductMaxArea ${original.ductMaxArea}px². 기본 설정의 거실/침실 비 중앙값 ${f2(baseRow.rlb)}, τ 중앙값 ${f2(baseRow.gtau)}, 공·사 깊이 차 중앙값 ${f2(baseRow.gap)}.
+기본값: minContact ${original.minContact}px, adjacencyGap ${original.adjacencyGap}px, ductMaxArea ${original.ductMaxArea}px². ${SAMPLE_MODE ? '' : `문턱값마다 기준 분포를 다시 만들어야 해서 전체 7,275장의 고정 간격 1/5(${allFiles.length.toLocaleString('en-US')}장)로 기준을 만들고, 비교 기준도 같은 부분집합·기본 문턱값으로 만든 기준(평면 ${baseRow.units.toLocaleString('en-US')}개)입니다. `}기본 설정의 거실/침실 비 중앙값 ${f2(baseRow.rlb)}, τ 중앙값 ${f2(baseRow.gtau)}, 공·사 깊이 차 중앙값 ${f2(baseRow.gap)}.
 
-| 변형 | 점수 순위 τ | 평균 점수 차 | 거실/침실 비 중앙값 | τ 중앙값 | 깊이 차 중앙값 | 거실 중심 규칙 통과 | 세대 수 |
+| 변형 | 점수 순위 τ | 평균 점수 차 | 거실/침실 비 중앙값 | τ 중앙값 | 깊이 차 중앙값 | 거실 중심 규칙 통과(평가 세대) | 기준 평면 수 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-${thresholdRows.map((r) => `| ${r.name} | ${f2(r.tau)} | ${f1(r.meanAbsDiff)} | ${f2(r.rlb)} | ${f2(r.gtau)} | ${f2(r.gap)} | ${r.livingCentral}/${r.units} | ${r.units} |`).join('\n')}
+${thresholdRows.map((r) => `| ${r.name} | ${f2(r.tau)} | ${f1(r.meanAbsDiff)} | ${f2(r.rlb)} | ${f2(r.gtau)} | ${f2(r.gap)} | ${r.livingCentral}/${r.evalUnits} | ${r.units} |`).join('\n')}
 
 ## 읽는 법
 
 - τ가 0.8 이상이면 설정을 바꿔도 순위가 거의 같습니다. 0.5 아래면 그 설정이 결과를 좌우한다는 뜻이므로 논문에서 근거를 더 대야 합니다.
-- 부트스트랩 구간이 넓으면 기준 분포가 작아 점수가 불안정하다는 뜻입니다. 기준 분포를 키우면 좁아집니다.
+- 부트스트랩 구간이 넓으면 기준 분포가 작아 점수가 불안정하다는 뜻입니다.
 `;
 fs.writeFileSync(path.join(outDir, 'sensitivity.md'), md);
 fs.writeFileSync(

@@ -34,13 +34,13 @@ jobs:
             echo "::error::예시 도면이 라벨과 다릅니다. npm run drawings 후 커밋하세요."
             exit 1
           }
-      - name: Validation results are up to date
+      # 검증 결과(evidence/results)는 AI 허브 전체 7,275장이 있어야 다시 만들 수 있어(저장소에 없음) CI에서 재현하지 않는다.
+      # 데이터가 있는 PC에서 `npm run results` 후 커밋한다. 샘플 20장으로 스크립트가 돌아가는지만 확인한다.
+      - name: Validation scripts run (sample mode)
         run: |
-          npm run results
-          git diff --exit-code -- evidence/results || {
-            echo "::error::검증 결과가 모델과 다릅니다. npm run results 후 커밋하세요."
-            exit 1
-          }
+          node scripts/validate.mjs --sample > /dev/null
+          node scripts/sensitivity.mjs --sample --runs 20 --boot 5 > /dev/null
+          git checkout -- evidence/results
       - run: npx astro build
       - run: npm run deploy -- --dry-run
       - name: Score table
