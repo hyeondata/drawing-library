@@ -128,11 +128,11 @@ export const CLAIMS = {
   },
   'rodrigues-shc': {
     ref: 'rodrigues2013',
-    level: 'unverified',
-    ko: '평면 생성에 진화 전략(ES)과 확률적 언덕 오르기(SHC)를 결합하고, 평가 항목 가중치로 형태를 조절한다.',
-    loc: '초록(전문 열람 불가)',
-    quote: '“The algorithm is an enhanced Evolutionary Strategy (ES) with a Stochastic Hill Climbing (SHC) technique.”',
-    how: '최소 치수 위반을 벌점으로 넣는지는 원문에서 확인하지 못함.',
+    level: 'direct',
+    ko: '평면 생성에 진화 전략(ES)과 확률적 언덕 오르기(SHC)를 결합한다. 실마다 짧은 변·긴 변의 최소·최대 치수와 최소 면적을 어기면 벌점을 주고, 평가 항목들을 가중합해 가중치로 중요도를 정한다.',
+    loc: 'Part 1 저자 원고(Univ. Coimbra Estudo Geral, hdl 10316/27167) PDF p.3, p.8–9, p.11',
+    quote: '“an enhanced hybrid evolutionary computation scheme that couples an Evolutionary Strategy (ES) with a Stochastic Hill Climbing (SHC) technique to generate a set of floor plans” (p.3) · “The Floor Dimensions Evaluator penalizes each floor space (Fi) that is over or under dimensioned relatively to the minimum and maximum dimensions … It also gives penalties if the referred space has an area inferior to the specified minimum area” (p.8–9) · “These are gathered in a weighted sum objective function to be minimized. The different weight permits each objective to be ranked according to its importance.” (p.11)',
+    how: '최소 폭 값(m)은 이 도구가 정함. 2026-11-04 원문 대조: 전에는 Part 2(초록만)를 인용해 미확인이었으나, 방법은 Part 1에 있어 출처를 Part 1로 바꿈.',
   },
   'michalek-hybrid': {
     ref: 'michalek2002',

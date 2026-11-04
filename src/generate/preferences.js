@@ -24,7 +24,7 @@ export const SYNTAX_CHOICES = [
     title: '사생활 깊이',
     desc: '침실을 거실·주방보다 한 단계 더 안쪽에 두고, 침실을 지나야만 갈 수 있는 실을 없앱니다.',
     metrics: ['공·사 깊이 차(침실−거실·주방)', '규칙: 침실을 거치지 않고 다른 실에 갈 수 있음'],
-    refs: ['park2024', 'ham2017'],
+    refs: ['ham2017'],
     score: (c) => avg(c.item('syntax', 'privacyDepthGap')?.score, 100 * c.rule('bedroomPrivacy')),
   },
   {
@@ -74,7 +74,7 @@ export const LIFESTYLE_CHOICES = [
     title: '침실 소음 분리(방음 배치)',
     desc: '침실이 거실·주방·현관과 맞댄 벽을 줄이고(드레스룸·화장실을 완충으로), 침실을 공용 공간보다 깊게 둡니다.',
     metrics: ['소음원과 맞댄 침실 벽 비율(근사)', '공·사 깊이 차'],
-    refs: ['park2024', 'ham2017'],
+    refs: ['ham2017'],
     note: '차음 성능은 벽체 사양이 정하므로, 여기서는 배치로 줄일 수 있는 부분만 근사합니다. 모델에 차음 지표는 없습니다.',
     score: (c) => avg(100 * Math.max(0, 1 - c.noise / 0.35), c.item('syntax', 'privacyDepthGap')?.score),
   },

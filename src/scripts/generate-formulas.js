@@ -148,7 +148,7 @@ function drawCards(L, P) {
       values: aBed && frontBed ? `d = ${f2(aBed, 1)}㎡ ÷ ${f2(p.bedWidth)}m = ${f2(aBed / p.bedWidth)}m → 실제 깊이 <b>${f2(frontBed.h)}m</b>, 복도 폭 <b>${hall.length ? f2(Math.min(...hall.map((h) => h.h))) : 0}m</b>` : '이 안에는 앞 띠 작은방이 없습니다.',
       why: '작은방의 폭을 먼저 정하고(최소 2.4m) 깊이는 면적에서 구합니다. 거실보다 얕은 만큼을 복도로 써서 침실이 거실을 거치지 않고 복도로 열리게 합니다(공·사 공간의 깊이 차). w가 크면 방이 얕아지고 복도가 넓어집니다.',
       vars: ['bedWidth', 'frontShare', 'depth'],
-      refs: ['upasani2020', 'park2024', 'ham2017'],
+      refs: ['upasani2020', 'ham2017'],
     },
     {
       title: '④ 안방 깊이와 부속실',
