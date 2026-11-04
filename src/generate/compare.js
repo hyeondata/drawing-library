@@ -30,7 +30,13 @@ function tweak(p, spec, r) {
   const q = structuredClone(p);
   const scale = Math.sqrt(spec.area / 84) ** 0.6;
   const u = (a, b) => a + (b - a) * r();
-  const k = Math.floor(r() * 5);
+  // 정렬 모드에서는 작은방 폭(bedWidth)·안방 깊이(masterDepth)가 쓰이지 않으므로(복도·안방 깊이 고정) 그 둘 대신
+  // 실 하나의 면적 배율을 바꾼다(앞 띠 폭 나누기와 뒤 띠 경계가 실마다 따로 맞춰지게). 기존 모드 동작은 그대로.
+  const k = p.align ? [0, 1, 4, 5][Math.floor(r() * 4)] : Math.floor(r() * 5);
+  if (k === 5) {
+    const i = Math.floor(r() * q.areaMul.length);
+    q.areaMul[i] = Math.max(0.8, Math.min(1.25, q.areaMul[i] * u(0.9, 1.1)));
+  }
   if (k === 0) q.depth = Math.min(9.8 * scale, Math.max(7.0 * scale, q.depth * u(0.94, 1.06)));
   if (k === 1) q.frontShare = Math.min(0.66, Math.max(0.48, q.frontShare + u(-0.04, 0.04)));
   if (k === 2) q.bedWidth = Math.min(3.6, Math.max(2.5, q.bedWidth + u(-0.2, 0.2)));

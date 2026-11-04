@@ -25,6 +25,12 @@ from rq1_syntax import measures
 B = 2000
 
 SUFFIX = "-rq4" if os.environ.get("SPECS") == "rq4" else ""  # 사양 묶음(scripts/lib/rq4-specs.mjs)
+# SELECT: 목적·사양마다 공간구문 최적 배치들(템플릿·동점) 중 하나만 쓴다(생성기가 실제로 내놓을 도면).
+#   bestJ = 생성기 목적 J 최고(평가 모델 점수 포함 — 모델 점수가 실제 평면 분포에서 왔으므로 공간구문 비교에는 섞임이 있다)
+#   bestQ = 공간구문과 무관한 도면 품질만: 면적 부합 − 15 × (좁은 실 + 문 동선 문제)
+SELECT = os.environ.get("SELECT", "")
+QUALITY = {"bestJ": lambda o: o["J"], "bestQ": lambda o: o["fit"] - 15 * (o["narrow"] + o["door"])}
+OUT = SUFFIX + (f"-{SELECT}" if SELECT in QUALITY else "")
 
 
 def cliffs_fast(a, b_sorted):
@@ -51,8 +57,16 @@ def main():
     sigs = {k: Counter(sig(g) for g, h in zip(dev, m) if h) for k, m in pools.items()}
 
     plans = []
-    for line in (RES / f"objective-plans{SUFFIX}.jsonl").read_text().splitlines():
-        o = json.loads(line)
+    raw = [json.loads(line) for line in (RES / f"objective-plans{SUFFIX}.jsonl").read_text().splitlines()]
+    if SELECT in QUALITY:
+        q = QUALITY[SELECT]
+        top = {}
+        for o in raw:
+            key = (o["obj"], str(o["t"]).split("/")[0])
+            if (o.get("features") or {}).get("graph") and (key not in top or q(o) > q(top[key])):
+                top[key] = o
+        raw = list(top.values())
+    for o in raw:
         f = o.get("features") or {}
         g = clean(f["graph"]) if f.get("graph") else None
         if g is None or o["obj"] not in OBJ:
@@ -116,7 +130,7 @@ def main():
             a, b = np.abs(a), np.abs(b)
         return ci(a - b)
 
-    L = ["# RQ4: 조합 목적 — dev 절반(A)에서 선택, 다른 절반(B)에서 부트스트랩 판정\n"]
+    L = ["# RQ4: 조합 목적 — dev 절반(A)에서 선택, 다른 절반(B)에서 부트스트랩 판정" + ({"bestJ": " (사양마다 생성기 목적 J 최고 도면 하나)", "bestQ": " (사양마다 도면 품질 최고 도면 하나: 면적 부합 − 15×(좁은 실 + 문 동선))"}.get(SELECT, "")) + "\n"]
     L.append(f"> `uv run python combo_compare.py` · 실제 dev 서로 다른 그래프 {len(dev):,}개(A {int(half.sum()):,} / B {int((~half).sum()):,}) · 사양 {len(specs)}개 군집 부트스트랩 {B:,}회 · test 미사용\n")
     L.append("## 1. 선택(A): G2 거리, |H* δ|, |기저 DF δ|의 평균 순위 (G1은 순환이라 제외)\n")
     L.append("| 목적 | G2 거리 | H* δ | 기저 DF δ | 평균 순위 |")
@@ -148,8 +162,8 @@ def main():
     L.append("\n✱ = 95% 구간이 0을 포함하지 않음.")
     L.append("\n- 조합 가중치는 템플릿 안 최소–최대 정규화 뒤의 가중치다(objective_orders.py). 템플릿별 상수 배율이라 QUBO의 선형 결합으로 그대로 옮겨진다.")
     L.append(f"- 모든 지표가 벽 인접 그래프다. 사양 {len(specs)}개 군집 부트스트랩이다. G2는 거리값이 이산적이라 중앙값 구간이 한쪽으로 치우칠 수 있다.")
-    RES.joinpath(f"combo-compare{SUFFIX}.md").write_text("\n".join(L) + "\n")
-    RES.joinpath(f"combo-compare{SUFFIX}.json").write_text(json.dumps(out, indent=1, ensure_ascii=False))
+    RES.joinpath(f"combo-compare{OUT}.md").write_text("\n".join(L) + "\n")
+    RES.joinpath(f"combo-compare{OUT}.json").write_text(json.dumps(out, indent=1, ensure_ascii=False))
     print("\n".join(L))
 
 

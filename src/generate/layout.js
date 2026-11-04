@@ -188,9 +188,22 @@ export function buildLayout(spec, p) {
   const minW = (room) => (room === master ? MIN_SIDE.안방 : MIN_SIDE[room.type] || 0);
   // 정렬 모드: 부속실이 안방 칸 안에 들어가므로 안방 칸 폭은 (안방 + 부속실) 면적으로 정한다.
   const suiteArea = 0; // (정렬 모드에서도 부속실은 뒤 띠의 안방 아래 열에 두므로 안방 칸 폭에 더하지 않는다)
+  // 정렬 모드: 뒤 띠 실이 칸 모형상 앞 칸 하나 안에 통째로 들어가면, 그 앞 칸은 그 실들의 최소 폭 합 + 양끝 여유(0.1 m)만큼은 넓어야 한다.
+  // 그러지 않으면 겹침 양상을 지키는 한 뒤 띠 실(현관·욕실·침실)이 최소 폭보다 좁아질 수밖에 없다. 앞 칸 최소 폭만 올리고 나머지는 면적대로 나눈다.
+  const frontMins = front.map(minW);
+  if (align) {
+    const backRooms = p.backOrder.map((key) => by[key]).filter(Boolean);
+    const rest = front.map((room, i) => i).filter((i) => front[i] !== master);
+    const mm = rest.length;
+    const k = backRooms.length;
+    rest.forEach((fi, i) => {
+      const inside = backRooms.filter((_, j) => Math.floor((j / k) * mm + 1e-9) === i && ((j + 1) / k) * mm <= i + 1 + 1e-9 && ((j / k) * mm > i + 1e-9 || ((j + 1) / k) * mm < i + 1 - 1e-9));
+      if (inside.length) frontMins[fi] = Math.max(frontMins[fi], inside.reduce((s2, r) => s2 + (MIN_SIDE[r.type] || 0.3), 0) + 0.2);
+    });
+  }
   const frontWidths = allocate(
     front.map((room) => (room.area + (room === master ? suiteArea : 0)) / depthOf(room)),
-    front.map(minW),
+    frontMins,
     W,
   );
   // (보기용 기록) p.trace 배열을 주면 폭 나누기 계산을 남긴다. 계산에는 영향 없음.
@@ -397,26 +410,7 @@ function finishAligned(spec, p, { by, front, frontWidths, rooms, bayOf, D, W, Df
   const desired = back.map((r) => r.area / Db);
   const dsum = desired.reduce((a, b2) => a + b2, 0);
   const span = Xs[mm] - Xs[0];
-  const B = [Xs[0]];
-  for (let j = 1; j < k; j++) {
-    const u = j / k;
-    const t = u * mm;
-    const want = Xs[0] + (span * desired.slice(0, j).reduce((a, b2) => a + b2, 0)) / dsum;
-    if (Math.abs(t - Math.round(t)) < 1e-9) {
-      B.push(Xs[Math.round(t)]);
-      continue;
-    }
-    const i = Math.floor(t);
-    // 같은 앞 칸 안에 들어가는 뒤 경계가 여럿이면 뒤에 올 경계 몫(간격 gap)을 남겨 둔다. 그래야 순서가 뒤집히지 않는다.
-    const later = Array.from({ length: k - 1 - j }, (_, q) => (j + 1 + q) / k).filter((v) => Math.floor(v * mm + 1e-12) === i && Math.abs(v * mm - Math.round(v * mm)) > 1e-9).length;
-    const width = Xs[i + 1] - Xs[i];
-    const margin = Math.min(0.45, width / 4);
-    const gap = Math.min(0.3, (width - 2 * margin) / (later + 2));
-    const lo = Math.max(Xs[i] + margin, B.at(-1) + gap);
-    const hi = Xs[i + 1] - margin - later * gap;
-    B.push(lo <= hi ? Math.min(hi, Math.max(lo, want)) : Math.max(B.at(-1) + 1e-3, Math.min(Xs[i + 1] - 1e-3, phi(u))));
-  }
-  B.push(Xs[mm]);
+  const B = backBoundaries(Xs, k, back.map((r) => MIN_SIDE[r.type] || 0.3), back.map((_, j) => Xs[0] + (span * desired.slice(0, j).reduce((a, b2) => a + b2, 0)) / dsum));
   back.forEach((room, j) => rooms.push({ key: room.key, type: room.type, name: room.name, x: B[j], y: 0, w: B[j + 1] - B[j], h: Db }));
   // 부속실: 안방 아래 열(폭 = 안방 폭, 높이 = 뒤 띠 깊이)에 위에서부터 드레스룸, 부부욕실
   const suite = [by.dress, by.bathMaster].filter(Boolean);
@@ -448,6 +442,50 @@ function finishAligned(spec, p, { by, front, frontWidths, rooms, bayOf, D, W, Df
   layout.fixtures = placeFixtures(layout, openings);
   layout.doorCheck = { unreachable, throughBedroom };
   return layout;
+}
+
+/**
+ * 정렬 모드 뒤 띠 경계. 겹침 양상(QUBO 칸 모형)은 지키면서 면적 비율(want)에 가깝게, 각 실 폭은 최소 폭(need) 이상으로.
+ * 경계 j는 균등 칸 모형에서 정해진 앞 칸 구간 안에 있어야 한다(정수 위치면 그 앞 칸 경계와 같다).
+ * 앞 칸 끝과의 여유는 0.45 m부터 0.1 m까지 줄여 본다(공유 변 판정 0.05 m보다 큼). 그래도 안 되면
+ * 최소 폭을 같은 비율 s(<1)로 줄인 것 중 가장 큰 s로 놓는다 — 모든 실이 같은 비율로 모자라게 된다.
+ */
+export function backBoundaries(Xs, k, need, want) {
+  const mm = Xs.length - 1;
+  const span = (j, margin) => {
+    const t = (j / k) * mm;
+    if (Math.abs(t - Math.round(t)) < 1e-9) return [Xs[Math.round(t)], Xs[Math.round(t)]];
+    const i = Math.floor(t);
+    const mg = Math.min(margin, (Xs[i + 1] - Xs[i]) / 4);
+    return [Xs[i] + mg, Xs[i + 1] - mg];
+  };
+  const solve = (margin, s) => {
+    const L = [Xs[0]];
+    const U = Array(k + 1);
+    for (let j = 1; j < k; j++) L.push(Math.max(span(j, margin)[0], L[j - 1] + s * need[j - 1]));
+    L.push(Xs[mm]);
+    U[k] = Xs[mm];
+    for (let j = k - 1; j >= 1; j--) U[j] = Math.min(span(j, margin)[1], U[j + 1] - s * need[j]);
+    U[0] = Xs[0];
+    for (let j = 0; j <= k; j++) if (L[j] > U[j] + 1e-9) return null;
+    if (L[k - 1] + s * need[k - 1] > Xs[mm] + 1e-9) return null;
+    const B = [Xs[0]];
+    for (let j = 1; j < k; j++) B.push(Math.min(U[j], Math.max(L[j], B[j - 1] + s * need[j - 1], want[j])));
+    B.push(Xs[mm]);
+    return B;
+  };
+  for (const margin of [0.45, 0.25, 0.1]) {
+    const B = solve(margin, 1);
+    if (B) return B;
+  }
+  let lo = 0;
+  let hi = 1;
+  for (let it = 0; it < 30; it++) {
+    const mid = (lo + hi) / 2;
+    if (solve(0.1, mid)) lo = mid;
+    else hi = mid;
+  }
+  return solve(0.1, lo) || solve(0.02, 0);
 }
 
 /** 두 직사각형이 맞닿은 변의 길이(m). */
