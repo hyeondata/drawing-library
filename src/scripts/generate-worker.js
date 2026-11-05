@@ -2,13 +2,13 @@
 // type 'generate': 기존(J 직접 탐색) 3안, type 'compare': 고른 알고리즘(QUBO 풀이기 포함)을 같은 예산으로 비교.
 import { compareAlgorithms } from '../generate/compare.js';
 import { optimize } from '../generate/optimize.js';
-import { buildQubo, toBqmJson } from '../generate/qubo.js';
+import { exactQuboJson } from '../generate/qubo-sa.js';
 
 self.onmessage = (e) => {
   const { type = 'generate', spec, seed, id, algorithms, budgetMs, stopHits = null, weights = 'hand' } = e.data;
   try {
     if (type === 'qubo') {
-      self.postMessage({ id, done: true, bqm: toBqmJson(buildQubo(spec, { weights })) });
+      self.postMessage({ id, done: true, bqm: { model: 'space-syntax exact QUBO (Confluence 09-21)', sweeps: 1000, templates: exactQuboJson(spec) } });
       return;
     }
     if (type === 'compare') {

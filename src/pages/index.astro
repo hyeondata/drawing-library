@@ -221,11 +221,12 @@ const steps = [
           <fieldset class="gen-algos" id="gen-algos">
             <legend>생성 알고리즘</legend>
             <p class="note">
-              기본 생성기는 <b>연구 생성기</b>입니다. 방 배치(앞·뒤 띠의 방 순서)마다 공간구문 값 5개 — 거실·현관·주방의 상대 깊이(RRA), 공·사 깊이 차, 현관→거실 깊이 — 를 재고,
-              AI 허브 아파트 평면 7,275장의 실제 평균에 맞춘 <b>최대 엔트로피(볼츠만) 분포</b> P ∝ exp(−Σ β·f)로 배치마다 확률을 줍니다. 다섯 값은 모두 정확한 QUBO로 쓸 수 있는 항이며(고정 기록 09-21), 지금 화면은 배치를 전부 열거해 정확한 분포에서 고릅니다.
-              확률이 높은 배치부터 치수를 다듬어 평면으로 만들고, 필수 규칙·최소 실 폭·문 동선 점검을 통과한 서로 다른 3안을 확률 순으로 보여 줍니다.
+              생성기는 <b>QUBO + SA</b>입니다. 방 배치(앞·뒤 띠의 방 순서)의 공간구문 값 5개 — 거실·현관·주방의 상대 깊이(RRA), 공·사 깊이 차, 현관→거실 깊이 — 를
+              AI 허브 아파트 평면 7,275장의 실제 평균에 맞춘 최대 엔트로피 모형의 에너지 E = Σ β·f로 묶고, 이 에너지를 <b>정확한 QUBO</b>(배치 원-핫·맞닿음·복도 존재·깊이 구조·최단 깊이 하한 제약, 벌점 P = Σ|계수| + 1)로 써서
+              <b>SA</b>(dwave-samplers 규칙: 기하 β 스케줄, 스위프 1,000, 무작위 초기 상태)로 고른 시간 동안 읽기를 반복합니다. 유효한(제약을 지킨) 읽기 가운데 에너지가 낮은 배치부터 치수를 다듬어 평면으로 만들고,
+              필수 규칙·최소 실 폭·문 동선 점검을 통과한 서로 다른 3안을 에너지 순으로 보여 줍니다. 같은 조건의 배치를 전부 열거한 최저 E*는 SA가 최적에 닿았는지 확인하는 데만 씁니다(생성에는 쓰지 않음).
               배치 틀은 QUBO 칸 모형의 맞닿음이 도면과 그대로 맞는 정렬 모드(복도 포함)입니다. 침실 1개·5개는 모형을 맞춘 실제 데이터(침실 2~4개) 밖이라 손 가중치 QUBO + SA로 만듭니다.
-              근거: Jaynes 1957, Park &amp; Newman 2004(최대 엔트로피), 거실 라벨은 볼록 공간으로 나눠 맞춤(Hillier &amp; Hanson 1984).
+              근거: Lucas 2014(QUBO 정식화), Kirkpatrick et al. 1983(SA), Jaynes 1957·Park &amp; Newman 2004(최대 엔트로피), Hillier &amp; Hanson 1984(볼록 공간). 고정 기록: Confluence 09-21.
             </p>
             <div class="gen-algo-list">
               {algos.map((a) => (
@@ -239,18 +240,22 @@ const steps = [
               ))}
             </div>
             <div class="gen-algo-actions">
+              <div class="seg gen-tabs gen-budget-tabs" role="tablist" id="gen-budget-tabs" aria-label="SA 계산 시간">
+                <button type="button" data-ms="30000" aria-pressed="true">30초<small></small></button>
+                <button type="button" data-ms="60000" aria-pressed="false">1분<small></small></button>
+                <button type="button" data-ms="180000" aria-pressed="false">3분<small></small></button>
+              </div>
               <label class="gen-inline">시드 <input type="number" id="gen-seed" value="1" min="1" max="9999" /></label>
-              <button type="button" class="button-primary" id="gen-run">연구 생성기로 다시 생성</button>
-              <button type="button" class="button-ghost small" id="gen-qubo">손 가중치 QUBO 내보내기(이전 모형)</button>
+              <button type="button" class="button-primary" id="gen-run">SA로 다시 생성</button>
+              <button type="button" class="button-ghost small" id="gen-qubo">정확 QUBO 내보내기(D-Wave·Gurobi용)</button>
             </div>
-            <p class="note">연구 생성기는 배치를 전부 열거하므로 시간 설정이 없습니다.</p>
+            <p class="note"><b>계산 시간</b>은 SA가 읽기를 반복하는 시간입니다. 탭마다 결과를 따로 기억하므로 30초·1분·3분을 번갈아 보며 비교할 수 있고, 같은 탭에서 "SA로 다시 생성"을 누르면 그 시간으로 다시 돕니다(시드를 바꾸면 다른 무작위 경로). 결과 아래에 읽기마다의 에너지와 E* 도달 여부를 그립니다.</p>
             <details class="pl-what gen-qw" id="gen-qw" open>
               <summary><b>생성 모형의 항과 가중치</b>: 지금 고른 조건의 에너지 식</summary>
               <div id="gen-qw-table"></div>
             </details>
             <p class="note">
-              내보낸 QUBO JSON은 <a href={`${base}qubo/solve_qubo.py`} download>solve_qubo.py</a>로 D-Wave(SA·Tabu·QPU·Hybrid)·Gurobi·CP-SAT에서 풀 수 있습니다.
-              같은 QUBO에서 D-Wave SA·Tabu와 CP-SAT가 이 화면의 전수 열거로 구한 전역 최적해와 같은 에너지를 내는 것을 확인했습니다. QPU는 Leap 계정이 있어야 합니다.
+              내보낸 JSON은 지금 조건의 정확 QUBO(템플릿마다 하나, BINARY, linear·quadratic·offset·벌점 P)로, dimod BinaryQuadraticModel로 바로 읽어 D-Wave(SA·Tabu·QPU·Hybrid)·Gurobi·CP-SAT에서 풀 수 있습니다. 이 화면의 SA와 Python dwave-samplers가 같은 분포를 내는 것을 확인했습니다(evidence/results/sa-js-vs-py.md). QPU는 Leap 계정이 있어야 합니다.
             </p>
           </fieldset>
           <div class="gen-progress" id="gen-progress" hidden>
@@ -362,7 +367,7 @@ const steps = [
             <summary>어떻게 만들고 고르나요?</summary>
             <ol>
               <li><b>생성</b>: 앞(발코니 쪽, 기본 남측) 띠에 거실과 침실을, 뒤 띠에 주방·현관·화장실·드레스룸을 두는 판상형 배치입니다(Seo 2007; Choi et al. 2014). 안방은 띠 끝에 두고 그 뒤에 부부욕실·드레스룸을 붙이며, 작은방 뒤는 복도(별도 실)로 씁니다. 뒤 띠 경계는 앞 띠 폭에 맞춰(정렬 모드) QUBO가 보는 맞닿음과 도면의 맞닿음이 같게 합니다.</li>
-              <li><b>선택</b>: 배치(실 순서)마다 공간구문 값 5개를 재어 에너지 E = Σ β·f를 구하고, 에너지가 낮은(실제 한국 아파트에 가까운) 배치부터 치수를 30번 다듬어 평면으로 만듭니다. 필수 실·연결·문 동선 점검을 통과하고 최소 실 폭(실제 아파트의 실별 짧은 변 하위 5% 비율 × 그 평면의 침실 한 변)보다 좁은 실이 없는 안 가운데 배치가 서로 다른 3안을 에너지 순으로 보여 줍니다.</li>
+              <li><b>선택</b>: 배치(실 순서)의 공간구문 값 5개로 에너지 E = Σ β·f를 정하고, 이를 정확한 QUBO로 써서 SA로 고른 시간 동안 풉니다. SA가 읽은 유효한 배치 가운데 에너지가 낮은(실제 한국 아파트에 가까운) 것부터 치수를 30번 다듬어 평면으로 만듭니다. 필수 실·연결·문 동선 점검을 통과하고 최소 실 폭(실제 아파트의 실별 짧은 변 하위 5% 비율 × 그 평면의 침실 한 변)보다 좁은 실이 없는 안 가운데 배치가 서로 다른 3안을 에너지 순으로 보여 줍니다.</li>
             </ol>
             <p class="note">내려받는 JSON은 AI 허브 Sample(02.라벨링데이터)과 같은 형식입니다: 23개 고정 범주, images·annotations, SPA(공간 다각형 + background), STR(벽체 철근콘크리트벽·기타벽, 출입문 여닫이문, 창호 미닫이창 + background), OBJ(설비 상자, segmentation 없이 bbox·rotation). 종이 4963×3509px에 1m = 100px로 놓고, 파일 이름은 APT_FP_종류_9자리 번호(9로 시작해 AI 허브 번호와 겹치지 않음)입니다.</p>
             <p class="note">한계: 실은 직사각형이고 문·창·설비는 규칙으로 놓습니다(문으로 모든 실에 갈 수 있는지는 따로 점검). 고르는 기준은 시공 가능성 규칙과 고른 조건이며, 실제 도면과 닮았는지로 채점하지 않습니다. 방음은 배치로 줄일 수 있는 부분(소음원과 맞댄 침실 벽)만 근사합니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>

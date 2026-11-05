@@ -2,6 +2,7 @@
 // 같은 연속값 다듬기 예산을 주고 적합성 J(규칙 충족 + 목표 면적 + 선호 − 감점)로 고른다. 에너지와 규칙 충족률을 함께 보고한다.
 // QUBO 에너지는 J의 대리 지표라 에너지가 낮다고 J가 높다는 보장은 없다(그래서 순위상관을 함께 낸다).
 import { generateSyntax, syntaxSupported } from './syntax-gen.js';
+import { generateQuboSA } from './qubo-sa.js';
 import { buildLayout, rng as makeRng } from './layout.js';
 import { optimize, scoreLayout, signature, snapshot } from './optimize.js';
 import { buildQubo, decode, energy, frontBedCount } from './qubo.js';
@@ -111,8 +112,8 @@ export function templates(spec, weights = 'hand') {
  */
 export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'hand', stopHits = null, align = false, onProgress } = {}) {
   // 연구 생성기는 β를 맞춘 데이터 범위(침실 2~4개) 안에서만 쓴다. 밖이면 손 가중치 QUBO + SA로 대신하고 결과에 표시한다.
-  const fallback = algorithms.includes('syntax') && !syntaxSupported(spec);
-  if (fallback) algorithms = algorithms.map((k) => (k === 'syntax' ? 'sa' : k));
+  const fallback = (algorithms.includes('syntax') || algorithms.includes('quboSA')) && !syntaxSupported(spec);
+  if (fallback) algorithms = algorithms.map((k) => (k === 'syntax' || k === 'quboSA' ? 'sa' : k));
   const tpls = templates(spec, weights);
   const q = tpls[0].q;
   const results = [];
@@ -139,6 +140,25 @@ export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, 
         key, name: '기존: J 직접 탐색', family: '적합성 J 블랙박스 최적화', cite: '이 사이트 v1', energy: energyM, template: templateM, feasible: true, ms: performance.now() - t0, evals: 800, best, budget: '평가 800회',
         // 시간 과정: 탐색 구간 하나, 나은 안을 찾은 순간마다 평면
         time: { start, phases: [{ label: '무작위 탐색', start, end: start + timeline.randomEnd }, { label: '다듬기', start: start + timeline.randomEnd, end: start + timeline.total }], marks: timeline.improvements.map((m) => ({ t: start + m.t, layout: m.layout, note: m.phase })) },
+      });
+      return;
+    }
+    if (key === 'quboSA') {
+      // 사이트 기본 생성기(고정 기록 ⑤): 공간구문 정확 QUBO를 dwave 규칙 SA로 budgetMs 동안 푼다. 전수 열거 최저 E*는 정답 확인용.
+      const start = clock() - run0;
+      const out = generateQuboSA(spec, {
+        seed, budgetMs, count: 3, refine,
+        onTick: (t) => onProgress?.((idx + (t.decoding ? 0.95 : 0.9 * Math.min(1, t.ms / budgetMs))) / total, key, { ms: t.ms, e: t.best, budgetMs, reads: t.reads, valid: t.valid, decoding: Boolean(t.decoding) }),
+      });
+      const best = out?.best || null;
+      const end = clock() - run0;
+      const { cands, readLog, ...sa } = out || {};
+      results.push({
+        key, name: 'QUBO + SA', full: '공간구문 정확 QUBO(항 5개·제약 C1~C8)를 SA(dwave-samplers 규칙)로', family: 'SA · 스위프 1,000 · 정답 확인 = 전수 열거', cite: 'Kirkpatrick et al. 1983; Lucas 2014',
+        energy: best ? best.syntaxE : null, template: best ? best.template : tpls[0].k, feasible: true, perTemplate: [], ms: out ? out.ms : 0, evals: out ? out.reads : 0, best,
+        cands: out ? cands : [], sa: out ? { ...sa, readLog } : null,
+        budget: out ? `SA ${Math.round(budgetMs / 1000)}초 · 읽기 ${out.reads.toLocaleString()}회(유효 ${out.valid.toLocaleString()})` : '—',
+        time: { start, phases: [{ label: 'QUBO 만들기·E* 열거', start, end: start + (out ? out.prepMs : 0) }, { label: 'SA 읽기', start: start + (out ? out.prepMs : 0), end: start + (out ? out.prepMs + out.saMs : 0) }, { label: '평면으로 풀기·점검', start: start + (out ? out.prepMs + out.saMs : 0), end }], marks: [] },
       });
       return;
     }
@@ -225,7 +245,7 @@ export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, 
   }
   const exactRes = results.find((x) => x.key === 'exact');
   const optimum = Object.fromEntries((exactRes?.perTemplate || []).filter((p) => p.info?.optimal).map((p) => [p.k, p.energy]));
-  if (fallback) for (const res of results) if (res.key === 'sa') res.note = '연구 생성기는 침실 2~4개(실제 데이터로 β를 맞춘 범위)에서만 씁니다. 이 조건은 손 가중치 QUBO + SA로 만들었습니다.';
+  if (fallback) for (const res of results) if (res.key === 'sa') res.note = '공간구문 QUBO + SA 생성기는 침실 2~4개(실제 데이터로 β를 맞춘 범위)에서만 씁니다. 이 조건은 손 가중치 QUBO + SA로 만들었습니다.';
   return {
     fallback,
     qubo: { weights: typeof weights === 'string' ? weights : 'custom', templates: tpls.map((t) => ({ k: t.k, n: t.q.n, penalty: t.q.penalty, front: t.q.bands.front.rooms, back: t.q.bands.back.rooms })), terms: q.terms.length, optimum },

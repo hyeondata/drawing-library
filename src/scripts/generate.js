@@ -5,6 +5,7 @@ import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
 import { minSidesFor } from '../generate/layout.js';
 import { syntaxSupported } from '../generate/syntax-gen.js';
 import { SYNTAX_MODEL } from '../generate/syntax-model-data.js';
+import { saPanelHtml } from './generate-sa-view.js';
 import { renderFormulas } from './generate-formulas.js';
 import { renderDiagnosis } from './generate-diagnosis.js';
 import { deviation } from '../generate/metrics.js';
@@ -26,7 +27,7 @@ const HANDOFF_KEY = 'floorplan-eval:image';
 const RESULT = steps.length - 1;
 const PREF = Object.fromEntries([...data.syntax, ...data.lifestyle].map((c) => [c.key, c]));
 
-const state = { view: 'full', compare: null, gallery: [], timeline: null, timeAt: null, timeLane: 0, step: 0, reached: 0, bedroomsTouched: false, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
+const state = { budgetMs: 30000, saRuns: {}, view: 'full', compare: null, gallery: [], timeline: null, timeAt: null, timeLane: 0, step: 0, reached: 0, bedroomsTouched: false, worker: null, runId: 0, seed: 1, top: [], current: 0, spec: null };
 
 // ---------- 선택 읽기 ----------
 const radio = (name) => form.querySelector(`input[name="${name}"]:checked`);
@@ -149,8 +150,10 @@ form.addEventListener('change', (e) => {
     }
   }
   $('#gen-summary').textContent = summary();
-  // 조건을 바꾸면 결과를 다시 만든다.
+  // 조건을 바꾸면 결과를 다시 만든다(시간 탭 캐시도 비움).
   state.top = [];
+  state.saRuns = {};
+  renderBudgetTabs();
 });
 
 // ---------- QUBO 가중치 표 ----------
@@ -242,9 +245,10 @@ const selectedAlgos = () => [...document.querySelectorAll('input[name="algo"]:ch
 
 async function runCompare(algorithms, seed) {
   const spec = buildSpec();
-  // 연구 생성기는 시간 예산을 쓰지 않는다. 침실 1·5개 대체(손 가중치 QUBO + SA)는 기존 기본값(30초, 같은 최저 10번이면 멈춤).
-  const budgetMs = 30000;
+  // 계산 시간 탭(30초·1분·3분)이 SA 예산이다. 침실 1·5개 대체(손 가중치 QUBO + SA)는 같은 예산에 '같은 최저 10번이면 멈춤'.
+  const budgetMs = state.budgetMs;
   const stopHits = 10;
+  renderBudgetTabs(budgetMs);
   state.spec = spec;
   state.seed = seed;
   const id = ++state.runId;
@@ -259,7 +263,9 @@ async function runCompare(algorithms, seed) {
     if (m.progress !== undefined) {
       const i = m.info;
       const name = ALGO_NAME[m.key] || ALGO_NAME[algorithms[0]] || '생성기';
-      setProgress(m.progress, i ? `${name} 탐색 중… ${(i.ms / 1000).toFixed(1)}초 / 최대 ${(budgetMs / 1000).toFixed(0)}초${i.e !== null && i.e !== undefined ? ` · 지금까지 최저 에너지 ${i.e.toFixed(2)}` : ''}${stopHits ? ` · 같은 최저를 ${stopHits}번 다시 찾으면 멈춤` : ''}` : `${name} 해를 평면으로 풀고 다듬는 중…`);
+      if (i && i.reads !== undefined)
+        setProgress(m.progress, i.decoding ? `SA 끝(읽기 ${i.reads.toLocaleString()}회) — 유효한 배치를 평면으로 풀고 점검하는 중…` : i.reads === 0 ? 'QUBO를 만들고 정답 확인용 E*를 전수 열거하는 중…' : `SA ${(i.ms / 1000).toFixed(1)}초 / ${(budgetMs / 1000).toFixed(0)}초 · 읽기 ${i.reads.toLocaleString()}회 · 유효 ${i.valid.toLocaleString()}회${i.e !== null && i.e !== undefined ? ` · 지금까지 최저 에너지 ${i.e.toFixed(3)}` : ''}`);
+      else setProgress(m.progress, i ? `${name} 탐색 중… ${(i.ms / 1000).toFixed(1)}초 / 최대 ${(budgetMs / 1000).toFixed(0)}초${i.e !== null && i.e !== undefined ? ` · 지금까지 최저 에너지 ${i.e.toFixed(2)}` : ''}${stopHits ? ` · 같은 최저를 ${stopHits}번 다시 찾으면 멈춤` : ''}` : `${name} 해를 평면으로 풀고 다듬는 중…`);
     }
     if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
     if (m.done) {
@@ -272,6 +278,8 @@ async function runCompare(algorithms, seed) {
       state.top = rs.length === 1 ? rs[0].cands.map((c, i) => ({ ...c, tabLabel: `${rs[0].name} ${i + 1}안`, algo: rs[0] })) : rs.map((r) => ({ ...r.best, tabLabel: r.name, algo: r }));
       state.current = 0;
       state.ms = performance.now() - t0;
+      state.saRuns[budgetMs] = { specKey: JSON.stringify(spec), seed, compare: state.compare, top: state.top, ms: state.ms };
+      renderBudgetTabs();
       // 끝난 것을 알 수 있게 완료 표시를 잠깐 두고 닫는다(연구 생성기는 1초 안에 끝나는 경우가 많다)
       const r0 = m.compare.results[0];
       setProgress(1, `완료: ${r0 ? r0.name : ''} · ${(state.ms / 1000).toFixed(1)}초${r0?.budget ? ` · ${r0.budget}` : ''}`);
@@ -338,7 +346,8 @@ function renderCompare() {
     return;
   }
   const optOf = (k) => cmp.qubo.optimum?.[k] ?? null;
-  const syntaxOnly = cmp.results.every((r) => r.key === 'syntax');
+  const syntaxOnly = cmp.results.every((r) => r.key === 'syntax' || r.key === 'quboSA');
+  const saPanels = cmp.results.filter((r) => r.sa).map((r) => saPanelHtml(r)).join('');
   const rows = cmp.results
     .map((r, i) => {
       const b = r.best;
@@ -360,11 +369,12 @@ function renderCompare() {
         <thead><tr><th>알고리즘</th><th>${syntaxOnly ? '공간구문 에너지 ↓' : 'QUBO 에너지 ↓'}</th><th>원-핫 제약</th><th>시간</th><th>문 동선 문제</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      ${syntaxOnly ? `<p class="note">에너지 = 공간구문 최대 엔트로피 모형의 E = Σ β·f(낮을수록 실제 한국 아파트다움). ${esc(cmp.results[0].budget || '')}, 시드 ${cmp.seed}. 에너지가 낮은 배치 12개를 평면으로 풀어(치수 30번 다듬기) 점검을 통과한 서로 다른 3안을 보여 줍니다.</p>` : `<p class="note">
+      ${syntaxOnly ? `<p class="note">에너지 = 공간구문 최대 엔트로피 모형의 E = Σ β·f(낮을수록 실제 한국 아파트다움). ${esc(cmp.results[0].budget || '')}, 시드 ${cmp.seed}. ${cmp.results[0].key === 'quboSA' ? 'SA가 읽은 유효한 배치 가운데' : ''} 에너지가 낮은 배치 12개를 평면으로 풀어(치수 30번 다듬기) 점검을 통과한 서로 다른 3안을 보여 줍니다.</p>` : `<p class="note">
         가중치: ${cmp.qubo.weights === 'hand' ? '손으로 정한 값' : '직접 준 값'}. QUBO 템플릿 ${cmp.qubo.templates.length}개(앞 띠 침실 수가 다름): ${cmp.qubo.templates.map((t) => `앞 침실 ${t.k + 1}개 — 변수 ${t.n}개(앞 ${t.front.length}실×${t.front.length}칸, 뒤 ${t.back.length}실×${t.back.length}칸), 벌점 ${t.penalty}${optOf(t.k) !== null ? `, 최적 에너지 ${optOf(t.k).toFixed(2)}` : ''}`).join(' / ')}. 에너지는 같은 템플릿끼리만 비교합니다.
         풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 깊이·폭을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
         <b>n = 1(한 번 실행)</b> — 시드를 바꿔 다시 돌려 보세요(SA의 시드 20개 측정값은 evidence/results/sa-experiment.md). SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
       </p>`}
+      ${saPanels}
       <div class="gen-scatter" id="gen-scatter"></div>
       <button type="button" class="button-ghost small" id="gen-record">실행 기록 JSON</button>
     </div>`;
@@ -409,13 +419,44 @@ $('#gen-run').addEventListener('click', () => {
   const seed = Math.max(1, Number($('#gen-seed').value) || 1);
   runCompare(ACTIVE, seed);
 });
+// ---------- 계산 시간 탭(30초·1분·3분) ----------
+// 탭마다 결과를 따로 기억한다(같은 조건·같은 시드면 다시 돌리지 않고 보여 줌). 다른 시간을 누르면 그 시간으로 새로 돈다.
+function renderBudgetTabs(running = null) {
+  const specKey = JSON.stringify(buildSpec());
+  const seed = Math.max(1, Number($('#gen-seed').value) || 1);
+  document.querySelectorAll('#gen-budget-tabs button').forEach((b) => {
+    const ms = Number(b.dataset.ms);
+    const cached = state.saRuns[ms];
+    const fresh = cached && cached.specKey === specKey && cached.seed === seed;
+    b.setAttribute('aria-pressed', String(ms === state.budgetMs));
+    b.querySelector('small').textContent = running === ms ? '실행 중' : fresh ? '완료' : '';
+  });
+}
+document.querySelectorAll('#gen-budget-tabs button').forEach((b) =>
+  b.addEventListener('click', () => {
+    state.budgetMs = Number(b.dataset.ms);
+    const seed = Math.max(1, Number($('#gen-seed').value) || 1);
+    const cached = state.saRuns[state.budgetMs];
+    if (cached && cached.specKey === JSON.stringify(buildSpec()) && cached.seed === seed) {
+      state.compare = cached.compare;
+      state.top = cached.top;
+      state.ms = cached.ms;
+      state.seed = seed;
+      state.current = 0;
+      state.timeAt = null;
+      renderBudgetTabs();
+      return renderResult();
+    }
+    runCompare(ACTIVE, seed);
+  }),
+);
 $('#gen-qubo').addEventListener('click', () => {
   const w = getWorker();
   const id = ++state.runId;
   w.onmessage = (e) => {
     if (e.data.id !== id || !e.data.done) return;
     const spec = buildSpec();
-    download(new Blob([JSON.stringify({ spec: { area: spec.area, bedrooms: spec.bedrooms, prefs: spec.prefs }, ...e.data.bqm }, null, 1)], { type: 'application/json' }), `floorplan_qubo_${spec.area}m2_${spec.bedrooms}bed.json`);
+    download(new Blob([JSON.stringify({ spec: { area: spec.area, bedrooms: spec.bedrooms, baths: spec.baths, dress: spec.dress, multi: spec.multi }, ...e.data.bqm }, null, 1)], { type: 'application/json' }), `floorplan_exact_qubo_${spec.area}m2_${spec.bedrooms}bed.json`);
   };
   w.postMessage({ type: 'qubo', id, spec: buildSpec(), weights: WEIGHTS });
 });
@@ -683,7 +724,9 @@ function renderMethod(c, stage, isModel, kinds) {
   if (stage === 3 && !isModel) {
     const a = c.algo;
     const tpl = a.perTemplate?.find((p) => p.k === a.template);
-    run = a.key === 'syntax'
+    run = a.key === 'quboSA'
+      ? `<p class="proc-run">이 안: <b>QUBO + SA</b>(공간구문 정확 QUBO를 SA로), 템플릿 앞 침실 ${c.template + 1}개, 공간구문 에너지 <b>${Number(c.syntaxE).toFixed(3)}</b>${a.sa ? `(전수 열거 최저 E* ${a.sa.exactMin.toFixed(3)}${Math.abs(c.syntaxE - a.sa.exactMin) < 1e-9 ? ' — 최적' : ''})` : ''}${c.syntaxP !== null && c.syntaxP !== undefined ? `, 확률 <b>${(100 * c.syntaxP).toFixed(1)}%</b>` : ''}, ${esc(a.budget || '')}, 점검 ${c.ok ? '통과' : '미통과'}.</p>`
+      : a.key === 'syntax'
       ? `<p class="proc-run">이 안: <b>연구 생성기</b>(공간구문 최대 엔트로피), 템플릿 앞 침실 ${c.template + 1}개, 공간구문 에너지 <b>${Number(c.syntaxE).toFixed(3)}</b>, 확률 <b>${(100 * c.syntaxP).toFixed(1)}%</b>(${esc(a.budget || '')}), 점검 ${c.ok ? '통과' : '미통과'}.</p>`
       : `<p class="proc-run">이 안: 풀이기 <b>${esc(a.name)}</b>, 템플릿 앞 침실 ${a.template + 1}개, QUBO 에너지 <b>${Number(a.energy).toFixed(3)}</b>${tpl && !tpl.feasible ? ' (원-핫 제약 어김 → 규칙으로 복구)' : ''}, 예산 ${esc(a.budget || '')}.</p>${a.note ? `<p class="note">${esc(a.note)}</p>` : ''}`;
   }

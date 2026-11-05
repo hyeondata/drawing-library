@@ -321,7 +321,7 @@ test('SA 생성: 화장실 3개 조건에서 욕실 3개를 놓고, 필수 규�
   const { buildChoices } = await import('../src/generate/choices.js');
   const { compareAlgorithms } = await import('../src/generate/compare.js');
   const { ACTIVE } = await import('../src/generate/solvers.js');
-  assert.deepEqual(ACTIVE, ['syntax']);
+  assert.deepEqual(ACTIVE, ['quboSA']);
   const c = buildChoices();
   const o = c.byBedrooms[5];
   const other = o.roomSize[1].share;
@@ -340,7 +340,7 @@ test('연구 생성기(기본): 화장실 3개 조건에서 욕실 3개를 놓�
   const { buildChoices } = await import('../src/generate/choices.js');
   const { compareAlgorithms } = await import('../src/generate/compare.js');
   const { ACTIVE } = await import('../src/generate/solvers.js');
-  assert.deepEqual(ACTIVE, ['syntax']);
+  assert.deepEqual(ACTIVE, ['quboSA']);
   const c = buildChoices();
   const o = c.byBedrooms[5];
   const other = o.roomSize[1].share;
