@@ -22,18 +22,18 @@ const terms = [
   ['침실 통과', W.through, '침실을 지나야만 갈 수 있는 실의 수', '공용 실에 닿지 않아 침실을 거쳐야 하는 실.'],
   ['현관', W.entry, '[현관이 바깥에 닿은 길이 &lt; 문 폭]', '외곽을 바꿨을 때만. 현관문이 복도 쪽 바깥에 나야 합니다.'],
   ['외곽', W.outline, 'max(0, 외곽 꼭짓점 − K<sub>외곽</sub>)', '외곽도 다듬을 때만. 지나치게 들쭉날쭉한 외곽을 막습니다.'],
-  ['공간구문', '4 (강하게 10)', `거실 중심: max(0, ${SYNTAX_GOAL.lbr} − 거실/침실 통합도 비)/${SYNTAX_GOAL.lbr} + (1 − τ)/2<br>사생활: max(0, ${SYNTAX_GOAL.gap} − 공·사 깊이 차)/${SYNTAX_GOAL.gap}<br>대면형 주방: max(0, ${SYNTAX_GOAL.kbr} − 주방/침실 통합도 비)/${SYNTAX_GOAL.kbr}`, '공간구문 선호를 고른 경우만. 통합도·깊이는 평가 모델과 같은 정의로 매번 정확히 계산합니다.'],
+  ['공간구문', '4 (강하게 10)', `거실 중심: max(0, ${SYNTAX_GOAL.lbr} − 거실/침실 통합도 비)/${SYNTAX_GOAL.lbr} + (1 − τ)/2<br>사생활: max(0, ${SYNTAX_GOAL.gap} − 공·사 깊이 차)/${SYNTAX_GOAL.gap}<br>대면형 주방: max(0, ${SYNTAX_GOAL.kbr} − 주방/침실 통합도 비)/${SYNTAX_GOAL.kbr}`, '공간구문 선호를 고른 경우만. 통합도·깊이는 분석기와 같은 정의로 매번 정확히 계산합니다.'],
 ];
 ---
 
-<Base title="자유형 평면 · 평면 생성 랩" description="AI 허브 Sample에서 사각형이 아닌 실(ㄱ자 거실 등)이 있는 세대를 골라, 그 외곽과 실 구성을 바탕으로 새 평면을 만들고 계산 과정을 보여 줍니다.">
+<Base title="자유형 평면 · 평면 생성 랩" description="AI 허브 아파트 평면도에서 사각형이 아닌 실(ㄱ자 거실 등)이 있는 세대를 골라, 그 외곽과 실 구성을 바탕으로 새 평면을 만들고 계산 과정을 보여 줍니다.">
   <Topbar current="freeform" />
 
   <section class="hero hero-compact">
-    <p class="eyebrow">Sample 세대 → 격자 배정 → 담금질</p>
+    <p class="eyebrow">실제 세대 → 격자 배정 → 담금질</p>
     <h1>자유형 <span class="gradient-text">평면 생성</span></h1>
     <p class="lede">
-      AI 허브 Sample {drawings}장에서 뽑은, 사각형이 아닌 실(ㄱ자 거실·주방 등)이 있는 {units.length}세대 중 하나를 고르세요.
+      AI 허브 아파트 평면도(APT_FP) 전체에서 침실 수(2~5개)마다 골라 둔, 사각형이 아닌 실(ㄱ자 거실·주방 등)이 있는 {units.length}세대({drawings}도면) 중 하나를 고르세요.
       그 세대의 외곽과 현관·발코니 위치, 실 구성과 연결 관계를 그대로 두고 안쪽을 다시 나눠, ㄱ자·ㄷ자 실까지 나올 수 있는 새 평면을 만듭니다.
     </p>
   </section>
@@ -187,7 +187,7 @@ const terms = [
               <button type="button" data-v="kitchenLink" aria-pressed="false">대면형 주방</button>
             </div>
             <label class="ff-check">세기 <select id="ff-sxw"><option value="4" selected>보통</option><option value="10">강하게</option></select></label>
-            <span class="note">평가 모델과 같은 공간구문 정의(통합도 = 1/RRA, 현관 기준 깊이)로 매 이동마다 계산해, 문헌 목표(거실/침실 통합도 비 1.9, 공·사 깊이 차 1.5, 주방/침실 비 1.3)에 못 미친 만큼 벌점을 줍니다.</span>
+            <span class="note">분석기와 같은 공간구문 정의(통합도 = 1/RRA, 현관 기준 깊이)로 매 이동마다 계산해, 문헌 목표(거실/침실 통합도 비 1.9, 공·사 깊이 차 1.5, 주방/침실 비 1.3)에 못 미친 만큼 벌점을 줍니다.</span>
           </div>
           <label class="ff-field">변화 정도 <b class="mono" id="ff-jitter-v">0.5</b>
             <input type="range" id="ff-jitter" min="0" max="1" step="0.05" value="0.5" />

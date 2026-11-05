@@ -33,7 +33,7 @@ export const CLAIMS = {
     ko: '75개 평면 중 73개(97%)가 현관홀에서 바로 이어지는 중앙홀을 집 가운데 둔다(목적: 실 사이 위상 거리를 짧게). 97%는 ‘현관–중앙홀’ 연결의 비율이며 ‘현관–거실’ 비율이 아니다.',
     loc: '저자 원고 p.13, p.16',
     quote: '“overwhelming 73 designers (97%) make a decision that the central hall placed in the middle for internal circulation and connected directly from the entrance hall. The driving force for this choice is ‘shallow syntax’” (p.16)',
-    how: '이 도구는 현관–거실(중앙홀 역할) 맞닿음을 QUBO 보상 항으로 둠. 보상 크기는 평가 모델로 보정한 값.',
+    how: '이 도구는 현관–거실(중앙홀 역할) 맞닿음을 QUBO 보상 항으로 둠. 보상 크기는 손으로 정한 값.',
   },
   'seo-ldk': {
     ref: 'seo2007',
@@ -176,7 +176,7 @@ export const CLAIMS = {
     ko: '실 그래프의 깊이와 대칭·비대칭으로 공간 구성을 정량 비교한다(통합도는 이 깊이에서 나온 지표).',
     loc: '서론 p.14(출판사 미리보기), 4장 pp.143–175',
     quote: '“This method of representation had an immediate advantage over the plan: it made the syntax of the plan (its system of spatial relations) very clear, so that comparisons could be made with other buildings according to the degree that it possessed the properties of symmetry and asymmetry”',
-    how: '통합도(상대 비대칭도) 식의 원문 쪽은 열람하지 못함. 이 도구의 평가 모델은 문이 아니라 벽 인접 그래프로 통합도를 계산함.',
+    how: '통합도(상대 비대칭도) 식의 원문 쪽은 열람하지 못함. 이 도구의 분석기는 문이 아니라 벽 인접 그래프로 통합도를 계산함.',
   },
   'lucas-onehot': {
     ref: 'lucas2014',

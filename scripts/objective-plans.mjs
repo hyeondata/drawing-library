@@ -1,5 +1,5 @@
 // RQ4 예비: 공간구문 목적별 최적 배치(objective-orders.json)를 정렬 모드로 도면화하고 평가 모델과 같은 analyze()로 잰다.
-// 치수는 realize(치수 다듬기 30번, 순서 고정)로 정한다. 비교 대상 '기존'은 지금 생성기(보정 가중치 QUBO + SA + J, 기존 배치).
+// 치수는 realize(치수 다듬기 30번, 순서 고정)로 정한다. 비교 대상 '기존'은 기존 배치 생성기(손 가중치 QUBO + SA + 적합성 J). (이전 실험용, 논문 결과 아님)
 // 사용: node scripts/objective-plans.mjs → evidence/results/objective-plans.jsonl (통계는 analysis/objective_compare.py)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,7 +10,6 @@ import { rng, toLabel } from '../src/generate/layout.js';
 import { specs, suffix } from './lib/rq4-specs.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public/data/baseline.json'), 'utf8'));
 const recs = JSON.parse(fs.readFileSync(path.join(root, `evidence/results/objective-orders${suffix}.json`), 'utf8'));
 const out = [];
 // 특징 + 공간 그래프(실제 세대와 같은 형식: scripts/export-unit-graphs.mjs) — 목적과 분리된 비교 지표(analysis/heldout_compare.py)용
@@ -26,7 +25,7 @@ for (const rec of recs) {
   const spec = { ...specs[si], prefs: [] };
   for (const [obj, orders] of Object.entries(rec.orders)) {
     orders.forEach(([front, back], n) => {
-      const c = realize(spec, { front, back }, baseline, rng(1000 + n), 30, true);
+      const c = realize(spec, { front, back }, rng(1000 + n), 30, true);
       if (!c) return;
       out.push({ obj, t: rec.id, bedrooms: spec.bedrooms, fit: c.fit, narrow: c.narrow, door: c.doorIssues, J: c.objective, features: feat(c.layout) });
     });
@@ -36,7 +35,7 @@ for (const rec of recs) {
 specs.forEach((s0, si) => {
   const spec = { ...s0, prefs: [] };
   for (let seed = 1; seed <= 5; seed++) {
-    const b = compareAlgorithms(spec, { baseline, algorithms: ['sa'], seed, maxEvals: 20000, weights: 'calibrated' }).results[0].best;
+    const b = compareAlgorithms(spec, { algorithms: ['sa'], seed, maxEvals: 20000, weights: 'hand' }).results[0].best;
     if (b) out.push({ obj: 'legacy', t: `${si}`, bedrooms: spec.bedrooms, fit: b.fit, narrow: b.narrow, door: b.doorIssues, J: b.objective, features: feat(b.layout) });
   }
 });

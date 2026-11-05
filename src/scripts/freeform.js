@@ -354,7 +354,7 @@ function renderSyntax(c, names) {
     return `<tr><td>${esc(label)}<br><span class="note">${esc(ref)}</span></td><td class="mono">${Number.isFinite(v) ? v.toFixed(2) : '—'}</td><td>${on ? `<b class="good-text">✓ 에너지에 반영</b>${goal ? `<br><span class="note">목표 ${SYNTAX_GOAL[goal]}</span>` : ''}` : '<span class="note">선호를 고르면 반영</span>'}</td></tr>`;
   }).join('');
   $('#ff-sx-text').innerHTML = `<table class="gen-table gen-graph-table"><thead><tr><th>변수</th><th>값</th><th>생성에 반영</th></tr></thead><tbody>${rows}</tbody></table>
-    <p class="note">현관을 맨 아래(깊이 0)에 두고 0.6m 이상 맞닿은 실을 한 단계씩 쌓은 정당화 그래프입니다. 숫자·색은 통합도(1/RRA). 평가 모델과 같은 규약(덕트 제외, 현관에 외부 노드)입니다. ${prefs.length ? `이번 생성은 ${prefs.map((p) => SYNTAX_TARGETS[p].label).join('·')} 선호를 세기 ${st.params.syntaxW}로 반영했습니다.` : '이번 생성은 공간구문 선호 없이 만들었습니다.'} 실측(6세대 × 시드 2): 거실 중심형은 거실/침실 비를 평균 1.65 → 1.96으로 올렸고, 사생활은 깊이 차를 0.54 → 0.66(강하게 0.74)로 조금 올렸습니다. 대면형 주방은 이미 목표를 넘는 경우가 많아 변화가 거의 없습니다.</p>`;
+    <p class="note">현관을 맨 아래(깊이 0)에 두고 0.6m 이상 맞닿은 실을 한 단계씩 쌓은 정당화 그래프입니다. 숫자·색은 통합도(1/RRA). 분석기와 같은 규약(덕트 제외, 현관에 외부 노드)입니다. ${prefs.length ? `이번 생성은 ${prefs.map((p) => SYNTAX_TARGETS[p].label).join('·')} 선호를 세기 ${st.params.syntaxW}로 반영했습니다.` : '이번 생성은 공간구문 선호 없이 만들었습니다.'} 실측(6세대 × 시드 2): 거실 중심형은 거실/침실 비를 평균 1.65 → 1.96으로 올렸고, 사생활은 깊이 차를 0.54 → 0.66(강하게 0.74)로 조금 올렸습니다. 대면형 주방은 이미 목표를 넘는 경우가 많아 변화가 거의 없습니다.</p>`;
 }
 
 // ---------- 요청한 연결 ----------

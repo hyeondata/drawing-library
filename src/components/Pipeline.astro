@@ -9,7 +9,7 @@ interface Props {
 }
 const { show = 'both', legend = true } = Astro.props;
 const blocks = [
-  ...(show !== 'free' ? [{ title: '선택형(도면 생성 탭)', rows: SELECT_STAGES, extra: MODEL_STAGES, extraTitle: '비교용 "기존: 모델 직접 탐색"을 고르면 위 3~5단계 대신' }] : []),
+  ...(show !== 'free' ? [{ title: '선택형(도면 생성 탭)', rows: SELECT_STAGES, extra: MODEL_STAGES, extraTitle: '비교용 "기존: J 직접 탐색"을 고르면 위 3~5단계 대신' }] : []),
   ...(show === 'both' ? [{ title: 'QUBO 도면 생성(QUBO 도면 생성 탭): 규칙까지 모두 QUBO로', rows: QG_STAGES }] : []),
   ...(show !== 'select' ? [{ title: '자유형(자유형 평면 탭)', rows: FREE_STAGES }] : []),
 ];

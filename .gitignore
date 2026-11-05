@@ -9,3 +9,4 @@ __pycache__/
 .dev.vars*
 public/ocr/
 analysis/.venv/
+data/

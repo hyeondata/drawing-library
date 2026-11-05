@@ -3,7 +3,7 @@
 // - SPA: 공간 다각형, attributes { occluded: false }, 마지막에 종이 전체 background(12번) 하나
 // - STR: 벽체(attributes 구조_벽체: 철근콘크리트벽·기타벽), 출입문(구조_출입문: 여닫이문), 창호(창호: 미닫이창), background 하나
 // - OBJ: 설비 상자(segmentation 빈 배열, bbox만), attributes { occluded: false, rotation: 0.0 }
-// 좌표: 종이 4963×3509px, 1m = 100px(배율 1 기준 침실 한 변 약 305px와 맞음). 소수 둘째 자리.
+// 좌표: 종이 4963×3509px, 1m = 100px(배율 1 기준 침실 한 변 약 297px와 맞음). 소수 둘째 자리.
 import { BALCONY_DEPTH } from './layout.js';
 import { exteriorSegments, sharedSegment } from './openings.js';
 

@@ -1884,7 +1884,8 @@ table.plain td.num {
   height: 100%;
   border-radius: 999px;
   background: var(--accent);
-  transition: width 0.2s;
+  /* 진행 신호(0.12초 간격) 사이를 매끄럽게 잇는다 */
+  transition: width 0.25s linear;
 }
 .gen-tabs {
   justify-self: start;
@@ -5188,3 +5189,11 @@ a.gr-cite.lit:hover {
 :root[data-theme='dark'] .lv-direct .gr-lv { color: #7cc98a; }
 :root[data-theme='dark'] .lv-adapted .gr-lv,
 :root[data-theme='dark'] .gr-cite .gr-how { color: #e0b05a; }
+
+/* QUBO 가중치 표: 이 조건에서 쓰지 않는 항 */
+.gen-qw-off { opacity: 0.45; }
+.gen-qw summary { cursor: pointer; }
+
+/* 도면 생성 0단계: 외곽 형태 미리보기 */
+.gen-shapes { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.gen-shape-svg { display: block; width: 100%; height: 84px; margin-bottom: 6px; }

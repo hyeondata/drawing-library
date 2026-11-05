@@ -9,20 +9,13 @@ import { SOLVERS } from '../generate/solvers.js';
 import { buildChoices } from '../generate/choices.js';
 import { SYNTAX_CHOICES, LIFESTYLE_CHOICES } from '../generate/preferences.js';
 import { PREF_EFFECTS } from '../qubogen/model.js';
-import fs from 'node:fs';
-import path from 'node:path';
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const Q = 'src/qubogen/model.js';
+// 이 탭은 SA만 쓰는 규칙의 예외다: 변수 약 600개에서 SA는 실이 흩어진 해를 내 Tabu를 기본으로 둔다(evidence/18-SA-선택-근거.md).
 const solvers = SOLVERS.filter((s) => !['cpsat', 'exact'].includes(s.key));
 // 도면 생성 탭과 같은 선택지(같은 데이터에서 계산)
-const dir = path.join(process.cwd(), 'public', 'data', 'labels');
-const files = fs.readdirSync(dir);
-const read = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
-const choices = buildChoices({
-  spaLabels: files.filter((f) => f.includes('_SPA_')).map((f) => ({ id: f.replace(/\.json$/, ''), label: read(f) })),
-  ocrLabels: files.filter((f) => f.includes('_OCR_')).map(read),
-});
+const choices = buildChoices();
 // 조건 → QUBO에 들어가는 방법
 const condMap = [
   ['전용면적', '격자 크기와 모든 실의 목표 칸 수', '면적 항(정확)', 'easy'],
@@ -41,7 +34,6 @@ const condMap = [
   ['침실 소음 분리', '침실끼리·침실–거실 떨어짐 강화', '떨어짐 항(정확)', 'easy'],
   ['채광 확보', '거실·침실을 앞(남)으로, 창 많이', '앞·뒤 띠·창 항', 'easy'],
   ['수납 공간', '드레스룸·다목적실', '실 목록', 'easy'],
-  ['평가 모델 점수 J', '도면 생성 탭의 채점(실제 아파트와 닮은 정도)', '어려움 — 평가 모델이 직사각형 실 전용. 대신 규칙 점검 점수와 공간구문 값을 보여 줌', 'no'],
   ['외곽 모양', '도면 생성 탭도 직사각형', '이 탭도 직사각형 고정(넣을 수는 있으나 변수가 늘어 느려짐)', 'no'],
 ];
 const prefs = [
@@ -240,7 +232,6 @@ const steps = [
               <tr><td>복도·부속실 위치</td><td set:html={badges(['rule'])} /><td set:html={badges(['qubo']) + ' 단계 A(맞닿음 항)'} /></tr>
               <tr><td>문·개구부·창</td><td set:html={badges(['rule'])} /><td set:html={badges(['qubo']) + ' 단계 B'} /></tr>
               <tr><td>실 연결·현관에서 가는 길</td><td set:html={badges(['eval']) + ' 감점'} /><td set:html={badges(['eval']) + ' 점검(QUBO로 정확히 못 씀)'} /></tr>
-              <tr><td>평가 모델 점수 J</td><td set:html={badges(['eval'])} /><td>쓰지 않음(직사각형 실 전용이라). 대신 위 규칙 점검 점수</td></tr>
             </tbody>
           </table>
         </div>
@@ -249,7 +240,7 @@ const steps = [
     </div>
     </div>
   </main>
-  <script id="qg-data" type="application/json" set:html={JSON.stringify({ base, termsA: TERMS_A, termsB: TERMS_B, solvers: solvers.map((s) => ({ key: s.key, name: s.name })), living: choices.living, targets: choices.targets, prefNames: Object.fromEntries([...SYNTAX_CHOICES, ...LIFESTYLE_CHOICES].map((c) => [c.key, c.title])) })} />
+  <script id="qg-data" type="application/json" set:html={JSON.stringify({ base, termsA: TERMS_A, termsB: TERMS_B, solvers: solvers.map((s) => ({ key: s.key, name: s.name })), living: choices.living, byBedrooms: Object.fromEntries(Object.entries(choices.byBedrooms).map(([b, o]) => [b, { roomSize: o.roomSize, master: o.master, targets: o.targets, living: o.living }])), prefNames: Object.fromEntries([...SYNTAX_CHOICES, ...LIFESTYLE_CHOICES].map((c) => [c.key, c.title])) })} />
   <script>
     import '../scripts/qubo-gen.js';
   </script>

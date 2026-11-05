@@ -92,6 +92,33 @@ export function trim(m) {
   return { nx, ny, cells, n };
 }
 
+/** 가장 큰 한 덩어리만 남긴다(실외기실 등을 빼고 떨어져 남은 조각 제거). share = 남긴 칸 / 원래 칸. */
+export function largest(m) {
+  const lab = new Int32Array(m.cells.length).fill(-1);
+  let best = -1;
+  let bestN = 0;
+  let total = 0;
+  for (let s = 0; s < m.cells.length; s++) {
+    if (!m.cells[s] || lab[s] >= 0) continue;
+    const q = [s];
+    lab[s] = s;
+    for (let h = 0; h < q.length; h++) {
+      const i = q[h] % m.nx;
+      const j = Math.floor(q[h] / m.nx);
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ii = i + di;
+        const jj = j + dj;
+        const k = jj * m.nx + ii;
+        if (ii >= 0 && jj >= 0 && ii < m.nx && jj < m.ny && m.cells[k] && lab[k] < 0) ((lab[k] = s), q.push(k));
+      }
+    }
+    total += q.length;
+    if (q.length > bestN) ((bestN = q.length), (best = s));
+  }
+  const out = trim({ nx: m.nx, ny: m.ny, cells: Uint8Array.from(lab, (v) => (v === best ? 1 : 0)) });
+  return { ...out, share: total ? bestN / total : 0 };
+}
+
 /** 칸이 한 덩어리인지(그리기 검사). */
 export function maskConnected(m) {
   const start = m.cells.indexOf(1);

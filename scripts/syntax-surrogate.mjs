@@ -1,7 +1,7 @@
 // 공간구문 변수의 QUBO 대리 항을 데이터로 맞춘다(생성 모델에 공간구문을 직접 넣기 위해).
-// 보정(qubo-calibrate.mjs)과 같은 조건 20개 × 템플릿의 배치를 평면으로 풀어, 평가 모델과 같은 규약으로 공간구문 변수를 정확히 계산하고,
+// 조건 20개 × 템플릿의 배치를 평면으로 풀어, 분석기(spa.js)와 같은 규약으로 공간구문 변수를 정확히 계산하고,
 // 각 변수를 QUBO 항 φ_t(x)의 선형 결합으로 회귀한다(조건·템플릿 안 백분위 순위, 중심화, 릿지).
-// 대리 항 에너지 E_s(x) = Σ_t v_t φ_t(x), v = −β(낮은 에너지 = 변수가 큼). 생성 때 선호를 고르면 E = E_보정 + λ·s·E_s.
+// 대리 항 에너지 E_s(x) = Σ_t v_t φ_t(x), v = −β(낮은 에너지 = 변수가 큼). 생성 때 선호를 고르면 E = E_손 + λ·s·E_s.
 // 검증: 조건 단위 5겹 교차검증 — (1) 대리 항과 실제 변수의 스피어만 ρ, (2) 에너지 최소 배치의 변수 백분위가 얼마나 오르는지와 종합 점수 비용.
 // 변수와 근거(SCI(E)/SSCI): 거실/침실 통합도 비·주방/침실 통합도 비(Byun & Choi 2016, JAABE SCIE; Choi et al. 2014 SCIE),
 // 거실 중심 유전형 τ(Hillier, Hanson & Graham 1987, EPB SSCI; Byun & Choi 2016), 공·사 깊이 차(Ham & Lee 2017 SCIE·SSCI).
@@ -13,8 +13,8 @@ import { fileURLToPath } from 'node:url';
 import { defaultParams, spearman } from '../src/generate/compare.js';
 import { buildLayout, rng } from '../src/generate/layout.js';
 import { scoreLayout } from '../src/generate/optimize.js';
-import { buildQubo, decode, encode, features, frontBedCount, TERMS } from '../src/generate/qubo.js';
-import { CALIBRATED } from '../src/generate/qubo-weights.js';
+import { buildQubo, decode, encode, features, frontBedCount, TERMS, weightsOf } from '../src/generate/qubo.js';
+import { buildChoices } from '../src/generate/choices.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (name, def) => {
@@ -22,8 +22,10 @@ const arg = (name, def) => {
   return i > 0 ? Number(process.argv[i + 1]) : def;
 };
 const SAMPLES = arg('samples', 600);
-const baseline = JSON.parse(fs.readFileSync(path.join(root, 'public/data/baseline.json'), 'utf8'));
-const targets = { living: 0.239, kitchen: 0.1576, master: 0.1254, other: 0.0877, bath: 0.032, entrance: 0.0389, dress: 0.0499, multi: 0.0303 };
+// 목표 면적비: 도면 생성 화면의 기본값(AI 허브 아파트 평면도 전체, 침실 3개 세대 중앙값)
+const ch = buildChoices();
+const b3 = ch.byBedrooms[3];
+const targets = { living: b3.living.standard, ...b3.targets, other: b3.roomSize[1].share, master: b3.roomSize[1].share * b3.master[1].ratio };
 
 export const VARS = {
   livingBedroomRatio: { label: '거실/침실 통합도 비', pref: 'livingCentral', refs: 'Byun & Choi 2016; Choi et al. 2014' },
@@ -60,6 +62,8 @@ specs.forEach((spec, si) => {
   const kmax = frontBedCount(spec);
   for (const k of [...new Set([kmax, kmax - 1])].filter((x) => x >= 0)) {
     const q = buildQubo(spec, { frontBeds: k, weights: 'hand', syntax: false });
+    // 대리 항은 선호 배수 없이 더하므로 배수를 뺀 항 값(φ_raw)으로 회귀한다. 기본 에너지는 배수가 들어간 φ로 잰다.
+    const qRaw = buildQubo({ ...spec, prefs: [] }, { frontBeds: k, weights: 'hand', syntax: false });
     const { front, back } = q.bands;
     const r = rng(1000 + si * 10 + k);
     const total = fact(front.slots) * fact(back.slots);
@@ -73,11 +77,11 @@ specs.forEach((spec, si) => {
       const key = `${d.front}|${d.back}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      const s = scoreLayout(spec, buildLayout(spec, { ...defaultParams(spec), frontOrder: d.front, backOrder: d.back }), baseline);
+      const s = scoreLayout(spec, buildLayout(spec, { ...defaultParams(spec), frontOrder: d.front, backOrder: d.back }));
       if (!s) continue;
-      const sx = Object.fromEntries((s.unit.groups.syntax?.items || []).map((it) => [it.key, it.value]));
+      const sx = Object.fromEntries(KEYS.map((kk) => [kk, s.unit.features[kk]]));
       if (KEYS.some((kk) => !Number.isFinite(sx[kk]))) continue;
-      rows.push({ phi: features(q, encode(q, d.front, d.back)), objective: s.objective, sx });
+      rows.push({ phi: features(qRaw, encode(qRaw, d.front, d.back)), phiB: features(q, encode(q, d.front, d.back)), objective: s.objective, sx });
     }
     groups.push({ si, k, rows });
   }
@@ -134,14 +138,15 @@ function ridge(X, y, lambda) {
   }
   return A.map((row, i) => (row[i] ? row[T] / row[i] : 0));
 }
-const base = TERMS.map((t) => CALIBRATED.weights[t.id] ?? 0);
+const hand = weightsOf('hand');
+const base = TERMS.map((t) => hand[t.id] ?? 0);
 const l1 = (v) => v.reduce((s, x) => s + Math.abs(x), 0);
 const energyOf = (w, phi) => w.reduce((s, x, t) => s + x * phi[t], 0);
 
-/** 그룹들에서: 대리 항 ρ, 그리고 E_보정 + λ·s·E_s의 최소 배치가 갖는 변수·종합 점수 백분위 */
+/** 그룹들에서: 대리 항 ρ, 그리고 E_손 + λ·s·E_s의 최소 배치가 갖는 변수·종합 점수 백분위 */
 function evaluate(gs, key, v, lam) {
   const s = l1(base) / Math.max(1e-9, l1(v));
-  const w = base.map((b, t) => b + lam * s * v[t]);
+  const w = (r) => energyOf(base, r.phiB) + lam * s * energyOf(v, r.phi);
   let rho = 0;
   let nR = 0;
   let varPct = 0;
@@ -153,7 +158,7 @@ function evaluate(gs, key, v, lam) {
     const es = g.rows.map((r) => energyOf(v, r.phi));
     const rr = spearman(es, vs);
     if (Number.isFinite(rr)) ((rho += -rr), nR++);
-    const E = g.rows.map((r) => energyOf(w, r.phi));
+    const E = g.rows.map((r) => w(r));
     const minE = Math.min(...E);
     const pick = g.rows.filter((_, i) => Math.abs(E[i] - minE) < 1e-9);
     const vr = rankPct(vs);
@@ -190,7 +195,7 @@ for (const key of KEYS) {
 // ---- 저장 ----
 const LAMBDA_DEFAULT = 0.5;
 const out = `// scripts/syntax-surrogate.mjs가 만든 파일(손대지 말 것). 공간구문 변수의 QUBO 대리 항 가중치 v(낮은 에너지 = 변수가 큼).
-// 생성 때 선호를 고르면 E = E_보정 + λ·s·Σ_t v_t φ_t, s = ‖w_보정‖₁ / ‖v‖₁, λ = ${LAMBDA_DEFAULT}(교차검증 표 참고).
+// 생성 때 선호를 고르면 E = E_손 + λ·s·Σ_t v_t φ_t, s = ‖w_손‖₁ / ‖v‖₁, λ = ${LAMBDA_DEFAULT}(교차검증 표 참고).
 // 조건 20개 × 템플릿, 배치 ${groups.reduce((s, g) => s + g.rows.length, 0)}개.
 export const SYNTAX_LAMBDA = ${LAMBDA_DEFAULT};
 export const SYNTAX = ${JSON.stringify(result, null, 1)};
@@ -199,11 +204,11 @@ fs.writeFileSync(path.join(root, 'src/generate/syntax-weights.js'), out);
 const md = [
   '# 공간구문 대리 항(QUBO) 맞춤 결과',
   '',
-  `조건 20개 × 템플릿, 배치 ${groups.reduce((s, g) => s + g.rows.length, 0)}개. 각 배치를 기본 치수 평면으로 풀어 평가 모델과 같은 규약(인접 그래프, 외부 노드, 덕트 제외)으로 공간구문 변수를 계산했다. 조건 단위 5겹 교차검증(빼 둔 조건에서 잰 값).`,
+  `조건 20개 × 템플릿, 배치 ${groups.reduce((s, g) => s + g.rows.length, 0)}개. 각 배치를 기본 치수 평면으로 풀어 분석기와 같은 규약(인접 그래프, 외부 노드, 덕트 제외)으로 공간구문 변수를 계산했다. 조건 단위 5겹 교차검증(빼 둔 조건에서 잰 값).`,
   '',
   '- ρ: 대리 항 에너지와 실제 변수의 스피어만 상관(부호를 바꿔 양수일수록 맞음)',
-  '- 변수 백분위: E_보정 + λ·s·E_s가 가장 낮은 배치의 변수 값이 그 조건 안에서 몇 백분위인가(λ = 0은 대리 항 없이 보정 가중치만)',
-  '- 종합 백분위: 같은 배치의 순위 점수 J 백분위(공간구문을 밀 때 치르는 비용)',
+  '- 변수 백분위: E_손 + λ·s·E_s가 가장 낮은 배치의 변수 값이 그 조건 안에서 몇 백분위인가(λ = 0은 대리 항 없이 손 가중치만)',
+  '- 종합 백분위: 같은 배치의 적합성 J 백분위(공간구문을 밀 때 치르는 비용)',
   '',
   '| 변수 | 근거 | ' + LAMBDAS.map((l) => `λ = ${l}`).join(' | ') + ' |',
   '| --- | --- | ' + LAMBDAS.map(() => '---').join(' | ') + ' |',

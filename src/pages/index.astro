@@ -6,31 +6,51 @@ import Topbar from '../components/Topbar.astro';
 import { REFERENCES } from '../model/config.js';
 import { buildChoices } from '../generate/choices.js';
 import { LIFESTYLE_CHOICES, SYNTAX_CHOICES } from '../generate/preferences.js';
-import { SOLVERS } from '../generate/solvers.js';
+import { ACTIVE, SOLVERS } from '../generate/solvers.js';
 import { GEN_STAGES } from '../generate/pipeline.js';
 import { show, showSeg } from '../lib/source.js';
+import { largest, maskFromUnit } from '../freeform/outline.js';
 
-const algos = [
-  { key: 'model', name: '기존: 모델 직접 탐색', family: '평가 모델로 바로 최적화(무작위 + 국소 탐색, 평가 800회)', cite: '' },
-  ...SOLVERS.map((s) => ({ key: s.key, name: s.name, family: s.family, cite: s.cite, provisional: Boolean(s.provisional) })),
-];
+// 생성 알고리즘은 SA만 켠다(근거: evidence/18-SA-선택-근거.md). 다른 풀이기는 코드와 비교 실험에만 남긴다.
+// 시간 선택지 옆의 전역 최적 도달률: evidence/results/sa-experiment.json(손으로 옮겨 적지 않음)
+const SAX = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'evidence', 'results', 'sa-experiment.json'), 'utf8'));
+const stopOf = (k) => SAX.stop.find((r) => r.stopHits === k);
+const stopLabel = (k) => { const r = stopOf(k); return r ? `최적 ${Math.round(r.p * 100)}%, 보통 ${(r.ms.p50 / 1000).toFixed(1)}초` : ''; };
+const algos = SOLVERS.filter((s) => ACTIVE.includes(s.key)).map((s) => ({ key: s.key, name: s.name, family: s.family, cite: s.cite }));
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 // 생성 과정 단계마다 실제 코드(빌드 때 소스에서 잘라 옴)
 const codeOf = (list) => (list || []).map((c) => (c.length === 3 ? showSeg(c[0], c[1], c[2]) : show(c[0], c[1]))).join('');
 const procCode = GEN_STAGES.map((g) => ({ code: codeOf(g.code), model: codeOf(g.modelCode) }));
-const dir = path.join(process.cwd(), 'public', 'data', 'labels');
-const files = fs.readdirSync(dir);
-const read = (f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
-const choices = buildChoices({
-  spaLabels: files.filter((f) => f.includes('_SPA_')).map((f) => ({ id: f.replace(/\.json$/, ''), label: read(f) })),
-  ocrLabels: files.filter((f) => f.includes('_OCR_')).map(read),
-});
+const choices = buildChoices();
 const refOf = Object.fromEntries(REFERENCES.map((r) => [r.id, { short: r.short, url: r.url, index: r.index }]));
 const strip = (c) => ({ key: c.key, short: c.short, title: c.title, desc: c.desc, metrics: c.metrics, refs: c.refs, note: c.note || null, effect: c.effect || null });
 const src = choices.source;
+// 0. 외곽 형태: scripts/build-outlines.mjs가 AI 허브 APT_FP 전체 세대의 외곽을 묶은 결과(대표 외곽 미리보기는 빌드 때 그림)
+const OUTL = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'outlines.json'), 'utf8'));
+const thumb = (m) => {
+  const runs = [];
+  for (let j = 0; j < m.ny; j++)
+    for (let i = 0, s = -1; i <= m.nx; i++) {
+      const on = i < m.nx && m.cells[j * m.nx + i];
+      if (on && s < 0) s = i;
+      if (!on && s >= 0) (runs.push(`M${s} ${j}h${i - s}v1h${s - i}z`), (s = -1));
+    }
+  return `<svg viewBox="-2 -2 ${m.nx + 4} ${m.ny + 6}" class="gen-shape-svg" aria-hidden="true"><path d="${runs.join('')}" fill="#e9d3a6" shape-rendering="crispEdges"/><path d="M0 ${m.ny + 2}h${m.nx}" stroke="#e8590c" stroke-width="0.8"/></svg>`;
+};
+const shapes = [
+  { id: 'rect', label: '직사각형', sub: '판상형 띠 배치(QUBO + SA)', note: '지금까지의 생성 방식', svg: thumb({ nx: 40, ny: 26, cells: new Uint8Array(40 * 26).fill(1) }) },
+  ...OUTL.outlines.map((o) => ({
+    id: o.id,
+    label: `형태 ${o.id.slice(1)}`,
+    sub: `${o.n.toLocaleString()}세대 · ${(o.share * 100).toFixed(1)}%`,
+    note: `침실 ${Object.keys(o.byBeds).join('·')}개 세대 있음`,
+    svg: thumb(largest(maskFromUnit(o.rep, 84))),
+  })),
+];
 
 const steps = [
+  { key: 'shape', title: '외곽 형태', q: '외곽 형태 선택: AI 허브 아파트 평면도의 세대 외곽' },
   { key: 'area', title: '전용면적', q: '전용면적 선택' },
   { key: 'living', title: '거실 면적', q: '거실 면적 비율(전용면적 대비)' },
   { key: 'bedrooms', title: '침실 수', q: '침실 수' },
@@ -46,11 +66,11 @@ const steps = [
   <Topbar current="generate" />
 
   <section class="hero hero-compact">
-    <p class="eyebrow">조건 → 생성 → 모델로 최적화</p>
+    <p class="eyebrow">조건 → 생성 → 적합성으로 최적화</p>
     <h1>도면 <span class="gradient-text">생성하기</span></h1>
     <p class="lede">
-      전용면적부터 생활 조건까지 차례로 선택하면 판상형 아파트 평면을 수백 개 만들어 조건에 가장 잘 맞는 안을 고르고, 그 평면이 전용면적 사각형에서 문·창·설비까지 어떻게 만들어지는지 단계별로 보여 줍니다.
-      크기·개수·구성 선택지는 AI 허브 라벨(SPA {src.units}세대 · OCR {src.ocrDrawings}장)에서, 공간구문·생활 조건은 평가 지표와 그 근거 논문에서 가져왔습니다.
+      외곽 형태(직사각형 또는 AI 허브 세대 외곽)를 먼저 고르고 전용면적부터 생활 조건까지 차례로 선택하면 아파트 평면을 여러 개 만들어 조건에 가장 잘 맞는 안을 고르고, 그 평면이 전용면적 사각형에서 문·창·설비까지 어떻게 만들어지는지 단계별로 보여 줍니다.
+      크기·개수·구성 선택지는 AI 허브 SPA 라벨 전체({src.files.toLocaleString()}건)의 아파트 평면도(APT_FP) {src.units.toLocaleString()}세대에서, 공간구문·생활 조건은 공간구문 변수·규칙과 그 근거 논문에서 가져왔습니다.
     </p>
   </section>
 
@@ -68,9 +88,25 @@ const steps = [
 
     <div class="gen-body">
       <form class="gen-panel" id="gen-form" novalidate>
-        <!-- 1. 평수 -->
+        <!-- 0. 외곽 형태 -->
         <div class="gen-step" data-step="0">
           <h2>{steps[0].q}</h2>
+          <div class="gen-options gen-shapes" data-group="shape">
+            {shapes.map((o) => (
+              <label class="gen-opt"><input type="radio" name="shape" value={o.id} checked={o.id === 'rect'} />
+                <Fragment set:html={o.svg} />
+                <strong>{o.label}</strong>
+                <span>{o.sub}</span>
+                <span class="gen-opt-note">{o.note}</span>
+              </label>
+            ))}
+          </div>
+          <p class="note">아파트 평면도 고유 세대 {OUTL.total.toLocaleString()}개의 실내 외곽(발코니가 아래·앞에 오게 돌림)을 외곽 상자 12×12 칸 채움 비율로 묶은 {OUTL.outlines.length}개 형태입니다(k-means, 외곽이 한 덩어리가 아닌 세대는 세대 분리 오류로 보고 뺌). 그림은 묶음 중심에 가장 가까운 세대의 외곽, 주황 선은 앞(발코니) 쪽입니다. 직사각형이 아닌 형태를 고르면 그 외곽 안에 칸 담금질(자유형 엔진)로 실을 나누고, 실 구성은 같은 형태에서 고른 침실 수의 세대를 씁니다.</p>
+        </div>
+
+        <!-- 1. 평수 -->
+        <div class="gen-step" data-step="1" hidden>
+          <h2>{steps[1].q}</h2>
           <div class="gen-options" data-group="area">
             {choices.area.map((o) => (
               <label class="gen-opt"><input type="radio" name="area" value={o.value} data-bedrooms={o.bedrooms} checked={o.value === 84} />
@@ -84,8 +120,8 @@ const steps = [
         </div>
 
         <!-- 2. 거실 크기 -->
-        <div class="gen-step" data-step="1" hidden>
-          <h2>{steps[1].q}</h2>
+        <div class="gen-step" data-step="2" hidden>
+          <h2>{steps[2].q}</h2>
           <div class="gen-options" data-group="living">
             {choices.living.map((o) => (
               <label class="gen-opt"><input type="radio" name="living" value={o.key} data-share={o.share} checked={o.key === 'standard'} />
@@ -95,12 +131,12 @@ const steps = [
               </label>
             ))}
           </div>
-          <p class="note">기준 {src.units}세대 SPA 라벨에서 전용면적(발코니·실외기실 제외) 대비 거실 면적비의 분위수입니다.</p>
+          <p class="note">아파트 평면도 {src.units.toLocaleString()}세대에서 전용면적(발코니·실외기실 제외) 대비 거실 면적비의 분위수입니다(침실 수별 차이가 작아 전체로 잡음).</p>
         </div>
 
         <!-- 3. 방 개수 -->
-        <div class="gen-step" data-step="2" hidden>
-          <h2>{steps[2].q}</h2>
+        <div class="gen-step" data-step="3" hidden>
+          <h2>{steps[3].q}</h2>
           <div class="gen-options" data-group="bedrooms">
             {choices.bedrooms.map((o) => (
               <label class="gen-opt"><input type="radio" name="bedrooms" value={o.value} checked={o.value === 3} />
@@ -109,12 +145,12 @@ const steps = [
               </label>
             ))}
           </div>
-          <p class="note">기준 세대의 침실 수 분포입니다. 전용면적을 선택하면 그 주택형에서 흔한 개수가 먼저 선택됩니다.</p>
+          <p class="note">아파트 평면도 세대의 침실 수 분포입니다(6개 이상은 판상형 한 줄에 들어가지 않아 뺌). 전용면적을 선택하면 그 주택형에서 흔한 개수가 먼저 선택됩니다.</p>
         </div>
 
         <!-- 4. 방 크기 -->
-        <div class="gen-step" data-step="3" hidden>
-          <h2>{steps[3].q}</h2>
+        <div class="gen-step" data-step="4" hidden>
+          <h2>{steps[4].q}</h2>
           <h3 class="gen-sub">작은방 크기</h3>
           <div class="gen-options" data-group="roomSize">
             {choices.roomSize.map((o) => (
@@ -134,12 +170,12 @@ const steps = [
               </label>
             ))}
           </div>
-          <p class="note">작은방은 전용 대비 면적비, 안방은 '안방/다른 침실 면적비'(평가 지표, Zeng et al. 2025)의 분위수입니다.</p>
+          <p class="note">작은방은 전용 대비 면적비, 안방은 '안방/다른 침실 면적비'(Zeng et al. 2025)의 분위수이며, 고른 침실 수의 세대만으로 계산합니다(방이 많을수록 작은방이 작아짐).</p>
         </div>
 
         <!-- 5. 방 구성 -->
-        <div class="gen-step" data-step="4" hidden>
-          <h2>{steps[4].q}</h2>
+        <div class="gen-step" data-step="5" hidden>
+          <h2>{steps[5].q}</h2>
           <div class="gen-options gen-multi" data-group="composition" data-multi>
             {choices.composition.map((o) => (
               <label class="gen-opt"><input type="checkbox" name="composition" value={o.key} checked={o.default} />
@@ -148,12 +184,12 @@ const steps = [
               </label>
             ))}
           </div>
-          <p class="note">'SPA n/{src.units}세대'는 그 실이 있는 기준 세대 수, 'OCR n장'은 그 실 이름이 적힌 OCR 라벨 도면 수입니다. 현관·거실·주방·침실·화장실은 필수 실이라 항상 넣습니다.</p>
+          <p class="note">비율은 아파트 평면도 {src.units.toLocaleString()}세대 가운데 그 실이 있는 세대의 비율입니다. 현관·거실·주방·침실·화장실은 필수 실이라 항상 넣습니다. 침실 수를 고르면 그 침실 수 세대의 절반 이상이 가진 실이 먼저 켜집니다. 화장실 3개는 침실 쪽에 욕실3을 하나 더 둡니다(4개 이상은 고유 세대의 6%라 지원하지 않음).</p>
         </div>
 
         <!-- 6. 공간구문 -->
-        <div class="gen-step" data-step="5" hidden>
-          <h2>{steps[5].q}</h2>
+        <div class="gen-step" data-step="6" hidden>
+          <h2>{steps[6].q}</h2>
           <div class="gen-options gen-multi gen-wide" data-group="syntax" data-multi>
             {SYNTAX_CHOICES.map((c) => (
               <label class="gen-opt"><input type="checkbox" name="syntax" value={c.key} checked={c.key === 'livingCentral'} />
@@ -164,12 +200,12 @@ const steps = [
               </label>
             ))}
           </div>
-          <p class="note">문 정보가 없는 인접 그래프에서 계산하는 평가 모델의 공간구문 지표·규칙입니다. 고른 항목은 최적화 목적함수에 더해집니다.</p>
+          <p class="note">문 정보가 없는 인접 그래프에서 계산하는 공간구문 변수·규칙입니다. 고른 항목은 최적화 목적함수에 더해지고, 변수의 목표 범위는 실제 아파트 평면도 분포(하위 10% ~ 상위 10%)로 정했습니다.</p>
         </div>
 
         <!-- 7. 생활 조건 -->
-        <div class="gen-step" data-step="6" hidden>
-          <h2>{steps[6].q}</h2>
+        <div class="gen-step" data-step="7" hidden>
+          <h2>{steps[7].q}</h2>
           <div class="gen-options gen-multi gen-wide" data-group="lifestyle" data-multi>
             {LIFESTYLE_CHOICES.map((c) => (
               <label class="gen-opt"><input type="checkbox" name="lifestyle" value={c.key} />
@@ -184,50 +220,51 @@ const steps = [
         </div>
 
         <!-- 8. 결과 -->
-        <div class="gen-step" data-step="7" hidden>
-          <h2>{steps[7].q}</h2>
+        <div class="gen-step" data-step="8" hidden>
+          <h2>{steps[8].q}</h2>
           <fieldset class="gen-algos" id="gen-algos">
             <legend>생성 알고리즘</legend>
             <p class="note">
-              '기존'은 평가 모델 점수로 바로 최적화합니다. 나머지는 실 배치를 <b>QUBO</b>(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들어 각 풀이기로 푼 뒤,
-              해를 평면으로 풀어 같은 기준으로 고릅니다. 여러 개를 고르면 같은 시간 예산·같은 시드로 한 번에 돌려 비교합니다.
+              실 배치를 <b>QUBO</b>(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들어 <b>SA(담금질)</b>로 풀고, 좋은 해를 평면으로 풀어 적합성 J(규칙 충족 + 목표 면적 + 선호)로 서로 다른 3안을 고릅니다.
+              다른 풀이기(tabu 계열·PT·SQA·SB·분기한정·열거)와 직접 탐색은 꺼 두었습니다. SA만 쓰는 이유: <a href={`${base}method/#sa-only`}>방법과 근거 5.0절</a>.
             </p>
             <div class="gen-algo-list">
               {algos.map((a) => (
                 <label class="gen-algo">
-                  <input type="checkbox" name="algo" value={a.key} checked={a.key === 'model'} />
+                  <input type="checkbox" name="algo" value={a.key} checked disabled />
                   <span>
-                    <strong>{a.name}</strong>{a.provisional && <em class="gen-badge">QPU 대체·잠정</em>}
+                    <strong>{a.name}</strong>
                     <span class="note">{a.family}{a.cite && a.cite !== '—' ? ` · ${a.cite}` : ''}</span>
                   </span>
                 </label>
               ))}
             </div>
             <div class="gen-algo-actions">
-              <button type="button" class="button-ghost small" id="gen-all">전부 선택</button>
-              <label class="gen-inline">풀이기당 시간
+              <label class="gen-inline">최대 시간
                 <select id="gen-budget">
-                  <option value="150">0.15초</option>
-                  <option value="300" selected>0.3초</option>
-                  <option value="1000">1초</option>
                   <option value="3000">3초</option>
+                  <option value="10000">10초</option>
+                  <option value="30000" selected>30초(기본)</option>
                 </select>
               </label>
-              <label class="gen-inline">QUBO 가중치
-                <select id="gen-weights">
-                  <option value="calibrated" selected>평가 모델로 보정</option>
-                  <option value="hand">손으로 정한 값</option>
+              <label class="gen-inline">멈춤 조건
+                <select id="gen-stop">
+                  {SAX.stop.map((r) => <option value={r.stopHits} selected={r.stopHits === SAX.defaultStop}>같은 최저를 {r.stopHits}번 다시 찾으면({stopLabel(r.stopHits)}){r.stopHits === SAX.defaultStop ? ', 기본' : ''}</option>)}
+                  <option value="full">끝까지(최대 시간까지 계속)</option>
                 </select>
               </label>
               <label class="gen-inline">시드 <input type="number" id="gen-seed" value="1" min="1" max="9999" /></label>
-              <button type="button" class="button-primary" id="gen-run">선택한 알고리즘으로 생성</button>
+              <button type="button" class="button-primary" id="gen-run">SA로 다시 생성</button>
               <button type="button" class="button-ghost small" id="gen-qubo">QUBO 내보내기(D-Wave·Gurobi용)</button>
             </div>
             <p class="note">
-              <b>풀이기당 시간</b>은 각 알고리즘이 QUBO를 푸는 데 쓰는 시간 한도입니다(같은 한도를 줘야 공정하게 비교됩니다). 해를 평면으로 풀고 채점하는 시간은 따로 듭니다.
-              이 크기(변수 18~45개)에서는 tabu 계열·CP-SAT 방식·전수 열거가 0.1초 안에 QUBO 최적에 닿으므로 시간을 늘려도 평면은 거의 좋아지지 않습니다.
-              SA·SQA·SB처럼 확률적인 풀이기는 시간을 늘리면 최적에 닿는 비율이 오릅니다. 평면 품질은 풀이 시간보다 QUBO 가중치(평가 모델과 얼마나 맞는가)가 좌우해서, 가중치를 평가 모델 점수로 다시 맞췄습니다.
+              <b>최대 시간</b>은 SA가 QUBO를 푸는 데 쓸 수 있는 한도이고, <b>멈춤 조건</b>은 그 전에 끝내는 규칙입니다. SA는 무작위 시작에서 여러 번 다시 풀며(재시작), 지금까지 찾은 가장 낮은 에너지를 정한 횟수만큼 다시 찾으면 더 낮은 해가 없다고 보고 멈춥니다. "끝까지"는 최대 시간을 다 씁니다. 해를 평면으로 풀고 고르는 시간은 따로 듭니다(측정값: evidence/results/sa-experiment.md, 최대 {SAX.maxMs / 1000}초 기준).
+              평면 품질은 풀이 시간보다 아래 QUBO 가중치(J와 얼마나 맞는가)가 좌우합니다.
             </p>
+            <details class="pl-what gen-qw" id="gen-qw" open>
+              <summary><b>QUBO 가중치</b>: 지금 고른 조건으로 만든 QUBO의 항별 계수</summary>
+              <div id="gen-qw-table"></div>
+            </details>
             <p class="note">
               내보낸 QUBO JSON은 <a href={`${base}qubo/solve_qubo.py`} download>solve_qubo.py</a>로 D-Wave(SA·Tabu·QPU·Hybrid)·Gurobi·CP-SAT에서 풀 수 있습니다.
               같은 QUBO에서 D-Wave SA·Tabu와 CP-SAT가 이 화면의 전수 열거로 구한 전역 최적해와 같은 에너지를 내는 것을 확인했습니다. QPU는 Leap 계정이 있어야 합니다.
@@ -236,6 +273,16 @@ const steps = [
           <div class="gen-progress" id="gen-progress" hidden>
             <div class="gen-bar"><i id="gen-bar"></i></div>
             <p class="note" id="gen-progress-text">평면을 만드는 중…</p>
+          </div>
+          <div id="gen-ff" hidden>
+            <div class="gen-toolbar">
+              <div class="seg gen-tabs" role="tablist" id="gen-ff-tabs"></div>
+              <button type="button" class="button-ghost small" id="gen-ff-more">다른 안 만들기</button>
+            </div>
+            <div class="gen-result">
+              <figure class="gen-plan" id="gen-ff-plan"></figure>
+              <div class="gen-detail" id="gen-ff-detail"></div>
+            </div>
           </div>
           <div id="gen-result" hidden>
             <div class="gen-toolbar">
@@ -332,10 +379,10 @@ const steps = [
             <summary>어떻게 만들고 고르나요?</summary>
             <ol>
               <li><b>생성</b>: 앞(발코니 쪽, 기본 남측) 띠에 거실과 침실을, 뒤 띠에 주방·현관·화장실·드레스룸을 두는 판상형 배치로 평면을 만듭니다(한국 평면의 거실 중심 배치, Seo 2007; Choi et al. 2014). 안방 뒤에는 부부욕실·드레스룸을 붙이고, 얕은 침실 뒤는 복도로 씁니다. 깊이, 실 순서, 위아래 쌓기, 면적 배분을 바꿔 가며 수백 개를 만듭니다.</li>
-              <li><b>선택</b>: 각 안을 AI 허브 SPA 라벨 형식으로 바꿔 내부 기준(실제 아파트 7,275장 분포와의 근접도 45%, 목표 면적 부합 25%, 고른 선호 30%)으로 고릅니다. 이 화면은 생성에 집중하려고 점수는 보여 주지 않습니다. 필수 실이 빠지거나 끊긴 평면과 너무 좁은 실(욕실 1.5m, 침실 2.4m, 안방 3.0m, 거실 3.6m 미만, 거실·침실 종횡비 2 초과)은 감점합니다. 무작위 탐색 뒤 상위 안을 국소 탐색으로 다듬고, 배치가 서로 다른 3안을 보여 줍니다.</li>
+              <li><b>선택</b>: 각 안을 AI 허브 SPA 라벨 형식으로 바꿔 적합성(시공 가능성 규칙 충족 45%, 목표 면적 부합 25%, 고른 선호 30%)으로 고릅니다. 필수 실이 빠지거나 끊기거나 침실을 지나야 하는 평면, 문으로 갈 수 없는 실, 그리고 너무 좁은 실(욕실 1.5m, 침실 2.4m, 안방 3.0m, 거실 3.6m 미만, 거실·침실 종횡비 2 초과)은 감점합니다. 무작위 탐색 뒤 상위 안을 국소 탐색으로 다듬고, 배치가 서로 다른 3안을 보여 줍니다.</li>
             </ol>
             <p class="note">내려받는 JSON은 AI 허브 Sample(02.라벨링데이터)과 같은 형식입니다: 23개 고정 범주, images·annotations, SPA(공간 다각형 + background), STR(벽체 철근콘크리트벽·기타벽, 출입문 여닫이문, 창호 미닫이창 + background), OBJ(설비 상자, segmentation 없이 bbox·rotation). 종이 4963×3509px에 1m = 100px로 놓고, 파일 이름은 APT_FP_종류_9자리 번호(9로 시작해 AI 허브 번호와 겹치지 않음)입니다.</p>
-            <p class="note">한계: 실은 직사각형이고 문·창·설비는 규칙으로 놓습니다(문으로 모든 실에 갈 수 있는지는 따로 점검). 고르는 기준은 실제 아파트(AI 허브 7,275장)와 얼마나 닮았나입니다. 방음은 배치로 줄일 수 있는 부분(소음원과 맞댄 침실 벽)만 근사합니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>
+            <p class="note">한계: 실은 직사각형이고 문·창·설비는 규칙으로 놓습니다(문으로 모든 실에 갈 수 있는지는 따로 점검). 고르는 기준은 시공 가능성 규칙과 고른 조건이며, 실제 도면과 닮았는지로 채점하지 않습니다. 방음은 배치로 줄일 수 있는 부분(소음원과 맞댄 침실 벽)만 근사합니다. 설계 검토 전 단계의 배치 아이디어로 써 주세요.</p>
           </details>
         </div>
 
@@ -359,7 +406,7 @@ const steps = [
     set:html={JSON.stringify({
       base,
       steps,
-      targets: choices.targets,
+      byBedrooms: Object.fromEntries(Object.entries(choices.byBedrooms).map(([b, o]) => [b, { roomSize: o.roomSize, master: o.master, targets: o.targets, composition: o.composition, living: o.living, etcMax: o.etcMax }])),
       living: choices.living,
       refs: refOf,
       syntax: SYNTAX_CHOICES.map(strip),

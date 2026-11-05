@@ -618,7 +618,7 @@ export function access(P, S) {
 export const unreachableRooms = (P, S) => access(P, S).unreach;
 
 /**
- * 공간구문(평가 모델과 같은 정의): 실 = 노드, 0.6m(2칸) 이상 맞닿으면 링크, 1.5㎡ 미만 고정 실(덕트)은 빼고,
+ * 공간구문(분석기와 같은 정의): 실 = 노드, 0.6m(2칸) 이상 맞닿으면 링크, 1.5㎡ 미만 고정 실(덕트)은 빼고,
  * 현관에 세대 밖(외부) 노드를 붙인다(Byun & Choi 2016의 규약). 통합도 = 1/RRA(Hillier & Hanson 1984).
  * 반환 { nodes: [{ k, type, depth, integration }], edges, livingBedroomRatio, kitchenBedroomRatio, genotypeTau, privacyDepthGap }
  */

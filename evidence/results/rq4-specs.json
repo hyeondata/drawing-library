@@ -1,41 +1,41 @@
 {
  "n": 80,
- "units": 17615,
+ "units": 16599,
  "mix": {
   "(3, 2, True, False)": {
-   "share": 0.43815416642572136,
-   "specs": 34
+   "share": 0.41044226044226045,
+   "specs": 32
   },
   "(2, 2, True, False)": {
-   "share": 0.0468975886196727,
+   "share": 0.04981572481572482,
    "specs": 3
   },
   "(3, 2, True, True)": {
-   "share": 0.09790088475105534,
+   "share": 0.09668304668304668,
    "specs": 7
   },
   "(3, 2, False, False)": {
-   "share": 0.18331116636789452,
-   "specs": 14
+   "share": 0.19471744471744473,
+   "specs": 15
   },
   "(4, 2, True, False)": {
-   "share": 0.18192332157520383,
-   "specs": 14
+   "share": 0.19324324324324324,
+   "specs": 15
   },
   "(4, 2, True, True)": {
-   "share": 0.01827328977042734,
+   "share": 0.01941031941031941,
    "specs": 2
   },
   "(4, 2, False, False)": {
-   "share": 0.01850459723587579,
+   "share": 0.019656019656019656,
    "specs": 2
   },
   "(2, 1, False, False)": {
-   "share": 0.009425779217024229,
+   "share": 0.010073710073710072,
    "specs": 2
   },
   "(3, 2, False, True)": {
-   "share": 0.005609206037124849,
+   "share": 0.005958230958230958,
    "specs": 2
   }
  },
@@ -268,34 +268,6 @@
    "area": 74,
    "bedrooms": 3,
    "baths": 2,
-   "dress": true,
-   "multi": false
-  },
-  {
-   "area": 84,
-   "bedrooms": 3,
-   "baths": 2,
-   "dress": true,
-   "multi": false
-  },
-  {
-   "area": 94,
-   "bedrooms": 3,
-   "baths": 2,
-   "dress": false,
-   "multi": false
-  },
-  {
-   "area": 101,
-   "bedrooms": 3,
-   "baths": 2,
-   "dress": false,
-   "multi": false
-  },
-  {
-   "area": 74,
-   "bedrooms": 3,
-   "baths": 2,
    "dress": false,
    "multi": false
   },
@@ -371,6 +343,27 @@
   },
   {
    "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 84,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 94,
    "bedrooms": 3,
    "baths": 2,
    "dress": false,
@@ -475,6 +468,20 @@
    "multi": false
   },
   {
+   "area": 125,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
    "area": 74,
    "bedrooms": 3,
    "baths": 2,
@@ -511,13 +518,6 @@
   },
   {
    "area": 84,
-   "bedrooms": 3,
-   "baths": 2,
-   "dress": true,
-   "multi": true
-  },
-  {
-   "area": 94,
    "bedrooms": 3,
    "baths": 2,
    "dress": true,
@@ -545,13 +545,6 @@
    "multi": false
   },
   {
-   "area": 125,
-   "bedrooms": 4,
-   "baths": 2,
-   "dress": true,
-   "multi": true
-  },
-  {
    "area": 135,
    "bedrooms": 4,
    "baths": 2,
@@ -562,11 +555,18 @@
    "area": 101,
    "bedrooms": 4,
    "baths": 2,
+   "dress": true,
+   "multi": true
+  },
+  {
+   "area": 114,
+   "bedrooms": 4,
+   "baths": 2,
    "dress": false,
    "multi": false
   },
   {
-   "area": 114,
+   "area": 125,
    "bedrooms": 4,
    "baths": 2,
    "dress": false,
@@ -587,14 +587,14 @@
    "multi": false
   },
   {
-   "area": 101,
+   "area": 94,
    "bedrooms": 3,
    "baths": 2,
    "dress": false,
    "multi": true
   },
   {
-   "area": 74,
+   "area": 101,
    "bedrooms": 3,
    "baths": 2,
    "dress": false,
