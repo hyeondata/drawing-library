@@ -135,12 +135,19 @@ function shuffle(a, r) {
   return b;
 }
 
-/**
- * 연구 생성기. 반환: { cands(상위 count개, 확률 높은 순), best, n(평가한 배치 수), sampled, ms, model }.
- * 각 후보: realize 결과 + { syntaxE, syntaxP(열거한 배치 전체에 대한 확률), stats, template }.
- */
-export function generateSyntax(spec, { seed = 1, count = 3, top = 12, refine = 30, onProgress } = {}) {
-  const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+/** 배치 하나(템플릿 t의 앞 띠 나머지 순서 rp, 뒤 띠 순서 bp)의 공간구문 통계량과 에너지. 연결되지 않거나 값이 없으면 null. */
+export function evalArrangement(spec, base, t, rp, bp) {
+  const front = ['master', ...rp];
+  const layout = buildLayout(spec, { ...base, frontOrder: front, backOrder: bp, align: true });
+  const g = layoutGraph(layout);
+  if (!connected(g.adj)) return null;
+  const f = syntaxStats(g);
+  if (f.some((x, j) => SYNTAX_MODEL.beta_raw[j] && !Number.isFinite(x))) return null;
+  return { front, back: bp, template: t.k, f, E: syntaxEnergy(f) };
+}
+
+/** 템플릿마다 배치를 전부 열거(MAX_ENUM 넘으면 고정 시드 표본)해 에너지를 잰다. 반환: { all, sampled, tpls, base }. */
+export function enumerateSyntax(spec, { seed = 1, onProgress } = {}) {
   const r = rng(seed * 7919 + 1);
   const tpls = templates(spec, 'hand');
   const all = [];
@@ -165,33 +172,47 @@ export function generateSyntax(spec, { seed = 1, count = 3, top = 12, refine = 3
       }
     }
     orders.forEach(([rp, bp], i) => {
-      const front = ['master', ...rp];
-      const layout = buildLayout(spec, { ...base, frontOrder: front, backOrder: bp, align: true });
-      const g = layoutGraph(layout);
-      if (!connected(g.adj)) return;
-      const f = syntaxStats(g);
-      if (f.some((x, j) => SYNTAX_MODEL.beta_raw[j] && !Number.isFinite(x))) return;
-      all.push({ front, back: bp, template: t.k, f, E: syntaxEnergy(f) });
-      if (onProgress && i % 500 === 0) onProgress((0.6 * (ti + i / orders.length)) / tpls.length);
+      const a = evalArrangement(spec, base, t, rp, bp);
+      if (a) all.push(a);
+      if (onProgress && i % 500 === 0) onProgress((ti + i / orders.length) / tpls.length);
     });
   });
-  if (!all.length) return null;
-  const Emin = Math.min(...all.map((a) => a.E));
-  const Z = all.reduce((s, a) => s + Math.exp(-(a.E - Emin)), 0);
-  all.sort((a, b) => a.E - b.E);
+  return { all, sampled, tpls, base };
+}
+
+/**
+ * 에너지가 낮은 배치(list, E 오름차순)부터 top개를 평면으로 풀고 필수 규칙·좁은 실·문 동선 점검을 통과한 서로 다른 안을 고른다.
+ * Emin·Z는 확률(syntaxP)을 매길 기준(열거한 전체 분포). 반환: 확률 순 후보 배열.
+ */
+export function pickPlans(spec, list, { seed = 1, count = 3, top = 12, refine = 30, Emin, Z, onProgress } = {}) {
   const cands = [];
-  for (const [i, a] of all.slice(0, top).entries()) {
+  const head = list.slice(0, top);
+  for (const [i, a] of head.entries()) {
     const c = realize(spec, { front: a.front, back: a.back }, rng(seed * 101 + i), refine, true);
-    onProgress?.(0.6 + (0.4 * (i + 1)) / Math.min(top, all.length));
+    onProgress?.((i + 1) / head.length);
     if (!c) continue;
     const ok = c.unit?.validity?.valid !== false && c.narrow === 0 && c.doorIssues === 0;
-    cands.push({ ...c, ok, syntaxE: a.E, syntaxP: Math.exp(-(a.E - Emin)) / Z, stats: a.f, template: a.template, order: { front: a.front, back: a.back } });
+    cands.push({ ...c, ok, syntaxE: a.E, syntaxP: Z ? Math.exp(-(a.E - Emin)) / Z : null, stats: a.f, template: a.template, order: { front: a.front, back: a.back } });
   }
   // 점검 통과 안을 확률 순으로 먼저, 그다음 통과 못 한 안을 적합성 J 순으로
   const pass = cands.filter((c) => c.ok).sort((a, b) => a.syntaxE - b.syntaxE);
   const fail = cands.filter((c) => !c.ok).sort((a, b) => b.objective - a.objective);
   const seen = new Set();
-  const ranked = [...pass, ...fail].filter((c) => !seen.has(c.signature) && seen.add(c.signature));
+  return [...pass, ...fail].filter((c) => !seen.has(c.signature) && seen.add(c.signature)).slice(0, count);
+}
+
+/**
+ * 연구 생성기. 반환: { cands(상위 count개, 확률 높은 순), best, n(평가한 배치 수), sampled, ms, model }.
+ * 각 후보: realize 결과 + { syntaxE, syntaxP(열거한 배치 전체에 대한 확률), stats, template }.
+ */
+export function generateSyntax(spec, { seed = 1, count = 3, top = 12, refine = 30, onProgress } = {}) {
+  const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  const { all, sampled } = enumerateSyntax(spec, { seed, onProgress: onProgress && ((p) => onProgress(0.6 * p)) });
+  if (!all.length) return null;
+  const Emin = Math.min(...all.map((a) => a.E));
+  const Z = all.reduce((s, a) => s + Math.exp(-(a.E - Emin)), 0);
+  all.sort((a, b) => a.E - b.E);
+  const ranked = pickPlans(spec, all, { seed, count, top, refine, Emin, Z, onProgress: onProgress && ((p) => onProgress(0.6 + 0.4 * p)) });
   const ms = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0;
-  return { cands: ranked.slice(0, count), best: ranked[0] || null, n: all.length, sampled, ms, model: { used: SYNTAX_MODEL.used, convention: SYNTAX_MODEL.convention } };
+  return { cands: ranked, best: ranked[0] || null, n: all.length, sampled, ms, model: { used: SYNTAX_MODEL.used, convention: SYNTAX_MODEL.convention } };
 }

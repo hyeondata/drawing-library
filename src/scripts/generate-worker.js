@@ -3,12 +3,20 @@
 import { compareAlgorithms } from '../generate/compare.js';
 import { optimize } from '../generate/optimize.js';
 import { buildQubo, toBqmJson } from '../generate/qubo.js';
+import { annealSyntax } from '../generate/syntax-sa.js';
 
 self.onmessage = (e) => {
   const { type = 'generate', spec, seed, id, algorithms, budgetMs, stopHits = null, weights = 'hand' } = e.data;
   try {
     if (type === 'qubo') {
       self.postMessage({ id, done: true, bqm: toBqmJson(buildQubo(spec, { weights })) });
+      return;
+    }
+    if (type === 'anneal') {
+      // 연구 생성기 에너지를 SA로(계산 시간 탭, generate-sa.js)
+      const sa = annealSyntax(spec, { seed, budgetMs, onTick: (tick) => self.postMessage({ id, tick }) });
+      if (!sa) throw new Error('연결된 배치가 없습니다');
+      self.postMessage({ id, done: true, sa });
       return;
     }
     if (type === 'compare') {

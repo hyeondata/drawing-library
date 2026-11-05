@@ -304,6 +304,19 @@ const steps = [
               <figure class="gen-plan" id="gen-plan"></figure>
               <div class="gen-detail" id="gen-detail"></div>
             </div>
+            <section class="gen-sa" id="gen-sa" aria-label="SA로 풀기">
+              <div class="gen-process-head">
+                <h3>SA로 풀기: 계산 시간별</h3>
+                <div class="seg gen-tabs" role="tablist" id="sa-tabs"></div>
+              </div>
+              <p class="note">위 연구 생성기와 같은 공간구문 에너지(E = Σ β·f)를 담금질(SA)로 최소화합니다. 계산 시간 탭마다 따로 돌아가고, 탭마다 다시 생성할 수 있습니다(누를 때마다 시드가 바뀜). 같은 조건의 배치를 전부 계산한 최저 에너지를 점선으로 함께 그려 SA가 최적에 언제 닿는지 보여 줍니다.</p>
+              <div class="gen-algo-actions"><button type="button" class="button-primary" id="sa-run">생성</button></div>
+              <div class="gen-progress" id="sa-progress" hidden>
+                <div class="gen-bar"><i id="sa-bar"></i></div>
+                <p class="note" id="sa-progress-text"></p>
+              </div>
+              <div id="sa-body"></div>
+            </section>
             <section class="gen-diag" id="gen-diag" aria-label="평면 진단" hidden></section>
             <section class="gen-process" id="gen-process" aria-label="생성 과정">
               <div class="gen-process-head">

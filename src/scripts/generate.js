@@ -12,6 +12,7 @@ import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate
 import { ACTIVE } from '../generate/solvers.js';
 import { TERMS, buildQubo, weightsOf } from '../generate/qubo.js';
 import { createOutlineRunner } from './generate-outline.js';
+import { createSaPanel } from './generate-sa.js';
 
 /** 화면이 쓰는 QUBO 가중치 세트(손으로 정한 값 + 공간구문 대리 항). */
 const WEIGHTS = 'hand';
@@ -391,6 +392,31 @@ $('#gen-qubo').addEventListener('click', () => {
   };
   w.postMessage({ type: 'qubo', id, spec: buildSpec(), weights: WEIGHTS });
 });
+// ---------- SA로 풀기(계산 시간 탭) ----------
+// 탭에서 고른 안을 위 결과 칸(평면·진단·생성 과정)으로 옮긴다. 연구 생성기와 같은 에너지라 key는 'syntax'로 둔다.
+createSaPanel({
+  root: $('#gen-sa'),
+  getSpec: buildSpec,
+  onAdopt: (t, o, i) => {
+    const res = {
+      key: 'syntax', name: `SA ${t.label}`, family: '공간구문 에너지 SA(순열 이동)', energy: o.bestE, template: o.cands[0]?.template ?? null, feasible: true, perTemplate: [], ms: o.saMs, evals: o.steps,
+      best: o.cands[0], cands: o.cands, budget: `SA ${t.label} · ${o.steps.toLocaleString()}걸음`,
+      time: { start: 0, phases: [{ label: 'SA', start: 0, end: o.saMs }], marks: [] },
+    };
+    state.spec = t.spec;
+    state.seed = t.seed;
+    state.compare = { qubo: state.compare?.qubo || { weights: WEIGHTS, templates: [], optimum: {} }, results: [res], rho: null, scatter: [], budgetMs: t.ms, seed: t.seed };
+    state.gallery = [];
+    state.timeline = null;
+    state.timeAt = null;
+    state.top = o.cands.map((c) => ({ ...c, tabLabel: `SA ${t.label} ${o.cands.indexOf(c) + 1}안`, algo: res }));
+    state.current = i;
+    state.ms = o.ms;
+    renderResult();
+    $('#gen-result').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  },
+});
+
 function setProgress(p, text) {
   $('#gen-bar').style.width = `${Math.round(p * 100)}%`;
   $('#gen-progress-text').textContent = text;
