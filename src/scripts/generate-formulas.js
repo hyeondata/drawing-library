@@ -1,6 +1,7 @@
 // 생성 화면의 '식과 변수': 이 안을 만든 변수를 바꿔 보며 식의 값·평면·영향(민감도)을 보여 주고, 식마다 근거 문헌을 단다.
 // 점수(평가)는 보여 주지 않는다. 결과는 치수·면적·문 동선 같은 생성 결과만 쓴다.
-import { buildLayout, MIN_SIDE, programOf } from '../generate/layout.js';
+import { buildLayout, HALL_W, programOf } from '../generate/layout.js';
+import { SYNTAX_MODEL } from '../generate/syntax-model-data.js';
 import { layoutSvg } from '../generate/render.js';
 import { GEN_REFS } from '../generate/refs.js';
 import { encode, features, TERMS } from '../generate/qubo.js';
@@ -11,14 +12,17 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const f2 = (v, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : '–');
 const EPS = 1e-6;
 
-const PARAMS = (spec) => {
+// 정렬 모드(QUBO + SA 생성기, layout.js p.align)에서는 작은방 깊이 = 앞 띠 깊이 − 복도 폭(고정), 안방 = 앞 띠 깊이 전체라
+// 작은방 폭 w·안방 깊이 비율 g가 평면에 쓰이지 않는다 → 정렬 모드 안에서는 D·f만 보여 준다.
+const PARAMS = (spec, align = fx.cand?.params?.align) => {
   const s = Math.sqrt(spec.area / 84) ** 0.6;
-  return [
+  const all = [
     { key: 'depth', sym: 'D', label: '평면 깊이 D', unit: 'm', min: +(7.0 * s).toFixed(2), max: +(9.8 * s).toFixed(2), step: 0.01, delta: (v) => v * 0.05, deltaText: '±5%' },
     { key: 'frontShare', sym: 'f', label: '앞 띠 비율 f', unit: '', min: 0.46, max: 0.68, step: 0.005, delta: () => 0.04, deltaText: '±0.04' },
     { key: 'bedWidth', sym: 'w', label: '작은방 폭 w', unit: 'm', min: 2.5, max: 3.6, step: 0.01, delta: () => 0.2, deltaText: '±0.2m' },
     { key: 'masterDepth', sym: 'g', label: '안방 깊이 비율 g', unit: '', min: 0.6, max: 1, step: 0.01, delta: () => 0.08, deltaText: '±0.08' },
   ];
+  return align ? all.filter((p) => p.key === 'depth' || p.key === 'frontShare') : all;
 };
 const OUTS = [
   { key: 'living', label: '거실 면적(㎡)', f: (L) => area(L.rooms.find((r) => r.key === 'living')) },
@@ -125,6 +129,7 @@ function drawCards(L, P) {
   const front = L.rooms.filter((r) => Math.abs(r.y + r.h - L.D) < EPS && r.type !== '발코니' && r.type !== '실외기실' && r.type !== '기타').sort((a, b) => a.x - b.x);
   const minOf = (r) => r.minW || 0;
   const vars = (keys) => `<span class="gen-fx-vars">영향 변수: ${keys.map((k) => `<button type="button" class="chip" data-focus="${k}">${esc(P.find((q) => q.key === k)?.label || k)}</button>`).join(' ')}</span>`;
+  const align = Boolean(p.align);
   const cards = [
     {
       title: '① 전용면적 → 평면 폭',
@@ -142,7 +147,16 @@ function drawCards(L, P) {
       vars: ['depth', 'frontShare'],
       refs: ['seo2007', 'choi2014', 'ju2020'],
     },
-    {
+    align
+      ? {
+          title: '③ 작은방 깊이와 복도',
+          formula: `d = D_앞 − 복도 폭(${HALL_W}m 고정)`,
+          values: frontBed ? `d = ${f2(Df)} − ${HALL_W} = <b>${f2(frontBed.h)}m</b>, 복도 폭 <b>${hall.length ? f2(Math.min(...hall.map((h) => h.h))) : 0}m</b>(${hall.length}곳)` : '이 안에는 앞 띠 작은방이 없습니다.',
+          why: '정렬 모드에서는 앞 띠 작은방 뒤에 항상 폭 1.2m 복도(별도 실)를 둡니다. 거실이 띠 끝이면 그쪽 복도는 없습니다. 이렇게 해야 QUBO 칸 모형이 본 맞닿음과 도면의 맞닿음이 같고(모든 배치에서 확인), 뒤 띠 침실로 가는 문 동선이 막히지 않습니다. 작은방 깊이는 D와 f로만 정해집니다.',
+          vars: ['depth', 'frontShare'],
+          refs: ['upasani2020', 'ham2017'],
+        }
+      : {
       title: '③ 작은방 깊이와 복도',
       formula: 'd = a ÷ w,  복도 폭 = D_앞 − d  (0.4m 미만이면 복도 없음, 1.1m 미만이면 1.1m)',
       values: aBed && frontBed ? `d = ${f2(aBed, 1)}㎡ ÷ ${f2(p.bedWidth)}m = ${f2(aBed / p.bedWidth)}m → 실제 깊이 <b>${f2(frontBed.h)}m</b>, 복도 폭 <b>${hall.length ? f2(Math.min(...hall.map((h) => h.h))) : 0}m</b>` : '이 안에는 앞 띠 작은방이 없습니다.',
@@ -150,7 +164,16 @@ function drawCards(L, P) {
       vars: ['bedWidth', 'frontShare', 'depth'],
       refs: ['upasani2020', 'ham2017'],
     },
-    {
+    align
+      ? {
+          title: '④ 안방과 부속실',
+          formula: 'd_안방 = D_앞(앞 띠 깊이 전체),  부속실(드레스룸·부부욕실)은 뒤 띠의 안방 아래 열',
+          values: master ? `d_안방 = <b>${f2(master.h)}m</b>${suite.length ? `, 부속실(${suite.map((r) => esc(r.name)).join('·')}) 깊이 <b>${suite.map((r) => f2(r.h)).join('·')}m</b>` : ''}` : '',
+          why: '정렬 모드에서는 안방을 띠 끝에 고정하고 앞 띠 깊이 전체를 쓰며, 그 아래 뒤 띠 열에 드레스룸·부부욕실을 쌓아 모두 안방과 맞닿게 합니다(master suite). 깊이는 D와 f로만 정해집니다.',
+          vars: ['depth', 'frontShare'],
+          refs: ['zeng2025'],
+        }
+      : {
       title: '④ 안방 깊이와 부속실',
       formula: 'd_안방 = D_앞 × g (부속실이 있고 D_앞 − d_안방 ≥ 0.6m일 때),  부속실 깊이 = D − d_안방',
       values: master ? `d_안방 = <b>${f2(master.h)}m</b>${suite.length ? `, 부속실(${suite.map((r) => esc(r.name)).join('·')}) 깊이 <b>${f2(suite[0].h)}m</b>` : ''}` : '',
@@ -177,8 +200,24 @@ function drawCards(L, P) {
       refs: ['seo2007', 'bafna2003'],
     },
   ];
-  // QUBO 에너지 분해: 이 안이 QUBO 풀이기에서 나왔으면 항별 기여 w_t·φ_t
-  if (fx.cand.algo && fx.cand.algo.key !== 'model' && fx.cand.params?.frontOrder) {
+  // 공간구문 모형 에너지 분해(QUBO + SA·열거 생성기): 항별 기여 β_j·f_j(syntax-model-data.js, 이 안의 그래프에서 잰 f)
+  if (Array.isArray(fx.cand.stats) && Number.isFinite(fx.cand.syntaxE)) {
+    const M = SYNTAX_MODEL;
+    const LBL = { O1: 'O1 거실 RRA', O2: 'O2 현관 RRA', O3: 'O3 공·사 깊이 차', O7: 'O7 주방 RRA', O2b: 'O2b 현관→거실 깊이' };
+    const contrib = M.used.map((k) => { const j = M.stats.indexOf(k); return { label: LBL[k] || k, b: M.beta_raw[j], f: fx.cand.stats[j], c: M.beta_raw[j] * fx.cand.stats[j] }; });
+    const m = Math.max(1e-6, ...contrib.map((r) => Math.abs(r.c)));
+    cards.push({
+      title: '⑦ 공간구문 에너지: 어떤 항이 이 배치를 골랐나',
+      formula: 'E(x) = Σ_j β_j · f_j(x)   (정확 QUBO에서는 + P × 제약 위반, 제약을 지키면 0)',
+      values: `E = <b>${f2(fx.cand.syntaxE, 3)}</b><div class="gen-fx-bars">${contrib
+        .map((r) => `<div class="gen-fx-bar"><span>${esc(r.label)}</span><i style="--w:${(Math.abs(r.c) / m) * 100}%;background:${r.c < 0 ? 'var(--series-1)' : 'var(--series-2)'}"></i><b class="mono">${d2(r.c)}</b><small class="mono">β ${f2(r.b, 3)} × f ${f2(r.f, 3)}</small></div>`)
+        .join('')}</div>`,
+      why: 'SA는 이 에너지가 낮은 배치를 찾습니다. 음수(파랑) 기여는 에너지를 낮추고 양수(주황)는 높입니다. β는 AI 허브 7,275장의 실제 평균에 모형 평균을 맞춘 값(최대 엔트로피)이라 이 화면의 조건과 무관하게 고정입니다. 같은 배치라도 치수(D·f)를 바꾸면 f가 바뀌지 않으므로 이 카드는 변수와 무관합니다.',
+      vars: [],
+      refs: ['lucas2014', 'glover2019'],
+    });
+  } else if (fx.cand.algo && fx.cand.algo.key !== 'model' && fx.cand.params?.frontOrder) {
+    // 손 가중치 QUBO(침실 1·5개 대체 경로): 항별 기여 w_t·φ_t
     try {
       const tpl = templates(spec, fx.weights).find((t) => t.k === fx.cand.template) || templates(spec, fx.weights)[0];
       const x = encode(tpl.q, fx.cand.params.frontOrder, fx.cand.params.backOrder);

@@ -134,7 +134,11 @@ $('#gen-next').addEventListener('click', () => show(Math.min(RESULT, state.step 
 $('#gen-prev').addEventListener('click', () => show(Math.max(0, state.step - 1)));
 document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => show(Number(b.dataset.goto))));
 form.addEventListener('submit', (e) => e.preventDefault());
+// 조건(1~8단계)의 선택지만 결과를 비운다. 결과 화면 안의 슬라이더·선택 상자(식과 변수, 영향 그림 등)의 change는 무시
+// (전에는 이것까지 받아 결과 목록을 지워서, 슬라이더를 만진 뒤 생성 과정 버튼이 멈췄다).
+const CONDITION_INPUTS = new Set(['shape', 'area', 'living', 'bedrooms', 'roomSize', 'master', 'composition', 'syntax', 'lifestyle']);
 form.addEventListener('change', (e) => {
+  if (!CONDITION_INPUTS.has(e.target.name)) return;
   if (e.target.name === 'composition') state.compositionTouched = true;
   if (e.target.name === 'bedrooms') {
     state.bedroomsTouched = true;
@@ -667,7 +671,7 @@ function stageText(c, stage) {
     case 2:
       return `<p>사각형을 <b>앞 띠(남)</b>와 <b>뒤 띠(북)</b>로 나눕니다. 앞 띠에는 거실·안방·작은방, 뒤 띠에는 주방·현관·욕실·드레스룸이 갑니다(한국 판상형의 거실 중심 배치).</p><p class="mth-formula">앞 띠 ${Df.toFixed(2)}m + 뒤 띠 ${Db.toFixed(2)}m = 깊이 ${L.D.toFixed(2)}m (앞 띠 비율 ${(Df / L.D).toFixed(2)})</p>`;
     case 3:
-      return `<p>각 띠에서 실의 순서(어느 실이 몇 번째 칸에 가는가)를 정합니다. 행 = 실, 열 = 칸이고 칠한 칸이 배정입니다(x = 1). ${qubo ? `이 안은 <b>${esc(c.algo.name)}</b>가 QUBO(실마다 칸 하나, 칸마다 실 하나 + 실 쌍 인접 항)를 풀어 나온 순서입니다.` : '이 안은 순서를 무작위로 바꿔 가며 찾은 것입니다.'}</p><div class="gen-matrices">${matrixSvg(front, '앞 띠')}${matrixSvg(back, '뒤 띠')}</div>`;
+      return `<p>각 띠에서 실의 순서(어느 실이 몇 번째 칸에 가는가)를 정합니다. 행 = 실, 열 = 칸이고 칠한 칸이 배정입니다(x = 1). ${c.algo?.key === 'quboSA' ? `이 안은 <b>QUBO + SA</b>가 공간구문 정확 QUBO(실마다 칸 하나·칸마다 실 하나 원-핫, 맞닿음·복도 존재·깊이 구조·최단 깊이 하한 제약, 목적 E = Σ β·f)를 풀어 나온 순서입니다. 에너지 ${Number(c.syntaxE).toFixed(3)}${c.algo.sa ? `(전수 열거 최저 E* ${c.algo.sa.exactMin.toFixed(3)})` : ''}.` : qubo ? `이 안은 <b>${esc(c.algo.name)}</b>가 QUBO(실마다 칸 하나, 칸마다 실 하나 + 실 쌍 인접 항)를 풀어 나온 순서입니다.` : '이 안은 순서를 무작위로 바꿔 가며 찾은 것입니다.'}</p><div class="gen-matrices">${matrixSvg(front, '앞 띠')}${matrixSvg(back, '뒤 띠')}</div>`;
     case 4:
       return `<p>칸마다 <b>최소 폭을 먼저</b> 주고(${minSideText(state.spec)} — 실제 아파트의 실별 짧은 변 하위 5% 비율 × 이 평면의 침실 한 변), 남는 폭은 원하는 폭(목표 면적 ÷ 깊이)이 최소 폭을 넘는 만큼에 비례해 나눕니다. 진한 부분이 최소 폭, 옅은 부분이 남는 몫입니다.</p><p class="mth-formula">폭 = 최소 폭 + (전체 − Σ최소 폭) × 초과분 ÷ Σ초과분</p>${widthSvg(front, L.W, '앞 띠')}${widthSvg(back, L.W, '뒤 띠')}`;
     case 5:
@@ -732,7 +736,7 @@ function renderMethod(c, stage, isModel, kinds) {
   }
   if ((stage === 1 || stage === 2 || stage === 4) && c.params) {
     const p = c.params;
-    run = `<p class="proc-run">이 안의 탐색 결과: 깊이 D ${Number(p.depth).toFixed(2)}m · 앞 띠 비율 f ${Number(p.frontShare).toFixed(2)} · 작은방 폭 w ${Number(p.bedWidth ?? 3).toFixed(2)}m · 안방 깊이 g ${Number(p.masterDepth ?? 1).toFixed(2)}</p>`;
+    run = `<p class="proc-run">이 안의 탐색 결과: 깊이 D ${Number(p.depth).toFixed(2)}m · 앞 띠 비율 f ${Number(p.frontShare).toFixed(2)}${p.align ? '(정렬 모드: 작은방 폭 w·안방 깊이 g는 쓰지 않음)' : ` · 작은방 폭 w ${Number(p.bedWidth ?? 3).toFixed(2)}m · 안방 깊이 g ${Number(p.masterDepth ?? 1).toFixed(2)}`}</p>`;
   }
   const tpl = document.querySelector(`template[data-proc-code="${stage}${useModel ? 'm' : ''}"]`);
   $('#proc-method').innerHTML = `<div class="proc-method-head"><b>${stage}단계에서 쓰인 규칙</b> ${badges(kinds)}</div><div class="proc-algo"><span><b>알고리즘</b> ${useModel ? g.modelAlgo : g.algo}</span><span><b>QUBO로 바꿀 수 있나</b> ${quboHtml(useModel ? g.modelQ : g.q, base)}</span></div>${rulesTable(rulesOf(stage, c, state.spec))}<details class="pl-what"><summary>이 단계는 어떻게 정해지나(설명)</summary><ul>${lines}</ul></details>${run}<details class="pl-what"><summary>배지(${kinds.map((k) => k === 'qubo' ? 'QUBO 최적화' : k === 'sa' ? '담금질 최적화' : k === 'rule' ? '규칙' : k === 'search' ? '탐색' : '평가').join('·')})는 무슨 뜻인가요?</summary>${kindsTable(kinds)}<p class="note">다섯 가지 방식 전체 비교: 생성 원리 0절</p></details><details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;

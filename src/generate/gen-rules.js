@@ -87,34 +87,42 @@ export function rulesOf(stage, c, spec) {
       const liv = by.living;
       const ent = by.entrance;
       const bedsAtEnt = indoor.filter((r) => r.type === '침실' && touches(r, ent)).map((r) => r.name);
-      if (qubo) {
+      if (qubo && (c.algo.key === 'quboSA' || c.algo.key === 'syntax')) {
+        const sa = c.algo.sa;
+        add(1, 'qubo', '실마다 칸 하나, 칸마다 실 하나 — 어기면 벌점 P(Σx − 1)², P = Σ|목적 계수| + 1', sa ? `SA 읽기 ${sa.reads.toLocaleString()}회 중 지킨 읽기 ${sa.valid.toLocaleString()}회 — 이 안은 지킨 읽기에서 나옴` : '이 안은 원-핫을 지킨 배치', true, [lit('lucas-onehot'), lit('glover-qap')]);
+        add(2, 'qubo', '맞닿음·복도 존재·깊이 구조(뿌리 거실·현관·주방)·최단 깊이 하한을 보조 변수 제약으로 둠 — 제약을 지키면 보조 변수가 도면 그래프와 같음', '정준 상태 에너지 = 그래프 값(템플릿 160개 모든 배치에서 오차 < 1e-9)', true, [lit('lucas-onehot'), data('모형 그래프 = 도면 그래프: 정렬 모드 모든 배치에서 일치(15,072/15,072)')]);
+        add(3, 'qubo', '목적 E = Σ β·f: 거실·현관·주방 RRA, 공·사 깊이 차, 현관→거실 깊이. β는 실제 평균에 맞춘 최대 엔트로피 값(조건과 무관하게 고정)', `이 안 E = ${Number(c.syntaxE).toFixed(3)}${sa ? ` · 전수 열거 최저 E* ${sa.exactMin.toFixed(3)}${Math.abs(c.syntaxE - sa.exactMin) < 1e-9 ? '(최적)' : ''}` : ''}`, sa ? Math.abs(c.syntaxE - sa.exactMin) < 1e-9 : null, [data('β = AI 허브 7,275장(거실 볼록 분할 P1)의 실제 평균에 모형 평균을 맞춘 값(적률 일치, Jaynes 1957; Park & Newman 2004)')]);
+      } else if (qubo) {
         const tpl = c.algo.perTemplate?.find((t) => t.k === c.algo.template);
         add(1, 'qubo', '실마다 칸 하나, 칸마다 실 하나 — 어기면 큰 벌점 P(Σx − 1)²', tpl ? (tpl.feasible ? '풀이기 해가 모두 지킴' : '풀이기 해가 어김 → 규칙으로 복구') : '—', tpl ? tpl.feasible : null, [lit('lucas-onehot'), lit('glover-qap'), lit('ayodele-penalty')]);
         add(2, 'qubo', '실 쌍 관계: 주방–거실·현관–거실은 맞닿으면 보상, 침실–현관은 맞닿으면 감점 (가중치는 손으로 정함)', `주방–거실 ${touches(kit, liv) ? '맞닿음' : '안 닿음'} · 현관–거실 ${touches(ent, liv) ? '맞닿음' : '안 닿음'} · 침실–현관 ${bedsAtEnt.length ? `맞닿음(${bedsAtEnt.join(', ')})` : '안 닿음'}`, !bedsAtEnt.length, [lit('seo-hall97'), lit('seo-bands'), lit('byun-living'), lit('ham-depth'), lit('park-privacy'), lit('jin-surrogate'), assume('가중치는 규칙·문헌으로 손으로 정하고 점수에 맞춰 보정하지 않음')]);
       } else add(1, 'search', '"기존: J 직접 탐색" — 실 순서와 치수를 무작위로 뽑고 조금씩 바꿔 J가 오르면 채택(QUBO 없음)', '이 안은 직접 탐색으로 만든 순서', null, [lit('michalek-hybrid'), lit('merrell-metropolis')]);
       const masterAtEnd = front.length && (front[0].key === 'master' || front.at(-1).key === 'master');
-      add(3, 'rule', '안방은 앞 띠의 끝 칸(가운데에 오면 가까운 끝으로 옮김) — 부속실을 뒤에 붙이려고', masterAtEnd ? '안방이 끝 칸' : '안방이 끝이 아님', masterAtEnd, [lit('seo-master'), lit('zeng-master'), data('선택 규칙: 안방에 딸린 부속실(실제 아파트 평면도 통과율 79.8%)'), assume('부속실을 뒤에 붙이기 위해 끝 칸에 둠')]);
+      add(qubo && (c.algo.key === 'quboSA' || c.algo.key === 'syntax') ? 4 : 3, 'rule', '안방은 앞 띠의 끝 칸(가운데에 오면 가까운 끝으로 옮김) — 부속실을 뒤에 붙이려고', masterAtEnd ? '안방이 끝 칸' : '안방이 끝이 아님', masterAtEnd, [lit('seo-master'), lit('zeng-master'), data('선택 규칙: 안방에 딸린 부속실(실제 아파트 평면도 통과율 79.8%)'), assume('부속실을 뒤에 붙이기 위해 끝 칸에 둠')]);
       const suite = ['bathMaster', 'dress'].filter((k) => by[k]);
-      if (suite.length) add(4, 'rule', '부부욕실·드레스룸은 배치 변수에서 빼고 안방 뒤에 붙임', suite.map((k) => `${name(k)} ${touches(by[k], by.master) ? '안방에 붙음' : '안방과 떨어짐'}`).join(' · '), suite.every((k) => touches(by[k], by.master)), [lit('ham-suite'), data('선택 규칙: 안방에 딸린 화장실·드레스룸(맞닿은 부속실 ÷ 필요한 부속실, 실제 아파트 평면도 통과율 79.8%)')]);
+      if (suite.length) add(qubo && (c.algo.key === 'quboSA' || c.algo.key === 'syntax') ? 5 : 4, 'rule', '부부욕실·드레스룸은 배치 변수에서 빼고 안방 뒤에 붙임', suite.map((k) => `${name(k)} ${touches(by[k], by.master) ? '안방에 붙음' : '안방과 떨어짐'}`).join(' · '), suite.every((k) => touches(by[k], by.master)), [lit('ham-suite'), data('선택 규칙: 안방에 딸린 화장실·드레스룸(맞닿은 부속실 ÷ 필요한 부속실, 실제 아파트 평면도 통과율 79.8%)')]);
       break;
     }
     case 4: {
       const minOf = (r) => r.minW || 0;
       const bandRooms = [...front, ...back].filter((r) => minOf(r));
       const bad = bandRooms.filter((r) => r.w < minOf(r) - 1e-6);
-      add(1, 'rule', `띠 폭을 나눌 때 최소 폭을 먼저: ${['화장실', '현관', '주방', '침실', '안방', '거실'].map((t) => `${t === '화장실' ? '욕실' : t} ${f2(L.minSide?.[t] ?? MIN_SIDE[t])}`).join(' · ')}m`, bad.length ? `미달: ${bad.map((r) => `${r.name} ${f2(r.w)}m < ${minOf(r)}m`).join(', ')}` : `모두 지킴(${bandRooms.map((r) => `${r.name} ${f2(r.w)}`).join(' · ')}m)`, !bad.length, [lit('upasani-dims'), lit('rodrigues-shc'), data('최소 폭 = 실제 한국 아파트(AI 허브 dev 묶음)의 실별 짧은 변 ÷ 침실 한 변의 하위 5% × 이 평면의 침실 한 변. 법정 최소 실 폭은 없음(주택건설기준 규정 제13조)')]);
+      add(1, 'rule', `띠 폭을 나눌 때 최소 폭을 먼저: ${['화장실', '현관', '주방', '침실', '안방', '거실'].map((t) => `${t === '화장실' ? '욕실' : t} ${f2(L.minSide?.[t] ?? MIN_SIDE[t])}`).join(' · ')}m`, bad.length ? `미달: ${bad.map((r) => `${r.name} ${f2(r.w)}m < ${minOf(r)}m`).join(', ')}` : `모두 지킴(${bandRooms.map((r) => `${r.name} ${f2(r.w)}`).join(' · ')}m)`, !bad.length, [lit('upasani-dims'), lit('rodrigues-shc'), data('최소 폭 = 실제 한국 아파트(AI 허브 7,275장 전체)의 실별 짧은 변 ÷ 침실 한 변의 하위 5% × 이 평면의 침실 한 변. 법정 최소 실 폭은 없음(주택건설기준 규정 제13조)')]);
       const sumF = front.reduce((s, r) => s + r.w, 0);
       add(2, 'rule', '남는 폭은 (원하는 폭 − 최소 폭)에 비례해 나눔. 원하는 폭 = 실 면적 ÷ 깊이', `앞 띠 폭 합 ${f2(sumF)}m = W ${f2(L.W)}m`, Math.abs(sumF - L.W) < 0.05, [assume('남는 폭을 (원하는 폭 − 최소 폭)에 비례해 나누는 방식은 이 도구의 설계')]);
-      add(3, 'search', '작은방 폭 w · 안방 깊이 비율 g · 실별 면적 배수는 치수 다듬기(30번)로 정함', `w ${f2(p.bedWidth ?? 3)}m · g ${f2(p.masterDepth ?? 1)}`, null, [lit('michalek-hybrid'), lit('rodrigues-shc')]);
+      if (L.aligned) add(3, 'search', '깊이 D · 앞 띠 비율 f · 실별 면적 배수는 치수 다듬기(30번)로 정함(정렬 모드라 작은방 폭 w·안방 깊이 g는 쓰지 않음)', `D ${f2(L.D)}m · f ${f2(p.frontShare ?? 0.57)}`, null, [lit('michalek-hybrid'), lit('rodrigues-shc')]);
+      else add(3, 'search', '작은방 폭 w · 안방 깊이 비율 g · 실별 면적 배수는 치수 다듬기(30번)로 정함', `w ${f2(p.bedWidth ?? 3)}m · g ${f2(p.masterDepth ?? 1)}`, null, [lit('michalek-hybrid'), lit('rodrigues-shc')]);
       add(4, 'eval', '최소 폭에 못 미치거나 거실·침실의 긴 변이 짧은 변의 2배를 넘는 실은 점수 J에서 15점씩 뺌', `이 안: ${c.narrow ?? 0}개`, !(c.narrow > 0), [lit('zeng-geom'), lit('upasani-dims'), assume('감점 15점과 장단비 2 기준은 설계 값')]);
       break;
     }
     case 5: {
       const halls = indoor.filter((r) => r.type === '기타');
-      add(1, 'rule', '작은방 깊이 = 면적 ÷ 작은방 폭. 앞 띠보다 0.4m 이상 얕으면 그 뒤를 복도로 쓰고, 복도 폭은 1.1m 이상 확보', halls.length ? `복도 ${halls.length}곳(폭 ${halls.map((h) => f2(h.h)).join('·')}m)` : '작은방이 앞 띠를 채워 복도 없음', halls.every((h) => h.h >= 1.1 - 1e-6), [lit('seo-corridor'), assume('0.4m·1.1m 기준은 통상 복도 폭에서 정한 값')]);
+      if (L.aligned) add(1, 'rule', '정렬 모드: 앞 띠 작은방 뒤에 항상 폭 1.2m 복도(별도 실)를 둠(작은방 깊이 = 앞 띠 깊이 − 1.2m). 거실이 띠 끝이면 그쪽 복도는 없음', halls.length ? `복도 ${halls.length}곳(폭 ${halls.map((h) => f2(h.h)).join('·')}m)` : '복도 없음', halls.every((h) => h.h >= 1.1 - 1e-6), [lit('seo-corridor'), data('볼록 공간 규약상 복도는 별도 노드(Hillier & Hanson 1984). 복도 폭 1.2m는 설계 값')]);
+      else add(1, 'rule', '작은방 깊이 = 면적 ÷ 작은방 폭. 앞 띠보다 0.4m 이상 얕으면 그 뒤를 복도로 쓰고, 복도 폭은 1.1m 이상 확보', halls.length ? `복도 ${halls.length}곳(폭 ${halls.map((h) => f2(h.h)).join('·')}m)` : '작은방이 앞 띠를 채워 복도 없음', halls.every((h) => h.h >= 1.1 - 1e-6), [lit('seo-corridor'), assume('0.4m·1.1m 기준은 통상 복도 폭에서 정한 값')]);
       const m = by.master;
       const suite = ['bathMaster', 'dress'].filter((k) => by[k]);
-      if (m) add(2, 'rule', '안방 깊이 = 앞 띠 깊이 × g (뒤에 0.6m 이상 남을 때). 남는 뒤쪽에 부부욕실·드레스룸', `안방 깊이 ${f2(m.h)}m / 앞 띠 ${f2(Df)}m${suite.length ? ` · 뒤쪽: ${suite.map(name).join('·')}` : ''}`, null, [lit('zeng-master'), lit('ham-suite'), assume('안방 깊이 비율 g의 범위 0.6~1')]);
+      if (m && L.aligned) add(2, 'rule', '정렬 모드: 안방은 띠 끝에 고정하고 앞 띠 깊이 전체를 씀. 그 아래 뒤 띠 열에 드레스룸 → 부부욕실을 쌓아 모두 안방과 맞닿게 함', `안방 깊이 ${f2(m.h)}m = 앞 띠 ${f2(Df)}m${suite.length ? ` · 아래 열: ${suite.map(name).join('·')}` : ''}`, null, [lit('zeng-master'), lit('ham-suite')]);
+      else if (m) add(2, 'rule', '안방 깊이 = 앞 띠 깊이 × g (뒤에 0.6m 이상 남을 때). 남는 뒤쪽에 부부욕실·드레스룸', `안방 깊이 ${f2(m.h)}m / 앞 띠 ${f2(Df)}m${suite.length ? ` · 뒤쪽: ${suite.map(name).join('·')}` : ''}`, null, [lit('zeng-master'), lit('ham-suite'), assume('안방 깊이 비율 g의 범위 0.6~1')]);
       break;
     }
     case 6: {
