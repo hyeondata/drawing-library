@@ -192,6 +192,7 @@ const shapeOf = () => radio('shape').value;
 function setMode() {
   const free = shapeOf() !== 'rect';
   $('#gen-algos').hidden = free;
+  $('#gen-sa').hidden = free;
   if (free) $('#gen-result').hidden = true;
   else $('#gen-ff').hidden = true;
 }
@@ -218,10 +219,9 @@ const selectedAlgos = () => [...document.querySelectorAll('input[name="algo"]:ch
 
 async function runCompare(algorithms, seed) {
   const spec = buildSpec();
-  const budgetMs = Number($('#gen-budget').value);
-  // 멈춤 조건: 같은 최저 에너지를 N번 다시 찾으면 멈춤, 'full'이면 최대 시간까지 계속
-  const stopSel = $('#gen-stop').value;
-  const stopHits = stopSel === 'full' ? null : Number(stopSel);
+  // 연구 생성기는 시간 예산을 쓰지 않는다. 침실 1·5개 대체(손 가중치 QUBO + SA)는 기존 기본값(30초, 같은 최저 10번이면 멈춤).
+  const budgetMs = 30000;
+  const stopHits = 10;
   state.spec = spec;
   state.seed = seed;
   const id = ++state.runId;
@@ -235,7 +235,7 @@ async function runCompare(algorithms, seed) {
     if (m.id !== state.runId) return;
     if (m.progress !== undefined) {
       const i = m.info;
-      const name = ALGO_NAME[m.key] || 'SA';
+      const name = ALGO_NAME[m.key] || ALGO_NAME[algorithms[0]] || '생성기';
       setProgress(m.progress, i ? `${name} 탐색 중… ${(i.ms / 1000).toFixed(1)}초 / 최대 ${(budgetMs / 1000).toFixed(0)}초${i.e !== null && i.e !== undefined ? ` · 지금까지 최저 에너지 ${i.e.toFixed(2)}` : ''}${stopHits ? ` · 같은 최저를 ${stopHits}번 다시 찾으면 멈춤` : ''}` : `${name} 해를 평면으로 풀고 다듬는 중…`);
     }
     if (m.error) setProgress(0, `만들지 못했습니다: ${m.error}`);
@@ -249,7 +249,12 @@ async function runCompare(algorithms, seed) {
       state.top = rs.length === 1 ? rs[0].cands.map((c, i) => ({ ...c, tabLabel: `${rs[0].name} ${i + 1}안`, algo: rs[0] })) : rs.map((r) => ({ ...r.best, tabLabel: r.name, algo: r }));
       state.current = 0;
       state.ms = performance.now() - t0;
-      $('#gen-progress').hidden = true;
+      // 끝난 것을 알 수 있게 완료 표시를 잠깐 두고 닫는다(연구 생성기는 1초 안에 끝나는 경우가 많다)
+      const r0 = m.compare.results[0];
+      setProgress(1, `완료: ${r0 ? r0.name : ''} · ${(state.ms / 1000).toFixed(1)}초${r0?.budget ? ` · ${r0.budget}` : ''}`);
+      setTimeout(() => {
+        if (id === state.runId) $('#gen-progress').hidden = true;
+      }, 2500);
       renderResult();
     }
   };
@@ -310,6 +315,7 @@ function renderCompare() {
     return;
   }
   const optOf = (k) => cmp.qubo.optimum?.[k] ?? null;
+  const syntaxOnly = cmp.results.every((r) => r.key === 'syntax');
   const rows = cmp.results
     .map((r, i) => {
       const b = r.best;
@@ -328,14 +334,14 @@ function renderCompare() {
   box.innerHTML = `
     <div class="gen-cmp">
       <table class="gen-table gen-cmp-table">
-        <thead><tr><th>알고리즘</th><th>QUBO 에너지 ↓</th><th>원-핫 제약</th><th>시간</th><th>문 동선 문제</th></tr></thead>
+        <thead><tr><th>알고리즘</th><th>${syntaxOnly ? '공간구문 에너지 ↓' : 'QUBO 에너지 ↓'}</th><th>원-핫 제약</th><th>시간</th><th>문 동선 문제</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <p class="note">
+      ${syntaxOnly ? `<p class="note">에너지 = 공간구문 최대 엔트로피 모형의 E = Σ β·f(낮을수록 실제 한국 아파트다움). ${esc(cmp.results[0].budget || '')}, 시드 ${cmp.seed}. 에너지가 낮은 배치 12개를 평면으로 풀어(치수 30번 다듬기) 점검을 통과한 서로 다른 3안을 보여 줍니다.</p>` : `<p class="note">
         가중치: ${cmp.qubo.weights === 'hand' ? '손으로 정한 값' : '직접 준 값'}. QUBO 템플릿 ${cmp.qubo.templates.length}개(앞 띠 침실 수가 다름): ${cmp.qubo.templates.map((t) => `앞 침실 ${t.k + 1}개 — 변수 ${t.n}개(앞 ${t.front.length}실×${t.front.length}칸, 뒤 ${t.back.length}실×${t.back.length}칸), 벌점 ${t.penalty}${optOf(t.k) !== null ? `, 최적 에너지 ${optOf(t.k).toFixed(2)}` : ''}`).join(' / ')}. 에너지는 같은 템플릿끼리만 비교합니다.
         풀이기마다 ${cmp.budgetMs}ms(템플릿마다 나눔)·시드 ${cmp.seed}로 한 번 돌리고, 좋은 해 최대 4개를 평면으로 풀어 깊이·폭을 30번 다듬은 뒤 가장 좋은 안을 보여 줍니다.
         <b>n = 1(한 번 실행)</b> — 시드를 바꿔 다시 돌려 보세요(SA의 시드 20개 측정값은 evidence/results/sa-experiment.md). SA는 D-Wave QPU 결과가 나오기 전까지의 임시 대체이며 양자 어닐링 결과가 아닙니다.
-      </p>
+      </p>`}
       <div class="gen-scatter" id="gen-scatter"></div>
       <button type="button" class="button-ghost small" id="gen-record">실행 기록 JSON</button>
     </div>`;
@@ -377,10 +383,8 @@ function renderCompare() {
 }
 
 $('#gen-run').addEventListener('click', () => {
-  const algos = selectedAlgos();
   const seed = Math.max(1, Number($('#gen-seed').value) || 1);
-  if (!algos.length) return setProgress(0, '알고리즘을 하나 이상 고르세요.');
-  runCompare(algos, seed);
+  runCompare(ACTIVE, seed);
 });
 $('#gen-qubo').addEventListener('click', () => {
   const w = getWorker();
@@ -394,7 +398,7 @@ $('#gen-qubo').addEventListener('click', () => {
 });
 // ---------- SA로 풀기(계산 시간 탭) ----------
 // 탭에서 고른 안을 위 결과 칸(평면·진단·생성 과정)으로 옮긴다. 연구 생성기와 같은 에너지라 key는 'syntax'로 둔다.
-createSaPanel({
+const saPanel = createSaPanel({
   root: $('#gen-sa'),
   getSpec: buildSpec,
   onAdopt: (t, o, i) => {

@@ -25,10 +25,15 @@ export function createSaPanel({ root, getSpec, onAdopt }) {
     return t.worker;
   }
 
-  function run(key) {
+  function run(key, seed = null) {
     const t = tabs[key];
+    if (t.running) {
+      active = key;
+      return render();
+    }
+    active = key;
     const spec = getSpec();
-    t.seed += 1;
+    t.seed = seed ?? t.seed + 1;
     t.spec = spec;
     t.running = true;
     t.out = null;
@@ -58,7 +63,7 @@ export function createSaPanel({ root, getSpec, onAdopt }) {
   function renderTabs() {
     $('#sa-tabs').innerHTML = SA_BUDGETS.map((b) => {
       const t = tabs[b.key];
-      const badge = t.running ? ' · 실행 중' : t.out ? ' · 완료' : '';
+      const badge = t.running ? ` · ${t.live?.decoding ? '평면 정리' : `${Math.round(Math.min(1, (t.live?.ms || 0) / t.ms) * 100)}%`}` : t.out ? ' · 완료' : '';
       return `<button type="button" role="tab" data-sa-tab="${b.key}" aria-selected="${b.key === active}" aria-pressed="${b.key === active}">${b.label}<small>${badge}</small></button>`;
     }).join('');
     $('#sa-tabs').querySelectorAll('[data-sa-tab]').forEach((el) => el.addEventListener('click', () => ((active = el.dataset.saTab), render())));
@@ -138,7 +143,7 @@ export function createSaPanel({ root, getSpec, onAdopt }) {
 
   root.querySelector('#sa-run').addEventListener('click', () => run(active));
   render();
-  return { render, reset: () => Object.values(tabs).forEach((t) => ((t.out = null), (t.live = null), t.runId++, (t.running = false))) };
+  return { run, render, reset: () => Object.values(tabs).forEach((t) => ((t.out = null), (t.live = null), t.runId++, (t.running = false))) };
 }
 
 // ---------- 그림 ----------

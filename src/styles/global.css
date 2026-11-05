@@ -5200,9 +5200,15 @@ a.gr-cite.lit:hover {
 
 /* SA로 풀기(계산 시간 탭, generate-sa.js) */
 .gen-sa {
-  margin-top: 28px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   display: grid;
-  gap: 12px;
+  gap: 10px;
+}
+.gen-sa h3 {
+  margin: 0;
 }
 .gen-sa .gen-tabs small {
   margin-left: 4px;
