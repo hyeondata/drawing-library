@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import itertools
+import math
 
 import dimod
 import networkx as nx
@@ -191,8 +192,37 @@ class AlignedQubo:
                 out[hn] = out.get(hn, 0.0) + w * d
         return out
 
+    def rra_objective(self, root, weight=1.0) -> dict:
+        """뿌리의 RRA를 정확한 이차식으로(Hillier & Hanson 1984 RA·D 값, HHG 1987).
+
+        RRA = α_k·TD + β_k, α_k = 2/((k−1)(k−2)D_k), β_k = −2/((k−2)D_k), k = 존재하는 노드 수.
+        정렬 틀에서 복도(hallA·hallB)는 거실이 앞 rest 칸의 끝에 있을 때 하나가 없어진다: e = x[거실,0] + x[거실,끝] ∈ {0,1}, k = n2 − e.
+        그래서 RRA = α₂·TD + β₂ + e·((α₁−α₂)·TD + (β₁−β₂)) — e·TD는 x·h 곱이라 이차. 반환: {변수: 계수, (변수, 변수): 계수, "": 상수}.
+        """
+        D = lambda k: 2 * (k * (math.log2((k + 2) / 3) - 1) + 1) / ((k - 1) * (k - 2))  # noqa: E731
+        a = lambda k: 2 / ((k - 1) * (k - 2) * D(k))  # noqa: E731
+        b = lambda k: -2 / ((k - 2) * D(k))  # noqa: E731
+        n2 = len(self.nodes)
+        td = self.total_depth(root)
+        out: dict = {}
+        if not self.halls:
+            for v, c in td.items():
+                out[v] = weight * a(n2) * c
+            out[""] = weight * b(n2)
+            return out
+        n1 = n2 - 1
+        for v, c in td.items():
+            out[v] = weight * a(n2) * c
+        out[""] = weight * b(n2)
+        ends = {self.xf("living", 0), self.xf("living", self.m1 - 1)}
+        for x in ends:
+            out[x] = out.get(x, 0.0) + weight * (b(n1) - b(n2))
+            for v, c in td.items():
+                out[(x, v)] = out.get((x, v), 0.0) + weight * (a(n1) - a(n2)) * c
+        return out
+
     def finalize(self, objective: dict) -> dimod.BinaryQuadraticModel:
-        P = sum(abs(c) for c in objective.values()) + 1.0
+        P = sum(abs(c) for k, c in objective.items() if k != "") + 1.0
         self.P = P
         bqm, t = self.bqm, self.t
         # 원-핫(앞 rest 실·칸, 뒤 실·칸)
@@ -227,7 +257,12 @@ class AlignedQubo:
         for lin, c in self.squares:
             self._sq(lin, c, P)
         for v, c in objective.items():
-            bqm.add_linear(v, c)
+            if v == "":
+                bqm.offset += c
+            elif isinstance(v, tuple):
+                bqm.add_quadratic(v[0], v[1], c)
+            else:
+                bqm.add_linear(v, c)
         return bqm
 
     def _sq(self, lin: dict, c: float, P: float):
