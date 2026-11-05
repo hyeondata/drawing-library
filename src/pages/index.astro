@@ -243,7 +243,7 @@ const steps = [
               <button type="button" class="button-primary" id="gen-run">연구 생성기로 다시 생성</button>
               <button type="button" class="button-ghost small" id="gen-qubo">QUBO 내보내기(D-Wave·Gurobi용)</button>
             </div>
-            <p class="note">연구 생성기는 배치를 전부 열거하므로 시간 설정이 없습니다. 같은 에너지를 담금질(SA)로 푸는 것은 아래 <b>SA로 풀기</b>에서 계산 시간을 골라 돌립니다.</p>
+            <p class="note">연구 생성기는 배치를 전부 열거하므로 시간 설정이 없습니다.</p>
             <details class="pl-what gen-qw" id="gen-qw" open>
               <summary><b>QUBO 가중치</b>: 지금 고른 조건으로 만든 QUBO의 항별 계수</summary>
               <div id="gen-qw-table"></div>
@@ -253,19 +253,6 @@ const steps = [
               같은 QUBO에서 D-Wave SA·Tabu와 CP-SAT가 이 화면의 전수 열거로 구한 전역 최적해와 같은 에너지를 내는 것을 확인했습니다. QPU는 Leap 계정이 있어야 합니다.
             </p>
           </fieldset>
-          <section class="gen-sa" id="gen-sa" aria-label="SA로 풀기">
-            <div class="gen-process-head">
-              <h3>SA로 풀기: 계산 시간 고르기</h3>
-              <div class="seg gen-tabs" role="tablist" id="sa-tabs"></div>
-            </div>
-            <p class="note">연구 생성기와 같은 공간구문 에너지(E = Σ β·f)를 담금질(SA)로 최소화합니다. 계산 시간 탭마다 따로 돌아가고, 탭마다 다시 생성할 수 있습니다(누를 때마다 시드가 바뀜). 같은 조건의 배치를 전부 계산한 최저 에너지를 점선으로 함께 그려 SA가 최적에 언제 닿는지 보여 줍니다.</p>
-            <div class="gen-algo-actions"><button type="button" class="button-primary" id="sa-run">생성</button></div>
-            <div class="gen-progress" id="sa-progress" hidden>
-              <div class="gen-bar"><i id="sa-bar"></i></div>
-              <p class="note" id="sa-progress-text"></p>
-            </div>
-            <div id="sa-body"></div>
-          </section>
           <div class="gen-progress" id="gen-progress" hidden>
             <div class="gen-bar"><i id="gen-bar"></i></div>
             <p class="note" id="gen-progress-text">평면을 만드는 중…</p>
