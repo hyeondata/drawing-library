@@ -39,9 +39,11 @@ WORKERS = os.cpu_count() or 8
 
 
 def instances():
-    ts = {t.id: t for t in load_templates()}
-    out = [("real 0/1", ts["0/1"]), ("real 52/2", ts["52/2"]), ("real 76/2", ts["76/2"])]
-    base = ts["52/2"]  # 앞 rest 3(거실·침실1·침실2), 뒤 4
+    ts = load_templates()
+    # 크기(앞 rest 실 수, 뒤 실 수)로 대표 템플릿을 고른다(사양 묶음이 바뀌어도 같은 크기 유형을 고르도록)
+    by = lambda m1, k: next(t for t in ts if len(t.front) - 1 == m1 and len(t.back) == k)  # noqa: E731
+    out = [(f"real {by(2, 4).id} (2+4)", by(2, 4)), (f"real {by(3, 4).id} (3+4)", by(3, 4)), (f"real {by(3, 5).id} (3+5)", by(3, 5))]
+    base = by(3, 4)  # 앞 rest 3(거실·침실 둘), 뒤 4
     extra_back = [("bed4", "침실"), ("bath3", "화장실"), ("util", "다목적공간"), ("bed5", "침실")]
     extra_front = [("bedF", "침실")]
     for nb, nf in [(2, 0), (3, 0), (3, 1), (4, 1)]:

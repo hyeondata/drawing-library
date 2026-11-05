@@ -2468,8 +2468,7 @@
   "m": 4,
   "k": 3,
   "suite": [
-   "bathMaster",
-   "dress"
+   "bathMaster"
   ],
   "types": {
    "living": "거실",
@@ -2479,8 +2478,7 @@
    "bed1": "침실",
    "bed2": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
+   "bathMaster": "화장실"
   }
  },
  {
@@ -2504,8 +2502,7 @@
   "m": 3,
   "k": 4,
   "suite": [
-   "bathMaster",
-   "dress"
+   "bathMaster"
   ],
   "types": {
    "living": "거실",
@@ -2515,8 +2512,7 @@
    "bed1": "침실",
    "bed2": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
+   "bathMaster": "화장실"
   }
  },
  {
@@ -3404,10 +3400,48 @@
   }
  },
  {
+  "id": "48/2",
+  "spec": {
+   "area": 101,
+   "bedrooms": 4,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed3"
+  ],
+  "m": 4,
+  "k": 4,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
+  }
+ },
+ {
   "id": "48/1",
   "spec": {
-   "area": 74,
-   "bedrooms": 3,
+   "area": 101,
+   "bedrooms": 4,
    "multi": false
   },
   "front": [
@@ -3419,12 +3453,14 @@
    "kitchen",
    "entrance",
    "bathPublic",
-   "bed2"
+   "bed2",
+   "bed3"
   ],
   "m": 3,
-  "k": 4,
+  "k": 5,
   "suite": [
-   "bathMaster"
+   "bathMaster",
+   "dress"
   ],
   "types": {
    "living": "거실",
@@ -3433,32 +3469,36 @@
    "master": "침실",
    "bed1": "침실",
    "bed2": "침실",
+   "bed3": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실"
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
   }
  },
  {
-  "id": "48/0",
+  "id": "49/3",
   "spec": {
-   "area": 74,
-   "bedrooms": 3,
+   "area": 114,
+   "bedrooms": 4,
    "multi": false
   },
   "front": [
    "living",
-   "master"
+   "master",
+   "bed1",
+   "bed2",
+   "bed3"
   ],
   "back": [
    "kitchen",
    "entrance",
-   "bathPublic",
-   "bed1",
-   "bed2"
+   "bathPublic"
   ],
-  "m": 2,
-  "k": 5,
+  "m": 5,
+  "k": 3,
   "suite": [
-   "bathMaster"
+   "bathMaster",
+   "dress"
   ],
   "types": {
    "living": "거실",
@@ -3467,15 +3507,17 @@
    "master": "침실",
    "bed1": "침실",
    "bed2": "침실",
+   "bed3": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실"
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
   }
  },
  {
   "id": "49/2",
   "spec": {
-   "area": 84,
-   "bedrooms": 3,
+   "area": 114,
+   "bedrooms": 4,
    "multi": false
   },
   "front": [
@@ -3487,12 +3529,14 @@
   "back": [
    "kitchen",
    "entrance",
-   "bathPublic"
+   "bathPublic",
+   "bed3"
   ],
   "m": 4,
-  "k": 3,
+  "k": 4,
   "suite": [
-   "bathMaster"
+   "bathMaster",
+   "dress"
   ],
   "types": {
    "living": "거실",
@@ -3501,32 +3545,36 @@
    "master": "침실",
    "bed1": "침실",
    "bed2": "침실",
+   "bed3": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실"
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
   }
  },
  {
-  "id": "49/1",
+  "id": "50/3",
   "spec": {
-   "area": 84,
-   "bedrooms": 3,
+   "area": 125,
+   "bedrooms": 4,
    "multi": false
   },
   "front": [
    "living",
    "master",
-   "bed1"
+   "bed1",
+   "bed2",
+   "bed3"
   ],
   "back": [
    "kitchen",
    "entrance",
-   "bathPublic",
-   "bed2"
+   "bathPublic"
   ],
-  "m": 3,
-  "k": 4,
+  "m": 5,
+  "k": 3,
   "suite": [
-   "bathMaster"
+   "bathMaster",
+   "dress"
   ],
   "types": {
    "living": "거실",
@@ -3535,15 +3583,17 @@
    "master": "침실",
    "bed1": "침실",
    "bed2": "침실",
+   "bed3": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실"
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
   }
  },
  {
   "id": "50/2",
   "spec": {
-   "area": 94,
-   "bedrooms": 3,
+   "area": 125,
+   "bedrooms": 4,
    "multi": false
   },
   "front": [
@@ -3555,12 +3605,14 @@
   "back": [
    "kitchen",
    "entrance",
-   "bathPublic"
+   "bathPublic",
+   "bed3"
   ],
   "m": 4,
-  "k": 3,
+  "k": 4,
   "suite": [
-   "bathMaster"
+   "bathMaster",
+   "dress"
   ],
   "types": {
    "living": "거실",
@@ -3569,32 +3621,36 @@
    "master": "침실",
    "bed1": "침실",
    "bed2": "침실",
+   "bed3": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실"
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
   }
  },
  {
-  "id": "50/1",
+  "id": "51/3",
   "spec": {
-   "area": 94,
-   "bedrooms": 3,
+   "area": 135,
+   "bedrooms": 4,
    "multi": false
   },
   "front": [
    "living",
    "master",
-   "bed1"
+   "bed1",
+   "bed2",
+   "bed3"
   ],
   "back": [
    "kitchen",
    "entrance",
-   "bathPublic",
-   "bed2"
+   "bathPublic"
   ],
-  "m": 3,
-  "k": 4,
+  "m": 5,
+  "k": 3,
   "suite": [
-   "bathMaster"
+   "bathMaster",
+   "dress"
   ],
   "types": {
    "living": "거실",
@@ -3603,15 +3659,17 @@
    "master": "침실",
    "bed1": "침실",
    "bed2": "침실",
+   "bed3": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실"
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
   }
  },
  {
   "id": "51/2",
   "spec": {
-   "area": 101,
-   "bedrooms": 3,
+   "area": 135,
+   "bedrooms": 4,
    "multi": false
   },
   "front": [
@@ -3623,46 +3681,14 @@
   "back": [
    "kitchen",
    "entrance",
-   "bathPublic"
+   "bathPublic",
+   "bed3"
   ],
   "m": 4,
-  "k": 3,
-  "suite": [
-   "bathMaster"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실"
-  }
- },
- {
-  "id": "51/1",
-  "spec": {
-   "area": 101,
-   "bedrooms": 3,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed2"
-  ],
-  "m": 3,
   "k": 4,
   "suite": [
-   "bathMaster"
+   "bathMaster",
+   "dress"
   ],
   "types": {
    "living": "거실",
@@ -3671,8 +3697,10 @@
    "master": "침실",
    "bed1": "침실",
    "bed2": "침실",
+   "bed3": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실"
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
   }
  },
  {
@@ -4436,235 +4464,7 @@
   }
  },
  {
-  "id": "62/3",
-  "spec": {
-   "area": 125,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2",
-   "bed3"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic"
-  ],
-  "m": 5,
-  "k": 3,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "62/2",
-  "spec": {
-   "area": 125,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed3"
-  ],
-  "m": 4,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "63/3",
-  "spec": {
-   "area": 135,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2",
-   "bed3"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic"
-  ],
-  "m": 5,
-  "k": 3,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "63/2",
-  "spec": {
-   "area": 135,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed3"
-  ],
-  "m": 4,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "64/2",
-  "spec": {
-   "area": 101,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed3"
-  ],
-  "m": 4,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "64/1",
-  "spec": {
-   "area": 101,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed2",
-   "bed3"
-  ],
-  "m": 3,
-  "k": 5,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "65/1",
+  "id": "62/1",
   "spec": {
    "area": 74,
    "bedrooms": 3,
@@ -4702,7 +4502,7 @@
   }
  },
  {
-  "id": "65/0",
+  "id": "62/0",
   "spec": {
    "area": 74,
    "bedrooms": 3,
@@ -4740,7 +4540,7 @@
   }
  },
  {
-  "id": "66/2",
+  "id": "63/2",
   "spec": {
    "area": 84,
    "bedrooms": 3,
@@ -4778,7 +4578,7 @@
   }
  },
  {
-  "id": "66/1",
+  "id": "63/1",
   "spec": {
    "area": 84,
    "bedrooms": 3,
@@ -4816,9 +4616,237 @@
   }
  },
  {
-  "id": "67/2",
+  "id": "64/2",
   "spec": {
    "area": 94,
+   "bedrooms": 3,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi"
+  ],
+  "m": 4,
+  "k": 4,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "64/1",
+  "spec": {
+   "area": 94,
+   "bedrooms": 3,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi",
+   "bed2"
+  ],
+  "m": 3,
+  "k": 5,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "65/2",
+  "spec": {
+   "area": 101,
+   "bedrooms": 3,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi"
+  ],
+  "m": 4,
+  "k": 4,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "65/1",
+  "spec": {
+   "area": 101,
+   "bedrooms": 3,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi",
+   "bed2"
+  ],
+  "m": 3,
+  "k": 5,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "66/1",
+  "spec": {
+   "area": 74,
+   "bedrooms": 3,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi",
+   "bed2"
+  ],
+  "m": 3,
+  "k": 5,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "66/0",
+  "spec": {
+   "area": 74,
+   "bedrooms": 3,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi",
+   "bed1",
+   "bed2"
+  ],
+  "m": 2,
+  "k": 6,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "67/2",
+  "spec": {
+   "area": 84,
    "bedrooms": 3,
    "multi": true
   },
@@ -4856,7 +4884,7 @@
  {
   "id": "67/1",
   "spec": {
-   "area": 94,
+   "area": 84,
    "bedrooms": 3,
    "multi": true
   },
@@ -4894,7 +4922,7 @@
  {
   "id": "68/2",
   "spec": {
-   "area": 101,
+   "area": 94,
    "bedrooms": 3,
    "multi": true
   },
@@ -4932,7 +4960,7 @@
  {
   "id": "68/1",
   "spec": {
-   "area": 101,
+   "area": 94,
    "bedrooms": 3,
    "multi": true
   },
@@ -4970,6 +4998,702 @@
  {
   "id": "69/1",
   "spec": {
+   "area": 59,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic"
+  ],
+  "m": 3,
+  "k": 3,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
+  }
+ },
+ {
+  "id": "69/0",
+  "spec": {
+   "area": 59,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed1"
+  ],
+  "m": 2,
+  "k": 4,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
+  }
+ },
+ {
+  "id": "70/1",
+  "spec": {
+   "area": 64,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic"
+  ],
+  "m": 3,
+  "k": 3,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
+  }
+ },
+ {
+  "id": "70/0",
+  "spec": {
+   "area": 64,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed1"
+  ],
+  "m": 2,
+  "k": 4,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
+  }
+ },
+ {
+  "id": "71/1",
+  "spec": {
+   "area": 74,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic"
+  ],
+  "m": 3,
+  "k": 3,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
+  }
+ },
+ {
+  "id": "71/0",
+  "spec": {
+   "area": 74,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed1"
+  ],
+  "m": 2,
+  "k": 4,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸"
+  }
+ },
+ {
+  "id": "72/3",
+  "spec": {
+   "area": 125,
+   "bedrooms": 4,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2",
+   "bed3"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi"
+  ],
+  "m": 5,
+  "k": 4,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "72/2",
+  "spec": {
+   "area": 125,
+   "bedrooms": 4,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi",
+   "bed3"
+  ],
+  "m": 4,
+  "k": 5,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "73/3",
+  "spec": {
+   "area": 135,
+   "bedrooms": 4,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2",
+   "bed3"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi"
+  ],
+  "m": 5,
+  "k": 4,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "73/2",
+  "spec": {
+   "area": 135,
+   "bedrooms": 4,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi",
+   "bed3"
+  ],
+  "m": 4,
+  "k": 5,
+  "suite": [
+   "bathMaster",
+   "dress"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "dress": "드레스룸",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "74/2",
+  "spec": {
+   "area": 101,
+   "bedrooms": 4,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed3"
+  ],
+  "m": 4,
+  "k": 4,
+  "suite": [
+   "bathMaster"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실"
+  }
+ },
+ {
+  "id": "74/1",
+  "spec": {
+   "area": 101,
+   "bedrooms": 4,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed2",
+   "bed3"
+  ],
+  "m": 3,
+  "k": 5,
+  "suite": [
+   "bathMaster"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실"
+  }
+ },
+ {
+  "id": "75/3",
+  "spec": {
+   "area": 114,
+   "bedrooms": 4,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2",
+   "bed3"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic"
+  ],
+  "m": 5,
+  "k": 3,
+  "suite": [
+   "bathMaster"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실"
+  }
+ },
+ {
+  "id": "75/2",
+  "spec": {
+   "area": 114,
+   "bedrooms": 4,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed3"
+  ],
+  "m": 4,
+  "k": 4,
+  "suite": [
+   "bathMaster"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bed3": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실"
+  }
+ },
+ {
+  "id": "76/1",
+  "spec": {
+   "area": 59,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic"
+  ],
+  "m": 3,
+  "k": 3,
+  "suite": [],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실"
+  }
+ },
+ {
+  "id": "76/0",
+  "spec": {
+   "area": 59,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed1"
+  ],
+  "m": 2,
+  "k": 4,
+  "suite": [],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실"
+  }
+ },
+ {
+  "id": "77/1",
+  "spec": {
+   "area": 64,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic"
+  ],
+  "m": 3,
+  "k": 3,
+  "suite": [],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실"
+  }
+ },
+ {
+  "id": "77/0",
+  "spec": {
+   "area": 64,
+   "bedrooms": 2,
+   "multi": false
+  },
+  "front": [
+   "living",
+   "master"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "bed1"
+  ],
+  "m": 2,
+  "k": 4,
+  "suite": [],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bathPublic": "화장실"
+  }
+ },
+ {
+  "id": "78/2",
+  "spec": {
+   "area": 101,
+   "bedrooms": 3,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1",
+   "bed2"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi"
+  ],
+  "m": 4,
+  "k": 4,
+  "suite": [
+   "bathMaster"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "78/1",
+  "spec": {
+   "area": 101,
+   "bedrooms": 3,
+   "multi": true
+  },
+  "front": [
+   "living",
+   "master",
+   "bed1"
+  ],
+  "back": [
+   "kitchen",
+   "entrance",
+   "bathPublic",
+   "multi",
+   "bed2"
+  ],
+  "m": 3,
+  "k": 5,
+  "suite": [
+   "bathMaster"
+  ],
+  "types": {
+   "living": "거실",
+   "kitchen": "주방",
+   "entrance": "현관",
+   "master": "침실",
+   "bed1": "침실",
+   "bed2": "침실",
+   "bathPublic": "화장실",
+   "bathMaster": "화장실",
+   "multi": "다목적공간"
+  }
+ },
+ {
+  "id": "79/1",
+  "spec": {
    "area": 74,
    "bedrooms": 3,
    "multi": true
@@ -4989,8 +5713,7 @@
   "m": 3,
   "k": 5,
   "suite": [
-   "bathMaster",
-   "dress"
+   "bathMaster"
   ],
   "types": {
    "living": "거실",
@@ -5001,12 +5724,11 @@
    "bed2": "침실",
    "bathPublic": "화장실",
    "bathMaster": "화장실",
-   "dress": "드레스룸",
    "multi": "다목적공간"
   }
  },
  {
-  "id": "69/0",
+  "id": "79/0",
   "spec": {
    "area": 74,
    "bedrooms": 3,
@@ -5027,608 +5749,6 @@
   "m": 2,
   "k": 6,
   "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "70/2",
-  "spec": {
-   "area": 84,
-   "bedrooms": 3,
-   "multi": true
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "multi"
-  ],
-  "m": 4,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "70/1",
-  "spec": {
-   "area": 84,
-   "bedrooms": 3,
-   "multi": true
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "multi",
-   "bed2"
-  ],
-  "m": 3,
-  "k": 5,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "71/2",
-  "spec": {
-   "area": 94,
-   "bedrooms": 3,
-   "multi": true
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "multi"
-  ],
-  "m": 4,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "71/1",
-  "spec": {
-   "area": 94,
-   "bedrooms": 3,
-   "multi": true
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "multi",
-   "bed2"
-  ],
-  "m": 3,
-  "k": 5,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "72/1",
-  "spec": {
-   "area": 59,
-   "bedrooms": 2,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic"
-  ],
-  "m": 3,
-  "k": 3,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "72/0",
-  "spec": {
-   "area": 59,
-   "bedrooms": 2,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed1"
-  ],
-  "m": 2,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "73/1",
-  "spec": {
-   "area": 64,
-   "bedrooms": 2,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic"
-  ],
-  "m": 3,
-  "k": 3,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "73/0",
-  "spec": {
-   "area": 64,
-   "bedrooms": 2,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed1"
-  ],
-  "m": 2,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸"
-  }
- },
- {
-  "id": "74/1",
-  "spec": {
-   "area": 74,
-   "bedrooms": 2,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic"
-  ],
-  "m": 3,
-  "k": 3,
-  "suite": [],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bathPublic": "화장실"
-  }
- },
- {
-  "id": "74/0",
-  "spec": {
-   "area": 74,
-   "bedrooms": 2,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed1"
-  ],
-  "m": 2,
-  "k": 4,
-  "suite": [],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bathPublic": "화장실"
-  }
- },
- {
-  "id": "75/1",
-  "spec": {
-   "area": 59,
-   "bedrooms": 2,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic"
-  ],
-  "m": 3,
-  "k": 3,
-  "suite": [],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bathPublic": "화장실"
-  }
- },
- {
-  "id": "75/0",
-  "spec": {
-   "area": 59,
-   "bedrooms": 2,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed1"
-  ],
-  "m": 2,
-  "k": 4,
-  "suite": [],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bathPublic": "화장실"
-  }
- },
- {
-  "id": "76/3",
-  "spec": {
-   "area": 114,
-   "bedrooms": 4,
-   "multi": true
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2",
-   "bed3"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "multi"
-  ],
-  "m": 5,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "76/2",
-  "spec": {
-   "area": 114,
-   "bedrooms": 4,
-   "multi": true
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "multi",
-   "bed3"
-  ],
-  "m": 4,
-  "k": 5,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "77/3",
-  "spec": {
-   "area": 125,
-   "bedrooms": 4,
-   "multi": true
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2",
-   "bed3"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "multi"
-  ],
-  "m": 5,
-  "k": 4,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "77/2",
-  "spec": {
-   "area": 125,
-   "bedrooms": 4,
-   "multi": true
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "multi",
-   "bed3"
-  ],
-  "m": 4,
-  "k": 5,
-  "suite": [
-   "bathMaster",
-   "dress"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실",
-   "dress": "드레스룸",
-   "multi": "다목적공간"
-  }
- },
- {
-  "id": "78/3",
-  "spec": {
-   "area": 135,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2",
-   "bed3"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic"
-  ],
-  "m": 5,
-  "k": 3,
-  "suite": [
    "bathMaster"
   ],
   "types": {
@@ -5638,117 +5758,9 @@
    "master": "침실",
    "bed1": "침실",
    "bed2": "침실",
-   "bed3": "침실",
    "bathPublic": "화장실",
-   "bathMaster": "화장실"
-  }
- },
- {
-  "id": "78/2",
-  "spec": {
-   "area": 135,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed3"
-  ],
-  "m": 4,
-  "k": 4,
-  "suite": [
-   "bathMaster"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실"
-  }
- },
- {
-  "id": "79/2",
-  "spec": {
-   "area": 101,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1",
-   "bed2"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed3"
-  ],
-  "m": 4,
-  "k": 4,
-  "suite": [
-   "bathMaster"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실"
-  }
- },
- {
-  "id": "79/1",
-  "spec": {
-   "area": 101,
-   "bedrooms": 4,
-   "multi": false
-  },
-  "front": [
-   "living",
-   "master",
-   "bed1"
-  ],
-  "back": [
-   "kitchen",
-   "entrance",
-   "bathPublic",
-   "bed2",
-   "bed3"
-  ],
-  "m": 3,
-  "k": 5,
-  "suite": [
-   "bathMaster"
-  ],
-  "types": {
-   "living": "거실",
-   "kitchen": "주방",
-   "entrance": "현관",
-   "master": "침실",
-   "bed1": "침실",
-   "bed2": "침실",
-   "bed3": "침실",
-   "bathPublic": "화장실",
-   "bathMaster": "화장실"
+   "bathMaster": "화장실",
+   "multi": "다목적공간"
   }
  }
 ]

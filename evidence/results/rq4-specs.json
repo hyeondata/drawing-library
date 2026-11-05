@@ -1,37 +1,41 @@
 {
  "n": 80,
- "units": 12297,
+ "units": 17615,
  "mix": {
   "(3, 2, True, False)": {
-   "share": 0.44100515892827424,
-   "specs": 35
+   "share": 0.43815416642572136,
+   "specs": 34
   },
   "(2, 2, True, False)": {
-   "share": 0.037277417207522055,
-   "specs": 2
-  },
-  "(3, 2, False, False)": {
-   "share": 0.22216674987518722,
-   "specs": 17
-  },
-  "(4, 2, True, False)": {
-   "share": 0.16816442003661175,
-   "specs": 13
+   "share": 0.0468975886196727,
+   "specs": 3
   },
   "(3, 2, True, True)": {
-   "share": 0.08828424030620736,
+   "share": 0.09790088475105534,
    "specs": 7
   },
-  "(2, 1, False, False)": {
-   "share": 0.009652188384090531,
-   "specs": 2
+  "(3, 2, False, False)": {
+   "share": 0.18331116636789452,
+   "specs": 14
+  },
+  "(4, 2, True, False)": {
+   "share": 0.18192332157520383,
+   "specs": 14
   },
   "(4, 2, True, True)": {
-   "share": 0.016974538192710935,
+   "share": 0.01827328977042734,
    "specs": 2
   },
   "(4, 2, False, False)": {
-   "share": 0.016475287069395907,
+   "share": 0.01850459723587579,
+   "specs": 2
+  },
+  "(2, 1, False, False)": {
+   "share": 0.009425779217024229,
+   "specs": 2
+  },
+  "(3, 2, False, True)": {
+   "share": 0.005609206037124849,
    "specs": 2
   }
  },
@@ -278,34 +282,6 @@
    "area": 94,
    "bedrooms": 3,
    "baths": 2,
-   "dress": true,
-   "multi": false
-  },
-  {
-   "area": 101,
-   "bedrooms": 3,
-   "baths": 2,
-   "dress": false,
-   "multi": false
-  },
-  {
-   "area": 74,
-   "bedrooms": 3,
-   "baths": 2,
-   "dress": false,
-   "multi": false
-  },
-  {
-   "area": 84,
-   "bedrooms": 3,
-   "baths": 2,
-   "dress": false,
-   "multi": false
-  },
-  {
-   "area": 94,
-   "bedrooms": 3,
-   "baths": 2,
    "dress": false,
    "multi": false
   },
@@ -486,6 +462,13 @@
   },
   {
    "area": 101,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": true,
+   "multi": false
+  },
+  {
+   "area": 114,
    "bedrooms": 4,
    "baths": 2,
    "dress": true,
@@ -557,23 +540,9 @@
   {
    "area": 74,
    "bedrooms": 2,
-   "baths": 1,
-   "dress": false,
-   "multi": false
-  },
-  {
-   "area": 59,
-   "bedrooms": 2,
-   "baths": 1,
-   "dress": false,
-   "multi": false
-  },
-  {
-   "area": 114,
-   "bedrooms": 4,
    "baths": 2,
    "dress": true,
-   "multi": true
+   "multi": false
   },
   {
    "area": 125,
@@ -586,8 +555,8 @@
    "area": 135,
    "bedrooms": 4,
    "baths": 2,
-   "dress": false,
-   "multi": false
+   "dress": true,
+   "multi": true
   },
   {
    "area": 101,
@@ -595,6 +564,41 @@
    "baths": 2,
    "dress": false,
    "multi": false
+  },
+  {
+   "area": 114,
+   "bedrooms": 4,
+   "baths": 2,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 59,
+   "bedrooms": 2,
+   "baths": 1,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 64,
+   "bedrooms": 2,
+   "baths": 1,
+   "dress": false,
+   "multi": false
+  },
+  {
+   "area": 101,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": true
+  },
+  {
+   "area": 74,
+   "bedrooms": 3,
+   "baths": 2,
+   "dress": false,
+   "multi": true
   }
  ]
 }

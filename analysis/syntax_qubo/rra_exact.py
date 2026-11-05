@@ -38,6 +38,8 @@ def main():
     sizes = []
     dink_ok = dink_n = 0
     iters = []
+    vary_k = 0
+    argmin_diff = {"living": 0, "entrance": 0}
     for t in ts:
         q0 = AlignedQubo(t)
         perms = [(rp, bp) for rp in itertools.permutations(q0.rest) for bp in itertools.permutations(t.back)]
@@ -53,6 +55,14 @@ def main():
                 worst = max(worst, abs(e - rra(q.graph(*p), root)))
                 n_checked += 1
         n_tpl += 1
+        gs = [q0.graph(*p) for p in perms]
+        vary_k += len({g.number_of_nodes() for g in gs}) > 1
+        for r in argmin_diff:
+            td = [sum(nx.single_source_shortest_path_length(g, r).values()) for g in gs]
+            ra = [rra(g, r) for g in gs]
+            a = {i for i, v in enumerate(td) if v == min(td)}
+            b = {i for i, v in enumerate(ra) if abs(v - min(ra)) < 1e-12}
+            argmin_diff[r] += a != b
         # Dinkelbach(O6): N = 평균 RRA(현관·욕실), D = 평균 RRA(거실·주방·침실). 각 단계 max N − λD를 열거로.
         ty = t.types
         vals = []
@@ -77,7 +87,7 @@ def main():
         dink_ok += abs(lam - best_ratio) < 1e-9
     L = ["# RQ2: RRA 목적의 정확 QUBO와 O6(비율)의 Dinkelbach 풀이\n"]
     L.append("> `SPECS=rq4 uv run python -m syntax_qubo.rra_exact` · 템플릿 160개 · 뿌리 거실·현관·주방\n")
-    L.append(f"- 왜 필요한가: 복도 존재가 배치에 따라 바뀌어 노드 수 k가 템플릿 안에서 달라진다(73/160). 그래서 총깊이 최소와 RRA 최소의 최적 배치가 다른 템플릿이 있다(거실 10개, 현관 21개). RQ4 판정(RRA)과 QUBO 목적을 맞추려고 RRA를 정확한 이차식으로 넣었다.")
+    L.append(f"- 왜 필요한가: 복도 존재가 배치에 따라 바뀌어 노드 수 k가 템플릿 안에서 달라진다({vary_k}/{n_tpl}). 그래서 총깊이 최소와 RRA 최소의 최적 배치가 다른 템플릿이 있다(거실 {argmin_diff['living']}개, 현관 {argmin_diff['entrance']}개). RQ4 판정(RRA)과 QUBO 목적을 맞추려고 RRA를 정확한 이차식으로 넣었다.")
     L.append(f"- 검증 1(정준 상태 에너지 = 그래프 RRA): 템플릿 {n_tpl} × 뿌리 3 × 모든 배치 = {n_checked:,}건, 최대 오차 **{worst:.1e}**.")
     import numpy as np
 

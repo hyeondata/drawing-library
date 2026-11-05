@@ -1,4 +1,4 @@
-"""RQ4 검정용 사양 묶음: 실제 dev 세대의 실 구성(침실 수 × 욕실 수 × 드레스룸 × 다목적공간) 분포에서 사양 N개를 비례 배정한다.
+"""RQ4 검정용 사양 묶음: 실제 세대(기본 7,275장 전체, SCOPE=dev면 dev)의 실 구성(침실 수 × 욕실 수 × 드레스룸 × 다목적공간) 분포에서 사양 N개를 비례 배정한다.
 
 왜: 지금 사양 20개는 서로 다른 구성이 15개뿐이고 손으로 고른 격자라 부트스트랩 군집이 적고(구간이 넓음) 실제 구성 비율과도 다르다.
 방법: dev 세대(정리된 그래프, 중복 포함 = 세대 비율) 구성 중 0.5% 이상인 것만, 최대 나머지 배정(구성마다 최소 2개).
@@ -14,7 +14,7 @@ from collections import Counter
 
 from heldout_compare import clean
 from real_vs_generated import RES
-from rq1_syntax import DER
+from rq1_syntax import DER, in_scope
 
 AREAS = {2: [59, 64, 74], 3: [74, 84, 94, 101], 4: [101, 114, 125, 135]}
 
@@ -23,7 +23,7 @@ def main(n=80):
     c = Counter()
     for line in (DER / "unit-graphs.jsonl").read_text().splitlines():
         o = json.loads(line)
-        if o["split"] != "dev":
+        if not in_scope(o):
             continue
         g = clean(o)
         if g is None:
@@ -36,6 +36,10 @@ def main(n=80):
     keep = {k: v / s for k, v in keep.items()}
     alloc = {k: max(2, int(n * p)) for k, p in keep.items()}
     rest = sorted(keep, key=lambda k: n * keep[k] - int(n * keep[k]), reverse=True)
+    # 최소 2개 규칙으로 n을 넘으면 가장 많이 받은 구성에서 뺀다
+    while sum(alloc.values()) > n:
+        top = max(alloc, key=lambda k: alloc[k])
+        alloc[top] -= 1
     i = 0
     while sum(alloc.values()) < n:
         alloc[rest[i % len(rest)]] += 1

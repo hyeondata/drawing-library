@@ -1,4 +1,4 @@
-// 실별 최소 폭을 실제 한국 아파트(dev 묶음)에서 정한다.
+// 실별 최소 폭을 실제 한국 아파트(기본: AI 허브 7,275장 전체, SCOPE=dev면 dev 묶음)에서 정한다.
 // 왜: 생성기의 MIN_SIDE(거실 3.6 m, 침실 2.4 m 등)는 근거가 없고, 법정 최소 실 폭도 없다(주택건설기준 규정 제13조).
 //   도면 축척은 상대값만 검증되어(scale-check) 절대 m로 바꿀 수 없으므로, 폭을 '그 세대 침실 한 변 중앙값'에 대한 비로 잰다.
 //   생성기는 이 비에 자기 침실 한 변(√침실 면적)을 곱해 m로 쓴다 — 축척과 무관.
@@ -15,7 +15,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dataDir = path.join(root, '..', 'aihub-full', 'TL_SPA');
 requireDataDir(dataDir);
 const test = new Set(JSON.parse(fs.readFileSync(path.join(root, 'data', 'split.json'), 'utf8')).test);
-const files = fs.readdirSync(dataDir).filter((f) => f.startsWith('APT_FP_SPA_') && f.endsWith('.json') && !test.has(f));
+const files = fs.readdirSync(dataDir).filter((f) => f.startsWith('APT_FP_SPA_') && f.endsWith('.json') && (process.env.SCOPE === 'dev' ? !test.has(f) : true));
 const TYPES = ['안방', '침실', '거실', '주방', '화장실', '현관', '드레스룸', '다목적공간'];
 const vals = Object.fromEntries(TYPES.map((t) => [t, []]));
 const seen = new Set();
@@ -51,7 +51,7 @@ fs.writeFileSync(path.join(root, 'evidence', 'results', 'min-width-from-data.jso
 const ratio = Object.fromEntries(Object.entries(out.ratio).map(([t, r]) => [t, Number(r.q05.toFixed(3))]));
 fs.writeFileSync(
   path.join(root, 'src', 'generate', 'min-width.js'),
-  `// scripts/min-width-from-data.mjs가 만든 파일(손대지 말 것).\n// 실별 최소 폭 = 이 비 × 그 평면 침실 한 변(√침실 면적 중앙값). 비는 한국 실제 아파트(AI 허브 dev 묶음, 서로 다른 평면 ${units.toLocaleString('en-US')}세대)의\n// 실별 짧은 변(회전 MBR) ÷ 같은 세대 침실 한 변 중앙값의 하위 5% 분위수. 법정 최소 실 폭은 없다(주택건설기준 규정 제13조).\nexport const MIN_WIDTH_RATIO = ${JSON.stringify(ratio, null, 2)};\n`,
+  `// scripts/min-width-from-data.mjs가 만든 파일(손대지 말 것).\n// 실별 최소 폭 = 이 비 × 그 평면 침실 한 변(√침실 면적 중앙값). 비는 한국 실제 아파트(AI 허브 ${process.env.SCOPE === 'dev' ? 'dev 묶음' : '7,275장 전체'}, 서로 다른 평면 ${units.toLocaleString('en-US')}세대)의\n// 실별 짧은 변(회전 MBR) ÷ 같은 세대 침실 한 변 중앙값의 하위 5% 분위수. 법정 최소 실 폭은 없다(주택건설기준 규정 제13조).\nexport const MIN_WIDTH_RATIO = ${JSON.stringify(ratio, null, 2)};\n`,
 );
 console.log(`${((Date.now() - t0) / 1000).toFixed(0)}s units ${units} dup ${dup}`);
 for (const [t, r] of Object.entries(out.ratio)) console.log(t.padEnd(6), r.n, 'q05', r.q05.toFixed(3), 'q10', r.q10.toFixed(3), 'med', r.median.toFixed(3));

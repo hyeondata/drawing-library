@@ -146,7 +146,7 @@ def main():
     L.append("|---|---|---|---|---|---|")
     L.append("| 현 정렬 틀(09-13 15절) | 0.304 / 0.439 / 0.661 | 아니오 | 4.80 | 67% | 1.44 |")
     L.append(f"| **뒤 띠 분할 틀** | **{lo:.3f}** / {un:.3f} / {hi:.3f} | {'**예**' if lo <= real <= hi else '아니오'} | {deg:.2f} | {bt:.0%} | {l2:.2f} |")
-    L.append(f"| 실제 dev | 평균 {real:.3f} | — | 7 (중앙값) | 96% | 1.02 |")
+    L.append(f"| 실제 | 평균 {real:.3f} | — | 7 (중앙값) | 96% | 1.02 |")
     RES.joinpath("split-frame-precheck.md").write_text("\n".join(L) + "\n")
     print("\n".join(L))
 
