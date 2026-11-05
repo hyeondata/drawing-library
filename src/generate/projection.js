@@ -93,3 +93,62 @@ export function sameGraph(a, b) {
   }
   return true;
 }
+
+/**
+ * 투영 평면 SVG: 고운 칸을 실별로 칠하고(가로 줄 단위로 묶어 그림), 실 경계·외곽선은 칸 경계에서 그린다.
+ * 문·창·설비는 그리지 않는다(직사각형 평면의 규칙이 외곽에 맞춰 검증되지 않았기 때문).
+ */
+export function projSvg(pr, { title = '', fillOf, nameOf = (r) => r.name }) {
+  const { grid, rooms, fm } = pr;
+  const S = 40;
+  const pad = 30;
+  const c = fm.cell;
+  const W = fm.nx * c;
+  const H = fm.ny * c;
+  const parts = [];
+  for (let j = 0; j < fm.ny; j++)
+    for (let i = 0; i < fm.nx; ) {
+      const k = grid[j * fm.nx + i];
+      let e = i + 1;
+      while (e < fm.nx && grid[j * fm.nx + e] === k) e++;
+      if (k >= 0) parts.push(`<rect x="${(pad + i * c * S).toFixed(1)}" y="${(pad + j * c * S).toFixed(1)}" width="${((e - i) * c * S + 0.6).toFixed(1)}" height="${(c * S + 0.6).toFixed(1)}" fill="${fillOf(rooms[k].type)}"/>`);
+      i = e;
+    }
+  // 경계: 다른 실(또는 바깥)과 닿는 칸 변
+  const seg = [];
+  const at = (i, j) => (i < 0 || j < 0 || i >= fm.nx || j >= fm.ny ? -1 : grid[j * fm.nx + i]);
+  for (let j = 0; j <= fm.ny; j++)
+    for (let i = 0; i < fm.nx; i++) {
+      const a = at(i, j - 1);
+      const b = at(i, j);
+      if (a !== b) seg.push([i, j, i + 1, j, a < 0 || b < 0]);
+    }
+  for (let i = 0; i <= fm.nx; i++)
+    for (let j = 0; j < fm.ny; j++) {
+      const a = at(i - 1, j);
+      const b = at(i, j);
+      if (a !== b) seg.push([i, j, i, j + 1, a < 0 || b < 0]);
+    }
+  const P = (v) => (pad + v * c * S).toFixed(1);
+  const path = (outer) => seg.filter((s) => s[4] === outer).map(([x0, y0, x1, y1]) => `M${P(x0)} ${P(y0)}L${P(x1)} ${P(y1)}`).join('');
+  parts.push(`<path d="${path(false)}" stroke="#2b2a33" stroke-width="3" fill="none"/>`, `<path d="${path(true)}" stroke="#2b2a33" stroke-width="6" fill="none" stroke-linecap="square"/>`);
+  // 실 이름·면적: 실 칸의 중심에 가장 가까운 칸
+  rooms.forEach((r, k) => {
+    if (!pr.cellsOf[k]) return;
+    let sx = 0;
+    let sy = 0;
+    const cells = [];
+    for (let s = 0; s < grid.length; s++) if (grid[s] === k) (sx += s % fm.nx, sy += Math.floor(s / fm.nx), cells.push(s));
+    const cx = sx / cells.length;
+    const cy = sy / cells.length;
+    const best = cells.reduce((b, s) => { const d = (s % fm.nx - cx) ** 2 + (Math.floor(s / fm.nx) - cy) ** 2; return d < b[1] ? [s, d] : b; }, [cells[0], Infinity])[0];
+    const x = pad + ((best % fm.nx) + 0.5) * c * S;
+    const y = pad + (Math.floor(best / fm.nx) + 0.5) * c * S;
+    const big = pr.area[k] >= 4;
+    parts.push(`<text x="${x.toFixed(1)}" y="${(y - (big ? 4 : 0)).toFixed(1)}" text-anchor="middle" font-size="${big ? 15 : 10}" font-weight="600" fill="#2b2a33">${nameOf(r)}</text>`);
+    if (big) parts.push(`<text x="${x.toFixed(1)}" y="${(y + 13).toFixed(1)}" text-anchor="middle" font-size="11" fill="#55535f">${pr.area[k].toFixed(1)}㎡</text>`);
+  });
+  const vw = W * S + pad * 2;
+  const vh = H * S + pad * 2 + 30;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${vw.toFixed(0)} ${vh.toFixed(0)}" role="img" aria-label="${title}" style="background:#fff">${parts.join('')}<text x="${(vw / 2).toFixed(0)}" y="${(vh - 8).toFixed(0)}" text-anchor="middle" font-size="16" font-weight="700" fill="#2b2a33">${title}</text></svg>`;
+}

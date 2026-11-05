@@ -6,6 +6,9 @@ import { minSidesFor } from '../generate/layout.js';
 import { syntaxSupported } from '../generate/syntax-gen.js';
 import { SYNTAX_MODEL } from '../generate/syntax-model-data.js';
 import { saPanelHtml } from './generate-sa-view.js';
+import { fineMask, project, projSvg } from '../generate/projection.js';
+import { largest, maskFromUnit } from '../freeform/outline.js';
+import { roomGroupOf } from '../model/drawing-style.js';
 import { renderFormulas } from './generate-formulas.js';
 import { renderDiagnosis } from './generate-diagnosis.js';
 import { deviation } from '../generate/metrics.js';
@@ -220,8 +223,17 @@ function getWorker() {
 // 0단계에서 직사각형이 아닌 외곽을 고르면 자유형 엔진으로 만든다(generate-outline.js).
 const outlineRunner = createOutlineRunner({ base, setProgress: (p, t) => setProgress(p, t), $ });
 const shapeOf = () => radio('shape').value;
+// 외곽 투영(검증을 통과한 외곽 × 침실 수): 직사각형과 같은 QUBO + SA로 만들고 외곽에 잘라 넣는다.
+const projectable = () => shapeOf() !== 'rect' && (data.projPass?.[shapeOf()] || []).includes(Number(radio('bedrooms').value));
+const runKey = () => JSON.stringify({ ...buildSpec(), shape: shapeOf() });
+let outlinesP = null;
+async function projMask(shape, area) {
+  outlinesP ??= fetch(`${base}data/outlines.json`).then((r) => r.json());
+  const o = (await outlinesP).outlines.find((x) => x.id === shape);
+  return largest(maskFromUnit(o.rep, area));
+}
 function setMode() {
-  const free = shapeOf() !== 'rect';
+  const free = shapeOf() !== 'rect' && !projectable();
   $('#gen-algos').hidden = free;
   if (free) $('#gen-result').hidden = true;
   else $('#gen-ff').hidden = true;
@@ -230,6 +242,15 @@ $('#gen-ff-more').addEventListener('click', () => run(state.seed + 3));
 
 async function run(seed = state.seed) {
   setMode();
+  if (projectable()) {
+    const spec0 = buildSpec();
+    const mask = await projMask(shapeOf(), spec0.area);
+    const W = mask.nx * 0.3;
+    const D = mask.ny * 0.3;
+    state.proj = { shape: shapeOf(), mask, W, D, area0: spec0.area };
+    return runCompare(ACTIVE, seed, { spec: { ...spec0, area: W * D }, frame: { depth: D } });
+  }
+  state.proj = null;
   if (shapeOf() !== 'rect') {
     state.seed = seed;
     $('#gen-ff').hidden = true;
@@ -247,8 +268,10 @@ async function run(seed = state.seed) {
 const ALGO_NAME = Object.fromEntries([...document.querySelectorAll('input[name="algo"]')].map((i) => [i.value, i.closest('label').querySelector('strong').textContent]));
 const selectedAlgos = () => [...document.querySelectorAll('input[name="algo"]:checked')].map((i) => i.value);
 
-async function runCompare(algorithms, seed) {
-  const spec = buildSpec();
+async function runCompare(algorithms, seed, opt = {}) {
+  if (!opt.spec && projectable()) return run(seed); // 다시 생성·시간 탭도 투영 경로로
+  if (!opt.spec) state.proj = null;
+  const spec = opt.spec || buildSpec();
   // 계산 시간 탭(30초·1분·3분)이 SA 예산이다. 침실 1·5개 대체(손 가중치 QUBO + SA)는 같은 예산에 '같은 최저 10번이면 멈춤'.
   const budgetMs = state.budgetMs;
   const stopHits = 10;
@@ -282,7 +305,8 @@ async function runCompare(algorithms, seed) {
       state.top = rs.length === 1 ? rs[0].cands.map((c, i) => ({ ...c, tabLabel: `${rs[0].name} ${i + 1}안`, algo: rs[0] })) : rs.map((r) => ({ ...r.best, tabLabel: r.name, algo: r }));
       state.current = 0;
       state.ms = performance.now() - t0;
-      state.saRuns[budgetMs] = { specKey: JSON.stringify(spec), seed, compare: state.compare, top: state.top, ms: state.ms };
+      if (state.proj) for (const c of state.top) c.proj = project(c.layout, fineMask(state.proj.mask));
+      state.saRuns[budgetMs] = { specKey: runKey(), seed, proj: state.proj, compare: state.compare, top: state.top, ms: state.ms };
       renderBudgetTabs();
       // 끝난 것을 알 수 있게 완료 표시를 잠깐 두고 닫는다(연구 생성기는 1초 안에 끝나는 경우가 많다)
       const r0 = m.compare.results[0];
@@ -293,7 +317,7 @@ async function runCompare(algorithms, seed) {
       renderResult();
     }
   };
-  w.postMessage({ type: 'compare', id, spec, seed, algorithms, budgetMs, stopHits, weights: WEIGHTS });
+  w.postMessage({ type: 'compare', id, spec, seed, algorithms, budgetMs, stopHits, weights: WEIGHTS, frame: opt.frame || null });
 }
 
 // QUBO 에너지와 적합성 산점도: 풀이기가 낸 후보(템플릿별)를 평면으로 풀어 잰 점수와 그 해의 에너지.
@@ -426,7 +450,7 @@ $('#gen-run').addEventListener('click', () => {
 // ---------- 계산 시간 탭(30초·1분·3분) ----------
 // 탭마다 결과를 따로 기억한다(같은 조건·같은 시드면 다시 돌리지 않고 보여 줌). 다른 시간을 누르면 그 시간으로 새로 돈다.
 function renderBudgetTabs(running = null) {
-  const specKey = JSON.stringify(buildSpec());
+  const specKey = runKey();
   const seed = Math.max(1, Number($('#gen-seed').value) || 1);
   document.querySelectorAll('#gen-budget-tabs button').forEach((b) => {
     const ms = Number(b.dataset.ms);
@@ -441,7 +465,8 @@ document.querySelectorAll('#gen-budget-tabs button').forEach((b) =>
     state.budgetMs = Number(b.dataset.ms);
     const seed = Math.max(1, Number($('#gen-seed').value) || 1);
     const cached = state.saRuns[state.budgetMs];
-    if (cached && cached.specKey === JSON.stringify(buildSpec()) && cached.seed === seed) {
+    if (cached && cached.specKey === runKey() && cached.seed === seed) {
+      state.proj = cached.proj || null;
       state.compare = cached.compare;
       state.top = cached.top;
       state.ms = cached.ms;
@@ -473,7 +498,7 @@ function setProgress(p, text) {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const cites = (ids) => (ids?.length ? `<span class="cites">${ids.map((id) => `<a class="cite" href="${refs[id].url}" target="_blank" rel="noopener">${esc(refs[id].short)}</a>`).join('')}</span>` : '');
 const bar = (score) => `<span class="gen-meter" role="img" aria-label="${Math.round(score)}점"><i style="width:${Math.max(0, Math.min(100, score))}%"></i></span>`;
-const titleOf = (spec, i) => `${spec.area}㎡ · 방 ${spec.bedrooms}개 · ${state.top[i]?.tabLabel || `${i + 1}안`}`;
+const titleOf = (spec, i) => `${state.proj ? state.proj.area0 : spec.area}㎡ · 방 ${spec.bedrooms}개 · ${state.top[i]?.tabLabel || `${i + 1}안`}`;
 
 function renderResult() {
   const { top, spec } = state;
@@ -498,6 +523,11 @@ function renderResult() {
   const legend = state.view === 'full'
     ? `<ul class="ex-legend gen-legend" aria-label="범례">${FULL_LEGEND.map((l) => `<li><i style="background:${l.fill};border-color:${l.stroke ?? l.fill}"></i>${esc(l.label)}</li>`).join('')}</ul>`
     : '';
+  if (c.proj) {
+    const interior = c.proj.area.reduce((a, b) => a + b, 0);
+    const keep = c.proj.rooms.map((r, i) => [r, c.proj.area[i] / c.proj.rectArea[i]]).filter(([, k]) => k < 0.5);
+    $('#gen-plan').innerHTML = `${projSvg(c.proj, { title: `${titleOf(spec, state.current)} · 외곽 ${esc(state.proj.shape)}`, fillOf: (t) => roomGroupOf(t).fill })}<figcaption class="note">외곽 투영: QUBO + SA 배치를 실제 세대 외곽(${esc(state.proj.shape)} 대표 세대, ${state.proj.W.toFixed(1)} × ${state.proj.D.toFixed(1)}m 상자)에 잘라 넣은 평면입니다. 실내 ${interior.toFixed(1)}㎡. 이 외곽·침실 수는 모든 배치에서 공간구문 그래프가 유지됨을 확인한 조합입니다(외곽 투영 검증). 치수는 검증과 같게 다듬지 않습니다.${keep.length ? ` <span class="error-text">외곽에 많이 잘린 실(직사각형 대비 50% 미만): ${keep.map(([r, k]) => `${esc(r.name)} ${Math.round(k * 100)}%`).join(', ')}</span>` : ''} 문·창·설비, 아래 표·진단·생성 과정은 잘라 내기 전 직사각형 평면 기준입니다.</figcaption>`;
+  } else
   $('#gen-plan').innerHTML = `${layoutSvg(c.layout, { title: titleOf(spec, state.current), mode: state.view, dims: state.dims || 'center' })}${legend}<figcaption class="note">전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡ (${(c.layout.W).toFixed(2)} × ${c.layout.D.toFixed(2)}m) · ${top.length}안 중 ${state.current + 1}번째 · 후보 ${state.ms ? `${Math.round(state.ms / 100) / 10}초` : ''}</figcaption>`;
 
   const m2 = (share) => share * spec.area;
@@ -525,7 +555,14 @@ function renderResult() {
   const applied = [...spec.prefs.map((k) => PREF[k].title), `화장실 ${spec.baths}개`, spec.dress ? '드레스룸' : null, spec.multi ? '다목적실' : null, spec.balcony ? '전면 발코니' : '확장형', spec.outdoorUnit ? '실외기실' : null].filter(Boolean);
   const opens = c.layout.openings || [];
   const cnt = (k) => opens.filter((o) => o.kind === k).length;
-  $('#gen-detail').innerHTML = `
+  const projTable = c.proj
+    ? `<h3>외곽에 잘라 넣은 실</h3><table class="gen-table"><thead><tr><th>실</th><th>투영 m²</th><th>직사각형 m²</th><th>유지율</th></tr></thead><tbody>${c.proj.rooms
+        .map((r, i) => [r, c.proj.area[i], c.proj.rectArea[i]])
+        .sort((a, b) => b[1] - a[1])
+        .map(([r, a, ra]) => `<tr><td>${esc(r.name)}</td><td class="mono">${a.toFixed(1)}</td><td class="mono">${ra.toFixed(1)}</td><td class="mono${a / ra < 0.5 ? ' error-text' : ''}">${Math.round((100 * a) / ra)}%</td></tr>`)
+        .join('')}<tr><td>합(실내)</td><td class="mono">${c.proj.area.reduce((x, y) => x + y, 0).toFixed(1)}</td><td class="mono">${c.proj.rectArea.reduce((x, y) => x + y, 0).toFixed(1)}</td><td></td></tr></tbody></table><p class="note">아래 값들은 잘라 내기 전 직사각형 평면(외곽 상자 ${state.proj.W.toFixed(1)} × ${state.proj.D.toFixed(1)}m) 기준입니다.</p>`
+    : '';
+  $('#gen-detail').innerHTML = `${projTable}
     <div class="gen-sumgrid">
       <div><span class="gen-k">전용면적</span><b class="mono">${(c.layout.W * c.layout.D).toFixed(1)}㎡</b></div>
       <div><span class="gen-k">폭 × 깊이</span><b class="mono">${c.layout.W.toFixed(2)} × ${c.layout.D.toFixed(2)}m</b></div>

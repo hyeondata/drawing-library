@@ -5,7 +5,7 @@ import { optimize } from '../generate/optimize.js';
 import { exactQuboJson } from '../generate/qubo-sa.js';
 
 self.onmessage = (e) => {
-  const { type = 'generate', spec, seed, id, algorithms, budgetMs, stopHits = null, weights = 'hand' } = e.data;
+  const { type = 'generate', spec, seed, id, algorithms, budgetMs, stopHits = null, weights = 'hand', frame = null } = e.data;
   try {
     if (type === 'qubo') {
       self.postMessage({ id, done: true, bqm: { model: 'space-syntax exact QUBO (Confluence 09-21)', sweeps: 1000, templates: exactQuboJson(spec) } });
@@ -18,6 +18,7 @@ self.onmessage = (e) => {
         budgetMs,
         stopHits,
         weights,
+        frame,
         onProgress: (p, key, info) => self.postMessage({ id, progress: p, key, info }),
       });
       self.postMessage({ id, done: true, compare: out });

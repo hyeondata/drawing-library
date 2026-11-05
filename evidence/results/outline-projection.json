@@ -1,0 +1,1675 @@
+[
+ {
+  "outline": "대조: 직사각형",
+  "bedrooms": 3,
+  "specs": 1,
+  "fill": 1,
+  "n": 84,
+  "pass": 84,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.9186165042789748,
+  "lowKeep": 0,
+  "fails": []
+ },
+ {
+  "outline": "o1",
+  "share": 0.1307,
+  "fill": 0.929,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 180,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.8136341557965316,
+  "lowKeep": 0,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o1",
+  "share": 0.1307,
+  "fill": 0.929,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 7404,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.6921107184358948,
+  "lowKeep": 0,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o1",
+  "share": 0.1307,
+  "fill": 0.929,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 7488,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.7900112130576202,
+  "lowKeep": 0,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o2",
+  "share": 0.1109,
+  "fill": 0.821,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 108,
+  "lost": 72,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 108,
+  "fails": [
+   {
+    "area": 59,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic",
+     "bed1"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 59,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bed1",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 59,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance",
+     "bed1"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o2",
+  "share": 0.1109,
+  "fill": 0.821,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 2468,
+  "lost": 4936,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 7404,
+  "fails": [
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o2",
+  "share": 0.1109,
+  "fill": 0.821,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 576,
+  "lost": 6912,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 7488,
+  "fails": [
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o3",
+  "share": 0.11,
+  "fill": 0.873,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 180,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.509340679879608,
+  "lowKeep": 0,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o3",
+  "share": 0.11,
+  "fill": 0.873,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 7404,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.3999158592833645,
+  "lowKeep": 5628,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o4",
+  "share": 0.1087,
+  "fill": 0.895,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 180,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.31410686903975926,
+  "lowKeep": 154,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o4",
+  "share": 0.1087,
+  "fill": 0.895,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 7404,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.298026576484044,
+  "lowKeep": 6590,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o4",
+  "share": 0.1087,
+  "fill": 0.895,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 6048,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 1440,
+  "minKeep": 0.18436128479856856,
+  "lowKeep": 6016,
+  "fails": [
+   {
+    "area": 125,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 125,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 125,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o5",
+  "share": 0.1063,
+  "fill": 0.823,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 180,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.2973380485562779,
+  "lowKeep": 180,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o5",
+  "share": 0.1063,
+  "fill": 0.823,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 7404,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.2764081905711961,
+  "lowKeep": 7404,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o5",
+  "share": 0.1063,
+  "fill": 0.823,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 7488,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.18377439187383043,
+  "lowKeep": 7488,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o6",
+  "share": 0.0879,
+  "fill": 0.771,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 144,
+  "lost": 36,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 178,
+  "fails": [
+   {
+    "area": 59,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bed1",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathPublic"
+    ],
+    "split": []
+   },
+   {
+    "area": 59,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "bed1",
+     "entrance"
+    ],
+    "lost": [
+     "entrance"
+    ],
+    "split": []
+   },
+   {
+    "area": 59,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "bed1",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathPublic"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o6",
+  "share": 0.0879,
+  "fill": 0.771,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 4808,
+  "lost": 2596,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 7404,
+  "fails": [
+   {
+    "area": 74,
+    "k": 1,
+    "front": [
+     "master",
+     "bed1",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "bed2",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathPublic"
+    ],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 1,
+    "front": [
+     "master",
+     "bed1",
+     "living"
+    ],
+    "back": [
+     "bed2",
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathPublic"
+    ],
+    "split": []
+   },
+   {
+    "area": 84,
+    "k": 1,
+    "front": [
+     "master",
+     "living",
+     "bed1"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bed2",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathPublic"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o6",
+  "share": 0.0879,
+  "fill": 0.771,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 5860,
+  "lost": 1628,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 7488,
+  "fails": [
+   {
+    "area": 101,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bed3",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathPublic"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "bed3",
+     "entrance"
+    ],
+    "lost": [
+     "entrance"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "bed3",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathPublic"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o7",
+  "share": 0.0794,
+  "fill": 0.812,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 180,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.24979764433542082,
+  "lowKeep": 108,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o7",
+  "share": 0.0794,
+  "fill": 0.812,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 5760,
+  "lost": 1728,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 7488,
+  "fails": [
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o8",
+  "share": 0.0693,
+  "fill": 0.749,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 180,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.45952243867788395,
+  "lowKeep": 139,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o8",
+  "share": 0.0693,
+  "fill": 0.749,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 7404,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.41350651928971843,
+  "lowKeep": 5648,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o8",
+  "share": 0.0693,
+  "fill": 0.749,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 7488,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.25569105941395726,
+  "lowKeep": 7488,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o9",
+  "share": 0.0637,
+  "fill": 0.796,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 74,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 106,
+  "minKeep": 0.26653634255478426,
+  "lowKeep": 180,
+  "fails": [
+   {
+    "area": 59,
+    "k": 1,
+    "front": [
+     "master",
+     "living",
+     "bed1"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 59,
+    "k": 1,
+    "front": [
+     "master",
+     "living",
+     "bed1"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 59,
+    "k": 1,
+    "front": [
+     "master",
+     "living",
+     "bed1"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o9",
+  "share": 0.0637,
+  "fill": 0.796,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 2820,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 4584,
+  "minKeep": 0.1034971644612476,
+  "lowKeep": 7404,
+  "fails": [
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o9",
+  "share": 0.0637,
+  "fill": 0.796,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 2892,
+  "lost": 180,
+  "split": 0,
+  "graphDiff": 4416,
+  "minKeep": 0,
+  "lowKeep": 7380,
+  "fails": [
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "bed1",
+     "bed2",
+     "living",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "bed1",
+     "bed2",
+     "living",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "bed1",
+     "bed2",
+     "living",
+     "bed3"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o10",
+  "share": 0.0576,
+  "fill": 0.734,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 132,
+  "lost": 48,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 180,
+  "fails": [
+   {
+    "area": 64,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic",
+     "bed1"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 64,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bed1",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 64,
+    "k": 0,
+    "front": [
+     "master",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance",
+     "bed1"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o10",
+  "share": 0.0576,
+  "fill": 0.734,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 2156,
+  "lost": 5248,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 7404,
+  "fails": [
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o10",
+  "share": 0.0576,
+  "fill": 0.734,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 576,
+  "lost": 6912,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0,
+  "lowKeep": 7488,
+  "fails": [
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o11",
+  "share": 0.0466,
+  "fill": 0.704,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 180,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 0,
+  "minKeep": 0.04197846036279327,
+  "lowKeep": 108,
+  "fails": [],
+  "passed": true
+ },
+ {
+  "outline": "o11",
+  "share": 0.0466,
+  "fill": 0.704,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 7380,
+  "lost": 0,
+  "split": 0,
+  "graphDiff": 24,
+  "minKeep": 0.024752816282888442,
+  "lowKeep": 7404,
+  "fails": [
+   {
+    "area": 74,
+    "k": 1,
+    "front": [
+     "master",
+     "bed1",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic",
+     "multi",
+     "bed2"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 1,
+    "front": [
+     "master",
+     "bed1",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic",
+     "bed2",
+     "multi"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 1,
+    "front": [
+     "master",
+     "bed1",
+     "living"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "multi",
+     "bathPublic",
+     "bed2"
+    ],
+    "lost": [],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o11",
+  "share": 0.0466,
+  "fill": 0.704,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 5616,
+  "lost": 0,
+  "split": 1872,
+  "graphDiff": 0,
+  "minKeep": 0.0038563350208410717,
+  "lowKeep": 7488,
+  "fails": [
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": [
+     "dress"
+    ]
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [],
+    "split": [
+     "dress"
+    ]
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": [
+     "dress"
+    ]
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o12",
+  "share": 0.029,
+  "fill": 0.723,
+  "bedrooms": 2,
+  "specs": 5,
+  "areas": {},
+  "n": 180,
+  "pass": 10,
+  "lost": 0,
+  "split": 24,
+  "graphDiff": 170,
+  "minKeep": 0.06223107027739396,
+  "lowKeep": 180,
+  "fails": [
+   {
+    "area": 59,
+    "k": 1,
+    "front": [
+     "master",
+     "living",
+     "bed1"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 59,
+    "k": 1,
+    "front": [
+     "master",
+     "living",
+     "bed1"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [],
+    "split": []
+   },
+   {
+    "area": 59,
+    "k": 1,
+    "front": [
+     "master",
+     "living",
+     "bed1"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o12",
+  "share": 0.029,
+  "fill": 0.723,
+  "bedrooms": 3,
+  "specs": 56,
+  "areas": {},
+  "n": 7404,
+  "pass": 144,
+  "lost": 2348,
+  "split": 3018,
+  "graphDiff": 4744,
+  "minKeep": 0,
+  "lowKeep": 7404,
+  "fails": [
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 74,
+    "k": 2,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ },
+ {
+  "outline": "o12",
+  "share": 0.029,
+  "fill": 0.723,
+  "bedrooms": 4,
+  "specs": 19,
+  "areas": {},
+  "n": 7488,
+  "pass": 4,
+  "lost": 5928,
+  "split": 1424,
+  "graphDiff": 1544,
+  "minKeep": 0,
+  "lowKeep": 7488,
+  "fails": [
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "entrance",
+     "bathPublic"
+    ],
+    "lost": [
+     "dress",
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "kitchen",
+     "bathPublic",
+     "entrance"
+    ],
+    "lost": [
+     "dress",
+     "bathMaster"
+    ],
+    "split": []
+   },
+   {
+    "area": 101,
+    "k": 3,
+    "front": [
+     "master",
+     "living",
+     "bed1",
+     "bed2",
+     "bed3"
+    ],
+    "back": [
+     "entrance",
+     "kitchen",
+     "bathPublic"
+    ],
+    "lost": [
+     "dress",
+     "bathMaster"
+    ],
+    "split": []
+   }
+  ],
+  "passed": false
+ }
+]

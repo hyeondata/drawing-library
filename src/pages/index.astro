@@ -24,6 +24,10 @@ const strip = (c) => ({ key: c.key, short: c.short, title: c.title, desc: c.desc
 const src = choices.source;
 // 0. 외곽 형태: scripts/build-outlines.mjs가 AI 허브 APT_FP 전체 세대의 외곽을 묶은 결과(대표 외곽 미리보기는 빌드 때 그림)
 const OUTL = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'data', 'outlines.json'), 'utf8'));
+// 외곽 투영 검증(scripts/outline-projection.mjs)을 통과한 외곽 × 침실 수: 그 조합만 정확 QUBO + SA로 생성한다.
+const PROJ = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'evidence', 'results', 'outline-projection.json'), 'utf8'));
+const projPass = {};
+for (const r of PROJ) if (r.passed && !r.outline.startsWith('대조')) (projPass[r.outline] ??= []).push(r.bedrooms);
 const thumb = (m) => {
   const runs = [];
   for (let j = 0; j < m.ny; j++)
@@ -40,7 +44,7 @@ const shapes = [
     id: o.id,
     label: `형태 ${o.id.slice(1)}`,
     sub: `${o.n.toLocaleString()}세대 · ${(o.share * 100).toFixed(1)}%`,
-    note: `침실 ${Object.keys(o.byBeds).join('·')}개 세대 있음`,
+    note: projPass[o.id] ? `QUBO + SA: 침실 ${projPass[o.id].join('·')}개 · 그 밖은 자유형 엔진` : '자유형 엔진(정확 QUBO 범위 밖)',
     svg: thumb(largest(maskFromUnit(o.rep, 84))),
   })),
 ];
@@ -97,7 +101,7 @@ const steps = [
               </label>
             ))}
           </div>
-          <p class="note">아파트 평면도 고유 세대 {OUTL.total.toLocaleString()}개의 실내 외곽(발코니가 아래·앞에 오게 돌림)을 외곽 상자 12×12 칸 채움 비율로 묶은 {OUTL.outlines.length}개 형태입니다(k-means, 외곽이 한 덩어리가 아닌 세대는 세대 분리 오류로 보고 뺌). 그림은 묶음 중심에 가장 가까운 세대의 외곽, 주황 선은 앞(발코니) 쪽입니다. 직사각형이 아닌 형태를 고르면 그 외곽 안에 칸 담금질(자유형 엔진)로 실을 나누고, 실 구성은 같은 형태에서 고른 침실 수의 세대를 씁니다.</p>
+          <p class="note">아파트 평면도 고유 세대 {OUTL.total.toLocaleString()}개의 실내 외곽(발코니가 아래·앞에 오게 돌림)을 외곽 상자 12×12 칸 채움 비율로 묶은 {OUTL.outlines.length}개 형태입니다(k-means, 외곽이 한 덩어리가 아닌 세대는 세대 분리 오류로 보고 뺌). 그림은 묶음 중심에 가장 가까운 세대의 외곽, 주황 선은 앞(발코니) 쪽입니다. <b>QUBO + SA</b>로 표시된 형태·침실 수는 정확 QUBO 배치를 그 외곽에 잘라 넣어도 모든 배치에서 실이 사라지거나 쪼개지지 않고 공간구문 그래프가 그대로임을 확인한 조합(외곽 투영 검증, 34개 중 15개 통과)이라 직사각형과 같은 생성기로 만들고 외곽에 맞춰 자릅니다. 그 밖의 조합은 정확 QUBO 범위 밖이라 칸 담금질(자유형 엔진, QUBO 아님)로 만듭니다.</p>
         </div>
 
         <!-- 1. 평수 -->
@@ -398,6 +402,7 @@ const steps = [
       living: choices.living,
       refs: refOf,
       syntax: SYNTAX_CHOICES.map(strip),
+      projPass,
       lifestyle: LIFESTYLE_CHOICES.map(strip),
     })}
   />

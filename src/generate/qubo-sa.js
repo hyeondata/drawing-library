@@ -173,7 +173,7 @@ function histogram(es, bins = 40) {
  * onTick({ ms, budgetMs, reads, valid, best, newReads:[[ms, 템플릿 k, QUBO 에너지, 모형 에너지 | null]] }) 약 0.25초마다.
  * 반환: { cands, best, reads, valid, hits, hitMs, bestE, exactMin, total, hist, sizes:[{k, n, quad, P, betaRange}], readLog, ms, saMs, prepMs }
  */
-export function generateQuboSA(spec, { seed = 1, budgetMs = 30000, count = 3, top = 12, refine = 30, onTick } = {}) {
+export function generateQuboSA(spec, { seed = 1, budgetMs = 30000, count = 3, top = 12, refine = 30, frame = null, onTick } = {}) {
   const t0 = now();
   const beta = modelBeta();
   const tpls = templatesOf(spec).map((t) => {
@@ -239,7 +239,7 @@ export function generateQuboSA(spec, { seed = 1, budgetMs = 30000, count = 3, to
   onTick?.({ ms: saMs, budgetMs, reads, valid, best: best ? best.E : null, newReads: pending, decoding: true });
 
   const list = [...found.values()].sort((a, b) => a.E - b.E);
-  const cands = list.length ? pickPlans(spec, list, { seed, count, top, refine, Emin: exactMin, Z }) : [];
+  const cands = list.length ? pickPlans(spec, list, { seed, count, top, refine, Emin: exactMin, Z, frame }) : [];
   return {
     cands, best: cands[0] || null, reads, valid, hits, hitMs, bestE: best ? best.E : null, exactMin, total: all.length, distinct: list.length,
     hist: histogram(es), sizes: tpls.map((x) => x.size), readLog, budgetMs, saMs, prepMs, ms: now() - t0, sweeps: SWEEPS,

@@ -48,8 +48,10 @@ function tweak(p, spec, r) {
 }
 
 /** 순서(QUBO 해) 하나를 평면으로: 기본값으로 만들고 연속값을 refine번 다듬는다(모든 풀이기에 같은 횟수). */
-export function realize(spec, order, r, refine, align = false) {
-  const p0 = { ...defaultParams(spec), frontOrder: order.front, backOrder: order.back, ...(align ? { align: true } : {}) };
+export function realize(spec, order, r, refine, align = false, frame = null) {
+  // frame(외곽 투영): 깊이를 외곽 상자 깊이로 고정하고 치수를 다듬지 않는다(refine 0) — 투영 검증(outline-projection.mjs)과 같은 치수.
+  const p0 = { ...defaultParams(spec), frontOrder: order.front, backOrder: order.back, ...(align ? { align: true } : {}), ...(frame ? { depth: frame.depth } : {}) };
+  if (frame) refine = 0;
   let best = null;
   let p = p0;
   for (let i = 0; i <= refine; i++) {
@@ -110,7 +112,7 @@ export function templates(spec, weights = 'hand') {
  * stopHits: SA가 같은 최저 에너지를 이만큼 다시 찾으면 시간 전에 멈춘다(null이면 budgetMs까지 계속).
  * onProgress(p, key, info): p는 0~1, info = { ms(풀이에 쓴 시간), e(지금까지 최저 에너지), stopped }.
  */
-export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'hand', stopHits = null, align = false, onProgress } = {}) {
+export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'hand', stopHits = null, align = false, frame = null, onProgress } = {}) {
   // 연구 생성기는 β를 맞춘 데이터 범위(침실 2~4개) 안에서만 쓴다. 밖이면 손 가중치 QUBO + SA로 대신하고 결과에 표시한다.
   const fallback = (algorithms.includes('syntax') || algorithms.includes('quboSA')) && !syntaxSupported(spec);
   if (fallback) algorithms = algorithms.map((k) => (k === 'syntax' || k === 'quboSA' ? 'sa' : k));
@@ -147,7 +149,7 @@ export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, 
       // 사이트 기본 생성기(고정 기록 ⑤): 공간구문 정확 QUBO를 dwave 규칙 SA로 budgetMs 동안 푼다. 전수 열거 최저 E*는 정답 확인용.
       const start = clock() - run0;
       const out = generateQuboSA(spec, {
-        seed, budgetMs, count: 3, refine,
+        seed, budgetMs, count: 3, refine, frame,
         onTick: (t) => onProgress?.((idx + (t.decoding ? 0.95 : 0.9 * Math.min(1, t.ms / budgetMs))) / total, key, { ms: t.ms, e: t.best, budgetMs, reads: t.reads, valid: t.valid, decoding: Boolean(t.decoding) }),
       });
       const best = out?.best || null;

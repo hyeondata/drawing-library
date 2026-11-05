@@ -184,11 +184,11 @@ export function enumerateSyntax(spec, { seed = 1, onProgress } = {}) {
  * 에너지가 낮은 배치(list, E 오름차순)부터 top개를 평면으로 풀고 필수 규칙·좁은 실·문 동선 점검을 통과한 서로 다른 안을 고른다.
  * Emin·Z는 확률(syntaxP)을 매길 기준(열거한 전체 분포). 반환: 확률 순 후보 배열.
  */
-export function pickPlans(spec, list, { seed = 1, count = 3, top = 12, refine = 30, Emin, Z, onProgress } = {}) {
+export function pickPlans(spec, list, { seed = 1, count = 3, top = 12, refine = 30, Emin, Z, frame = null, onProgress } = {}) {
   const cands = [];
   const head = list.slice(0, top);
   for (const [i, a] of head.entries()) {
-    const c = realize(spec, { front: a.front, back: a.back }, rng(seed * 101 + i), refine, true);
+    const c = realize(spec, { front: a.front, back: a.back }, rng(seed * 101 + i), refine, true, frame);
     onProgress?.((i + 1) / head.length);
     if (!c) continue;
     const ok = c.unit?.validity?.valid !== false && c.narrow === 0 && c.doorIssues === 0;
