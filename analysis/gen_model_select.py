@@ -79,28 +79,30 @@ def main():
 
     rows = []
     n = len(b.STATS)
-    for k in range(1, n + 1):
-        for idx in itertools.combinations(range(n), k):
+    # 후보 통계량(고정 기록 09-21 ③④): 정확 QUBO로 쓸 수 있는 것만. CANDS를 비우면 예전처럼 8개 전부.
+    cands = [b.STATS.index(c) for c in os.environ.get("CANDS", ",".join(b.STATS)).split(",")]
+    for k in range(1, len(cands) + 1):
+        for idx in itertools.combinations(cands, k):
             beta, ok, cond = fit(list(idx))
             rows.append((idx, beta, ok, cond))
     good = [r for r in rows if r[2] and r[3] < 1000]
     best = max(good, key=lambda r: (len(r[0]), -r[3]))
     L = ["# 사이트 생성 모형 선택(최대 엔트로피, 볼록 분할 P1, 7,275장 전체)\n"]
-    L.append(f"> `SPECS=rq4 REAL=P1 uv run python gen_model_select.py` · 통계량 부분집합 {len(rows)}개 · 실제 서로 다른 그래프 {len(dev):,}개\n")
+    L.append(f"> `SPECS=rq4 REAL=P1 CANDS={','.join(b.STATS[i] for i in cands)} uv run python gen_model_select.py` · 통계량 부분집합 {len(rows)}개 · 실제 서로 다른 그래프 {len(dev):,}개\n")
     L.append("규칙: ① 적률 일치 ② 조건수 < 1,000 ③ 통계량 수 최대 ④ 조건수 최소.\n")
     L.append("| 크기 | 조건을 만족한 집합 수 / 전체 |")
     L.append("|---|---|")
-    for k in range(1, n + 1):
+    for k in range(1, len(cands) + 1):
         L.append(f"| {k} | {sum(1 for r in good if len(r[0]) == k)} / {sum(1 for r in rows if len(r[0]) == k)} |")
-    full = [r for r in rows if len(r[0]) == n][0]
-    L.append(f"\n- 8개 전부: 적률 일치 {'예' if full[2] else '아니오'}, 조건수 {full[3]:.0f}")
+    full = [r for r in rows if len(r[0]) == len(cands)][0]
+    L.append(f"\n- 후보 {len(cands)}개({', '.join(b.STATS[i] for i in cands)}) 전부: 적률 일치 {'예' if full[2] else '아니오'}, 조건수 {full[3]:.0f}")
     L.append(f"- **선택**: {', '.join(b.STATS[i] for i in best[0])} · β_z {', '.join(f'{x:+.2f}' for x in best[1])} · 조건수 {best[3]:.1f}")
     RES.joinpath("gen-model-select.md").write_text("\n".join(L) + "\n")
     idx = list(best[0])
     beta_raw = np.zeros(n)
     beta_raw[idx] = best[1] / sd[idx]
     model = {
-        "about": "사이트 생성 모형: P(배치) ∝ exp(−Σ beta_raw·f). 사전 등록 통계량 중 7,275장(볼록 분할 P1) 실제 평균을 함께 맞출 수 있는 가장 큰 집합(조건수 < 1,000). analysis/gen_model_select.py",
+        "about": "사이트 생성 모형: P(배치) ∝ exp(−Σ beta_raw·f). 후보(정확 QUBO로 쓸 수 있는 통계량, 고정 기록 09-21) 중 7,275장(볼록 분할 P1) 실제 평균을 함께 맞출 수 있는 가장 큰 집합(조건수 < 1,000). analysis/gen_model_select.py", "candidates": [b.STATS[i] for i in cands],
         "stats": b.STATS, "used": [b.STATS[i] for i in idx], "beta_raw": beta_raw.tolist(), "beta_z": {b.STATS[i]: float(x) for i, x in zip(idx, best[1])},
         "mean": m.tolist(), "sd": sd.tolist(), "cond": best[3], "real_graphs": int(len(dev)), "convention": "convex-P1", "frame": "aligned",
         # 적용 범위: β를 맞춘 실제 그래프(침실 2~4개, rq1_syntax.graph_of)와 사양 묶음의 침실 수. 밖은 외삽이라 쓰지 않는다.
