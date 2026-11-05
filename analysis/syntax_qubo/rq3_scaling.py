@@ -2,7 +2,7 @@
 
 인스턴스: 실제 사양 템플릿(배치 48~720개) + 규모를 키운 합성 템플릿(실을 더해 배치 4,320~967,680개).
   합성 템플릿은 실제 평면을 뜻하지 않는다. 같은 정렬 틀·같은 정식화에서 '실 수가 늘면 어떻게 되는가'만 본다.
-목적: O1 거실 총깊이, O2 현관 총깊이, O3 공·사 깊이 차(verify_aligned.OBJ와 같음).
+목적: RQ2·RQ4와 같은 정확 목적 — O1 거실 RRA, O2 현관 RRA(AlignedQubo.rra_objective, 복도 존재에 따른 노드 수 변화까지 정확), O3 공·사 깊이 차(최단 깊이 하한 포함).
 측정:
   - E* = 모든 배치 열거(모형 그래프 = 도면 그래프, 09-13 7절)로 구한 정확 최적.
   - QUBO SA(dwave-samplers): 스위프마다 읽기 R개 → 적중 확률 두 가지.
@@ -32,7 +32,15 @@ import numpy as np
 
 from .aligned import AlignedQubo
 from .model import load_templates
-from .verify_aligned import OBJ, true_value, weights
+from .rra_exact import rra
+from .verify_aligned import true_value, weights
+
+OBJ = {"O1_living_RRA": ("living", False, "rra"), "O2_entrance_RRA": ("entrance", False, "rra"), "O3_privacy_gap": ("entrance", True, "privacy")}
+
+
+def value(q, g, name):
+    root, _lb, kind = OBJ[name]
+    return rra(g, root) if kind == "rra" else true_value(g, root, weights(q, kind))
 
 RES = Path(__file__).resolve().parents[2] / "evidence" / "results"
 WORKERS = os.cpu_count() or 8
@@ -69,8 +77,8 @@ def _enum_chunk(args):
                 K = max(K, max(nx.single_source_shortest_path_length(g, root).values()))
             if K_only:
                 continue
-            for name, (root, _lb, wk) in OBJ.items():
-                vals[name].append(true_value(g, root, weights(q, wk)))
+            for name in OBJ:
+                vals[name].append(value(q, g, name))
     return K, {n: (min(v) if v else math.inf) for n, v in vals.items()}, sum(1 for _ in [0])
 
 
@@ -87,11 +95,10 @@ def enumerate_opt(t):
 
 
 def build(t, name, K, lam=1.0):
-    root, lb, wk = OBJ[name]
+    root, lb, kind = OBJ[name]
     q = AlignedQubo(t)
     q.depth_structure(root, K, lb)
-    w = weights(q, wk)
-    obj = q.total_depth(root, w)
+    obj = q.rra_objective(root) if kind == "rra" else q.total_depth(root, weights(q, kind))
     if lam != 1.0:
         # finalize는 P = Σ|목적 계수| + 1을 쓴다. 목적을 1/λ배로 키워 넣고 결과를 λ배 하면 P만 λ배가 된 것과 같다.
         obj = {k: v / lam for k, v in obj.items()}
@@ -99,7 +106,7 @@ def build(t, name, K, lam=1.0):
         bqm.scale(lam)
     else:
         bqm = q.finalize(obj)
-    return q, bqm, w
+    return q, bqm, None
 
 
 def _sa(args):
@@ -151,7 +158,7 @@ def sa_measure(q, bqm, name, w, estar, reads, sweeps):
         if not nx.is_connected(g):
             continue
         valid += 1
-        if abs(true_value(g, root, w) - estar) < 1e-9:
+        if abs(value(q, g, name) - estar) < 1e-9:
             hit += 1
     n = len(xs)
     p = hit / n
@@ -163,8 +170,6 @@ def sa_measure(q, bqm, name, w, estar, reads, sweeps):
 def _perm_sa(args):
     t, name, steps, seed = args
     q = AlignedQubo(t)
-    root, _lb, wk = OBJ[name]
-    w = weights(q, wk)
     rnd = random.Random(seed)
     rest, back = list(q.rest), list(t.back)
     rnd.shuffle(rest)
@@ -172,7 +177,7 @@ def _perm_sa(args):
 
     def energy(r, b):
         g = q.graph(tuple(r), tuple(b))
-        return true_value(g, root, w) if nx.is_connected(g) else 1e9
+        return value(q, g, name) if nx.is_connected(g) else 1e9
 
     e = energy(rest, back)
     best = e
@@ -228,13 +233,13 @@ def main():
             for sweeps in (1000, 10000, 50000):
                 reads = 640 if sweeps < 50000 else 320
                 r["sa"][sweeps] = sa_measure(q, bqm, name, w, estar[name], reads, sweeps)
-            if name == "O1_living_TD":
+            if name == "O1_living_RRA":
                 for lam in (0.5, 0.25):
                     q2, b2, w2 = build(t, name, K, lam)
                     r["lam"][lam] = sa_measure(q2, b2, name, w2, estar[name], 640, 10000)
             for steps in (300, 3000):
                 r["perm"][steps] = perm_measure(t, name, estar[name], steps)
-            if name == "O1_living_TD":
+            if name == "O1_living_RRA":
                 for tg in ("Pegasus P16", "Zephyr Z12"):
                     r["embed"][tg] = embed(bqm, tg)
             rows.append(r)
