@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const dir=path.join(root,'..','aihub-full','TL_SPA');
 const test=new Set(JSON.parse(fs.readFileSync(path.join(root,'data/split.json'),'utf8')).test);
-const files=fs.readdirSync(dir).filter(f=>f.startsWith('APT_FP_SPA_')&&!test.has(f));
+const files=fs.readdirSync(dir).filter(f=>f.startsWith('APT_FP_SPA_')&&(process.env.SCOPE==='dev'?!test.has(f):true)); // 기본 전체, SCOPE=dev면 dev만
 const R={};
 for(const f of files){const a=analyze(JSON.parse(fs.readFileSync(path.join(dir,f),'utf8')),'SPA',{unitRule:'entrance'});
  for(const s of a.spaces){ if(!['거실','침실','주방','기타'].includes(s.type))continue;

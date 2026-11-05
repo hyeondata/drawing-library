@@ -11,7 +11,7 @@ import { analyze } from '../src/model/index.js';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dataDir = path.join(root, '..', 'aihub-full', 'TL_SPA');
 const test = new Set(JSON.parse(fs.readFileSync(path.join(root, 'data', 'split.json'), 'utf8')).test);
-const files = fs.readdirSync(dataDir).filter((f) => f.startsWith('APT_FP_SPA_') && !test.has(f));
+const files = fs.readdirSync(dataDir).filter((f) => f.startsWith('APT_FP_SPA_') && (process.env.SCOPE === 'dev' ? !test.has(f) : true)); // 기본 전체 7,275장(RQ4 최종 판정은 외부), SCOPE=dev면 dev만
 const out = fs.createWriteStream(path.join(root, '..', 'aihub-full', 'derived', 'living-geometry.jsonl'));
 const OUTSIDE = new Set(['발코니', '실외기실']);
 let n = 0, skipped = Counter();

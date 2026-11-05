@@ -15,7 +15,7 @@ import networkx as nx
 import numpy as np
 
 from real_vs_generated import RES
-from rq1_syntax import DER, graph_of, measures
+from rq1_syntax import DER, graph_of, in_scope, measures
 
 DROP = {"발코니", "실외기실"}
 
@@ -29,7 +29,7 @@ def jsig(g):
 
 def main():
     rows = [json.loads(x) for x in (DER / "door-vs-wall.jsonl").read_text().splitlines()]
-    dev = [r for r in rows if r["split"] == "dev"]
+    dev = [r for r in rows if in_scope(r)]
     pair_all, pair_acc = Counter(), Counter()
     per, lost, edge_stats = [], [], []
     for r in dev:
@@ -59,7 +59,7 @@ def main():
         per.append({"drawing": r["drawing"], "unit": r["unit"], "nw": gw.number_of_nodes(), "na": ga.number_of_nodes(), "ew": gw.number_of_edges(), "ea": ga.number_of_edges(), "w": mw, "a": ma, "sig_same": jsig(gw) == jsig(ga)})
     L = ["# 벽 인접 그래프 대 출입 그래프 (SPA·STR 겹침 도면, dev)\n"]
     tot = np.sum(edge_stats, axis=0) if edge_stats else [0, 0, 0, 0]
-    L.append(f"> `uv run python door_vs_wall.py` · 도면 {len({r['drawing'] for r in dev})}장 · dev 세대 {len(dev)}개 · 두 그래프 모두 유효 {len(per)}개 · test 미사용 · 발코니·실외기실 제외\n")
+    L.append(f"> `uv run python door_vs_wall.py` · 도면 {len({r['drawing'] for r in dev})}장 · 세대 {len(dev)}개({'전체' if __import__('rq1_syntax').SCOPE == 'all' else 'dev'}) · 두 그래프 모두 유효 {len(per)}개 · 발코니·실외기실 제외\n")
     L.append(f"- 벽 인접 링크 {tot[0]}개 중 출입 링크 {tot[1]}개(**{tot[1] / max(tot[0], 1):.0%}**) — 문 {tot[2]}, 개방 경계(문 없음) {tot[3]}")
     L.append(f"- 출입 그래프가 무너진 세대(현관에서 닿지 않는 실이 생겨 세대 조건 미달): {sum(1 for x in lost if x[3])}개 {[x[4] for x in lost if x[3]]}")
     L.append("\n## 실 유형 쌍별: 벽으로 맞닿은 쌍 중 출입이 있는 비율\n")

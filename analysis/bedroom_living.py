@@ -18,7 +18,7 @@ def main():
     R = [json.loads(x) for x in (DER / "living-geometry.jsonl").read_text().splitlines()]
     R = [r for r in R if r["axisFrom"] == "balcony"]
     B = [b for r in R for b in r["beds"]]
-    L = ["# 침실이 거실과 맞닿는 위치 관계 (실제 dev, 발코니 기준)\n", f"> `uv run python bedroom_living.py` · 세대 {len(R):,} · 침실 {len(B):,} · 벽 인접 그래프 · test 미사용\n"]
+    L = ["# 침실이 거실과 맞닿는 위치 관계 (실제 세대, 발코니 기준 — living-geometry.mjs의 범위: 기본 전체 7,275장)\n", f"> `uv run python bedroom_living.py` · 세대 {len(R):,} · 침실 {len(B):,} · 벽 인접 그래프\n"]
     L.append("## 1. 맞닿는 방향\n")
     L.append("| 침실 위치 | 수(세대당) | 거실과 맞닿음 | 옆으로 | 뒤로(거실 뒤) | 앞으로 | 안 맞닿고 복도·기타 경유 |")
     L.append("|---|---|---|---|---|---|---|")

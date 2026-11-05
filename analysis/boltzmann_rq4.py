@@ -3,7 +3,7 @@
 모형: 사양 s마다 생성 평면 = (템플릿, 배치). P(평면 | s) ∝ exp(−Σ_j β_j·f_j(평면)).
   - 분배함수는 모든 배치(정렬 모드 + 복도, 안방 왼쪽 끝)를 열거해 정확히 구한다(근사 없음).
   - 그래프는 AlignedQubo.graph(정확 QUBO와 같은 그래프 = 실제 도면 맞닿음 그래프, 16,836/16,836 일치).
-  - β는 dev A의 실제 평균 f_j에 모형 평균을 맞춘다(최대 엔트로피 = 지수족 최대우도의 적률 조건; Jaynes 1957 p.623, 그래프 분포에는 Park & Newman 2004 — 둘 다 원문 확인).
+  - β는 실제 절반 A의 평균 f_j에 모형 평균을 맞춘다(최대 엔트로피 = 지수족 최대우도의 적률 조건; Jaynes 1957 p.623, 그래프 분포에는 Park & Newman 2004 — 둘 다 원문 확인).
     볼록 쌍대 L(β) = mean_s log Z_s(β) + β·μ_A 를 최소화. 실제 평균은 사양 구성(침실·욕실·드레스룸·다목적) 비율로 가중.
   - O0 = β 0(모든 평면 균등). β → ∞ = 동점 최적 전체(이전 실험).
 통계량 f(작을수록 그 원리에 맞음, 실 수가 다른 실제 평면과 비교되도록 상대화):
@@ -194,11 +194,14 @@ def main():
         return w / w.sum()
 
     wA, wB = comp_w(half), comp_w(~half)
+    wAll = comp_w(np.ones(len(dev), bool))
     # 표준화(조건수): 실제 A의 가중 표준편차
     mA = np.array([np.nansum(wA * np.nan_to_num(RF[:, j])) for j in range(len(STATS))])
     sd = np.array([math.sqrt(np.nansum(wA * (np.nan_to_num(RF[:, j]) - mA[j]) ** 2)) for j in range(len(STATS))])
     Fz = (F - mA) / sd
     muA = np.zeros(len(STATS))  # 표준화 후 실제 A 평균 = 0
+    # 생성용 β: 실제 전체(A+B)에 맞춘 값(내부 진단의 A/B와 별도). RQ4 최종 판정은 외부 프로그램(2026-11-05 연구자).
+    muAll = (np.array([np.nansum(wAll * np.nan_to_num(RF[:, j])) for j in range(len(STATS))]) - mA) / sd
 
     def probs(beta, idx):
         if not idx:
@@ -209,7 +212,8 @@ def main():
             out.append(np.exp(e - logsumexp(e)))
         return out
 
-    def fit(idx):
+    def fit(idx, target=None):
+        target = muA if target is None else target
         if not idx:
             return np.zeros(0), True, np.zeros(0)
 
@@ -222,12 +226,12 @@ def main():
                 val += lz
                 grad -= p @ Fz[g][:, idx]
             val, grad = val / len(groups), grad / len(groups)
-            return val + beta @ muA[idx], grad + muA[idx]
+            return val + beta @ target[idx], grad + target[idx]
 
         r = minimize(L, np.zeros(len(idx)), jac=True, method="L-BFGS-B", bounds=[(-50, 50)] * len(idx))
         ps = probs(r.x, idx)
         model_mean = np.mean([p @ Fz[g][:, idx] for p, g in zip(ps, groups)], axis=0)
-        ok = bool(np.all(np.abs(r.x) < 49.9)) and np.allclose(model_mean, muA[idx], atol=1e-3)
+        ok = bool(np.all(np.abs(r.x) < 49.9)) and np.allclose(model_mean, target[idx], atol=1e-3)
         return r.x, ok, model_mean
 
     # 생성 평면마다 실제 B 최근접 거리(같은 침실 수)
@@ -265,7 +269,8 @@ def main():
         beta, ok, mm = fit(idx)
         ps = probs(beta, idx)
         PS[m] = ps
-        fits[m] = {"beta": beta.tolist(), "ok": ok, "stats": sts}
+        b_all, ok_all, _ = fit(idx, muAll)
+        fits[m] = {"beta": beta.tolist(), "ok": ok, "stats": sts, "beta_all": b_all.tolist(), "ok_all": ok_all}
         point[m] = metrics(ps, range(len(groups)), wB)
         # 최적 몰림 정도: 사양마다 최고 확률 평면의 확률 중앙값, 유효 평면 수(지수 엔트로피)
         fits[m]["eff_n"] = float(np.median([np.exp(-(p * np.log(p + 1e-300)).sum()) for p in ps]))
@@ -296,14 +301,14 @@ def main():
         curve[m] = {str(c): metrics(probs(b * c, idx), range(len(groups)), wB) for c in mults}
 
     # ---- 보고 ----
-    L = ["# RQ4: 정확 볼츠만 분포(dev A에 맞춤) 대 실제 dev B" + (" — 뒤 띠 분할 틀(split_frame.py)" if FRAME == "split" else "") + (f" — 실제 거실 볼록 분할 {os.environ['REAL']}(convex-living.mjs)" if os.environ.get("REAL") in ("P1", "P2") else "") + "\n"]
-    L.append(f"> `SPECS=rq4 uv run python boltzmann_rq4.py` · 사양 {len(groups)}개 · 평면(배치) {len(F):,}개 전부 열거 · 실제 dev 서로 다른 그래프 {len(dev):,}개(A {int(half.sum())} / B {int((~half).sum())}, 사양 구성 비율로 가중) · 부트스트랩 {B:,}회(사양 군집 + 실제 B) · test 미사용\n")
+    L = ["# RQ4 내부 진단: 정확 볼츠만 분포(실제 절반 A에 맞춤) 대 실제 절반 B" + (" — 뒤 띠 분할 틀(split_frame.py)" if FRAME == "split" else "") + (f" — 실제 거실 볼록 분할 {os.environ['REAL']}(convex-living.mjs)" if os.environ.get("REAL") in ("P1", "P2") else "") + "\n"]
+    L.append(f"> `SPECS=rq4 uv run python boltzmann_rq4.py` · 사양 {len(groups)}개 · 평면(배치) {len(F):,}개 전부 열거 · 실제({'7,275장 전체' if __import__('rq1_syntax').SCOPE == 'all' else 'dev'}) 서로 다른 그래프 {len(dev):,}개(A {int(half.sum())} / B {int((~half).sum())}, 사양 구성 비율로 가중) · 부트스트랩 {B:,}회(사양 군집 + 실제 B) · RQ4 최종 판정은 외부 프로그램\n")
     L.append("## 1. 맞춘 β (표준화 통계량 단위, 양수 = 실제가 균등 배치보다 그 원리 쪽)\n")
-    L.append("| 모형 | 통계량 | β | 적률 일치 | 사양당 유효 평면 수 (전체 중앙값) |")
-    L.append("|---|---|---|---|---|")
+    L.append("| 모형 | 통계량 | β (A에 맞춤) | 적률 일치 | β (전체에 맞춤, 생성용) | 사양당 유효 평면 수 (전체 중앙값) |")
+    L.append("|---|---|---|---|---|---|")
     for m in MODELS:
         fz = fits[m]
-        L.append(f"| {NAMES[m]} | {', '.join(fz['stats']) or '—'} | {', '.join(f'{x:+.2f}' for x in fz['beta']) or '0'} | {'예' if fz['ok'] else '**아니오(경계)**'} | {fz['eff_n']:.0f} / {fz['n_arr']:.0f} |")
+        L.append(f"| {NAMES[m]} | {', '.join(fz['stats']) or '—'} | {', '.join(f'{x:+.2f}' for x in fz['beta']) or '0'} | {'예' if fz['ok'] else '**아니오(경계)**'} | {', '.join(f'{x:+.2f}' for x in fz['beta_all']) or '0'}{'' if fz['ok_all'] else ' (경계)'} | {fz['eff_n']:.0f} / {fz['n_arr']:.0f} |")
     L.append("\n'아니오(경계)' = 실제 A 평균이 이 틀로 만들 수 있는 범위 밖이라 β가 한계(±50)에 닿음.\n")
     L.append("| 통계량 | 실제 A 평균 | 틀의 최선(사양별 최소의 평균) | 틀 균등 평균 | 틀의 최악 |")
     L.append("|---|---|---|---|---|")
@@ -312,7 +317,7 @@ def main():
         hi = np.mean([F[g][:, j].max() for g in groups])
         un = np.mean([F[g][:, j].mean() for g in groups])
         L.append(f"| {n} | {mA[j]:.3f} | {lo:.3f} | {un:.3f} | {hi:.3f} |")
-    L.append("\n## 2. 실제 dev B와의 거리: 점추정 [95% 부트스트랩 구간] (모두 작을수록 실제에 가까움)\n")
+    L.append("\n## 2. 실제 절반 B와의 거리: 점추정 [95% 부트스트랩 구간] (모두 작을수록 실제에 가까움)\n")
     L.append("M1 = G2 그래프 거리 기댓값 · M2 거실 현관 깊이 TV · M3 침실 현관 깊이 TV · (참고) M4 주방 · M5 화장실 깊이 TV. `*` = 그 모형이 평균을 맞춘 양과 같은 계열(순환).\n")
     L.append("| 모형 | M1 | M2 | M3 | M4 (참고) | M5 (참고) |")
     L.append("|---|---|---|---|---|---|")
@@ -343,7 +348,7 @@ def main():
     for m, d in curve.items():
         L.append(f"| {NAMES[m]} | " + " | ".join(f"{d[str(c)]['M1']:.3f} / {d[str(c)]['M2']:.2f} / {d[str(c)]['M3']:.2f}" for c in mults) + " |")
     L.append("\n## 읽는 법과 한계\n")
-    L.append("- β는 결과를 보고 고른 값이 아니라 dev A의 실제 평균에 맞춘 값이다(사전 등록 설계 evidence/18 §2.3). 판정은 B에서, 최종은 test 1회.")
+    L.append("- β는 결과를 보고 고른 값이 아니라 실제 평균에 맞춘 값이다(사전 등록 설계 evidence/18 §2.3). A/B 비교는 내부 진단이고, RQ4 최종 판정은 외부 프로그램이 별도 테스트 도면으로 한다. 생성에는 전체에 맞춘 β를 쓴다.")
     L.append("- 모든 그래프는 벽 인접 그래프다. M2·M3는 출입 그래프와 같음이 확인된 양(door-vs-wall, dev 10세대)이고, M1은 같은 규약 안의 비교, M4·M5는 참고.")
     L.append("- 생성 쪽은 판상형 정렬 모드 틀 안의 평면뿐이다. 실제와의 남은 거리(기준선 대비)는 틀이 설명하지 못하는 부분을 포함한다.")
     L.append("- 실제 쪽은 같은 그래프를 하나로 묶은 서로 다른 그래프 집합이다(빈도 정보는 쓰지 않음).")

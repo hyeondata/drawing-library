@@ -25,7 +25,7 @@ from sklearn.preprocessing import normalize
 
 from objective_compare import OBJ, cliffs
 from real_vs_generated import RES
-from rq1_syntax import DER, graph_of, measures
+from rq1_syntax import DER, graph_of, in_scope, measures
 
 DROP = {"발코니", "실외기실"}
 
@@ -67,7 +67,7 @@ def load_dev():
     dev = []
     for line in (DER / REAL_FILE).read_text().splitlines():
         o = json.loads(line)
-        if o["split"] != "dev":
+        if not in_scope(o):
             continue
         g = clean(o)
         if g is not None:

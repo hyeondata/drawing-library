@@ -29,6 +29,13 @@ RES = ROOT / "evidence" / "results"
 _REAL = __import__("os").environ.get("REAL", "")
 REAL_FILE = f"unit-graphs-convex-{_REAL}.jsonl" if _REAL in ("P1", "P2") else "unit-graphs.jsonl"
 OUT_SFX = f"-convex{_REAL}" if _REAL in ("P1", "P2") else ""
+# 범위: RQ4 최종 판정은 외부 프로그램이 별도 테스트 도면으로 하므로(2026-11-05 연구자) 기본은 7,275장 전체(21,383세대).
+# SCOPE=dev면 이전처럼 dev 묶음만(data/split.json).
+SCOPE = __import__("os").environ.get("SCOPE", "all")
+
+
+def in_scope(o) -> bool:
+    return SCOPE == "all" or o["split"] == "dev"
 TYPES = ["거실", "주방", "현관", "침실", "화장실", "드레스룸", "다목적공간", "기타", "발코니"]
 PUBLIC = {"거실", "주방"}
 
@@ -167,7 +174,7 @@ def work(lines):
     out = []
     for line in lines:
         o = json.loads(line)
-        if o["split"] != "dev":
+        if not in_scope(o):
             continue
         g = graph_of(o)
         if g is None:
@@ -194,8 +201,8 @@ def main():
         v = np.array([x for x in v if x == x], float)
         return f"{np.median(v):.2f} [{np.quantile(v, .25):.2f}, {np.quantile(v, .75):.2f}]"
 
-    L = ["# RQ1 한국 아파트의 공간구문 구조 (AI 허브 dev 묶음)\n"]
-    L.append(f"> `uv run python rq1_syntax.py` · {time.time() - t0:.0f}초 · dev 세대 {n_all:,}개 중 그래프가 서로 다른(유형 라벨 포함 WL 해시) {len(rows):,}개, 침실 2~4개 · 뿌리 = 현관, 외부 노드 없음, 덕트 제외 · 값은 중앙값 [사분위]\n")
+    L = [f"# RQ1 한국 아파트의 공간구문 구조 (AI 허브 {'APT_FP_SPA 7,275장 전체' if SCOPE == 'all' else 'dev 묶음'})\n"]
+    L.append(f"> `uv run python rq1_syntax.py` · {time.time() - t0:.0f}초 · {'전체' if SCOPE == 'all' else 'dev'} 세대 {n_all:,}개 중 그래프가 서로 다른(유형 라벨 포함 WL 해시) {len(rows):,}개, 침실 2~4개 · 뿌리 = 현관, 외부 노드 없음, 덕트 제외 · 값은 중앙값 [사분위]\n")
     L.append("## 실 유형별\n")
     L.append("| 유형 | 세대 수 | 연결도 | 현관에서 깊이 | 통합도(1/RRA) | 통제값 | 선택도 |")
     L.append("|---|---|---|---|---|---|---|")
