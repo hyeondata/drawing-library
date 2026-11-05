@@ -79,7 +79,7 @@ export function rulesOf(stage, c, spec) {
       const k = front.filter((r) => r.type === '침실' && r.key !== 'master').length;
       add(1, 'rule', '앞 띠 깊이 = D × f, 뒤 띠 깊이 = D − D × f', `앞 ${f2(Df)}m(f = ${f2(p.frontShare ?? Df / L.D)}), 뒤 ${f2(L.D - Df)}m`, null, [lit('seo-bands'), assume('앞 띠 비율 f의 범위 0.46~0.68')]);
       add(2, 'rule', '앞(남) 띠에는 거실·안방·작은방 k개, 뒤(북) 띠에는 주방·현관·욕실·드레스룸·다목적실과 앞에 못 들어간 작은방', `앞: ${front.map((r) => r.name).join('·')} / 뒤: ${back.map((r) => r.name).join('·')}`, front.every((r) => ['거실', '침실'].includes(r.type)) && !back.some((r) => r.type === '거실'), [lit('seo-r1lr'), lit('seo-hall97'), lit('byun-living'), lit('ju-south')]);
-      add(3, 'eval', '앞 띠 작은방 수 k: 최소 폭 합 3.0 + 3.6 + 2.6k가 띠 폭에 들어가는 최대값. k개·k−1개 두 템플릿을 모두 만들고 점수로 고름', `이 안: 앞 띠 작은방 ${k}개`, null, [lit('upasani-dims'), assume('최소 폭 값(안방 3.0·거실 3.6·작은방 2.6m)은 통상 치수')]);
+      add(3, 'eval', '앞 띠 작은방 수 k: 최소 폭 합(안방 + 거실 + 작은방 k개, 실제 아파트 하위 5% 비율 × 침실 한 변)이 띠 폭에 들어가는 최대값. k개·k−1개 두 템플릿을 모두 만듦', `이 안: 앞 띠 작은방 ${k}개`, null, [lit('upasani-dims')]);
       break;
     }
     case 3: {

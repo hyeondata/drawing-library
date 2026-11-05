@@ -2,7 +2,10 @@
 
 인스턴스: 실제 사양 템플릿(배치 48~720개) + 규모를 키운 합성 템플릿(실을 더해 배치 4,320~967,680개).
   합성 템플릿은 실제 평면을 뜻하지 않는다. 같은 정렬 틀·같은 정식화에서 '실 수가 늘면 어떻게 되는가'만 본다.
-목적: RQ2·RQ4와 같은 정확 목적 — O1 거실 RRA, O2 현관 RRA(AlignedQubo.rra_objective, 복도 존재에 따른 노드 수 변화까지 정확), O3 공·사 깊이 차(최단 깊이 하한 포함).
+목적: RQ2·RQ4와 같은 정확 목적 — O1 거실 RRA, O2 현관 RRA(AlignedQubo.rra_objective, 복도 존재에 따른 노드 수 변화까지 정확), O3 공·사 깊이 차(최단 깊이 하한 포함),
+  그리고 사이트·논문의 생성 모형 GEN = Σ β_j f_j(O1·O2·O3·O7·O2b, β = src/generate/syntax-model-data.js, 뿌리 거실·현관·주방 모두 하한 포함, gen_qubo.build).
+SA 설정(고정 기록 09-21 ⑤ + 변경 기록 2): dwave-samplers 기본 규칙, β 범위 = dwave 기본 함수를 |편향| < 1e-9를 0으로 정리한 스핀 편향에 적용
+  (BINARY→SPIN 부동소수 잔차가 차가운 β를 1e14로 만드는 문제). p_E·'E*보다 낮음'은 허용 1e-6(SA 누적 반올림 ~1e-9).
 측정:
   - E* = 모든 배치 열거(모형 그래프 = 도면 그래프, 09-13 7절)로 구한 정확 최적.
   - QUBO SA(dwave-samplers): 스위프마다 읽기 R개 → 적중 확률 두 가지.
@@ -31,15 +34,27 @@ import networkx as nx
 import numpy as np
 
 from .aligned import AlignedQubo
+from .export_gen_bqm import site_beta
+from .gen_qubo import TERMS as GEN_TERMS
+from .gen_qubo import build as gen_build
+from .gen_qubo import combine as gen_combine
+from .gen_qubo import graph_stats
+from .gen_qubo import term_objectives as gen_terms
+from .sa_common import clean_beta_range
 from .model import load_templates
 from .rra_exact import rra
 from .verify_aligned import true_value, weights
 
-OBJ = {"O1_living_RRA": ("living", False, "rra"), "O2_entrance_RRA": ("entrance", False, "rra"), "O3_privacy_gap": ("entrance", True, "privacy")}
+OBJ = {"O1_living_RRA": ("living", False, "rra"), "O2_entrance_RRA": ("entrance", False, "rra"), "O3_privacy_gap": ("entrance", True, "privacy"), "GEN_model": ("entrance", True, "gen")}
+BETA = site_beta()
+TOL = 1e-6
 
 
 def value(q, g, name):
     root, _lb, kind = OBJ[name]
+    if kind == "gen":
+        st = graph_stats(q, g)
+        return sum(BETA[k] * st[k] for k in GEN_TERMS)
     return rra(g, root) if kind == "rra" else true_value(g, root, weights(q, kind))
 
 RES = Path(__file__).resolve().parents[2] / "evidence" / "results"
@@ -68,6 +83,7 @@ def _enum_chunk(args):
     q = AlignedQubo(t)
     vals = {name: [] for name in OBJ}
     K = 0
+    K3 = 0
     for rp in rest_perms:
         for bp in itertools.permutations(t.back):
             g = q.graph(rp, bp)
@@ -75,11 +91,12 @@ def _enum_chunk(args):
                 continue
             for root in ("entrance", "living"):
                 K = max(K, max(nx.single_source_shortest_path_length(g, root).values()))
+            K3 = max(K3, K, max(nx.single_source_shortest_path_length(g, "kitchen").values()))
             if K_only:
                 continue
             for name in OBJ:
                 vals[name].append(value(q, g, name))
-    return K, {n: (min(v) if v else math.inf) for n, v in vals.items()}, sum(1 for _ in [0])
+    return (K, K3), {n: (min(v) if v else math.inf) for n, v in vals.items()}, sum(1 for _ in [0])
 
 
 def enumerate_opt(t):
@@ -89,13 +106,24 @@ def enumerate_opt(t):
     chunks = [c for c in chunks if c]
     with ProcessPoolExecutor(WORKERS) as ex:
         res = list(ex.map(_enum_chunk, [(t, c, False) for c in chunks]))
-    K = max(r[0] for r in res)
+    K = {"two": max(r[0][0] for r in res), "three": max(r[0][1] for r in res)}
     estar = {n: min(r[1][n] for r in res) for n in OBJ}
     return K, estar, math.factorial(len(q.rest)) * math.factorial(len(t.back))
 
 
 def build(t, name, K, lam=1.0):
     root, lb, kind = OBJ[name]
+    if kind == "gen":
+        if lam == 1.0:
+            return (*gen_build(t, BETA, K["three"])[:2], None)
+        q = AlignedQubo(t)
+        for r in ("living", "entrance", "kitchen"):
+            q.depth_structure(r, K["three"], True)
+        obj = {k: v / lam for k, v in gen_combine(gen_terms(q), BETA).items()}
+        bqm = q.finalize(obj)
+        bqm.scale(lam)
+        return q, bqm, None
+    K = K["two"]
     q = AlignedQubo(t)
     q.depth_structure(root, K, lb)
     obj = q.rra_objective(root) if kind == "rra" else q.total_depth(root, weights(q, kind))
@@ -110,13 +138,13 @@ def build(t, name, K, lam=1.0):
 
 
 def _sa(args):
-    ser, reads, sweeps, seed, xvars = args
+    ser, reads, sweeps, seed, xvars, br = args
     import dimod
     from dwave.samplers import SimulatedAnnealingSampler
 
     bqm = dimod.BinaryQuadraticModel.from_serializable(ser)
     t0 = time.time()
-    ss = SimulatedAnnealingSampler().sample(bqm, num_reads=reads, num_sweeps=sweeps, seed=seed)
+    ss = SimulatedAnnealingSampler().sample(bqm, num_reads=reads, num_sweeps=sweeps, seed=seed, beta_range=br)
     dt = time.time() - t0
     idx = [ss.variables.index(v) for v in xvars]
     return ss.record.energy.tolist(), ss.record.sample[:, idx].tolist(), dt
@@ -143,8 +171,9 @@ def sa_measure(q, bqm, name, w, estar, reads, sweeps):
     xvars = [q.xf(r, i) for r in q.rest for i in range(q.m1)] + [q.xb(v, j) for v in q.t.back for j in range(q.k)]
     per = max(1, reads // WORKERS)
     ser = bqm.to_serializable()
+    br = clean_beta_range(bqm)
     with ProcessPoolExecutor(WORKERS) as ex:
-        out = list(ex.map(_sa, [(ser, per, sweeps, 7000 + i, xvars) for i in range(WORKERS)]))
+        out = list(ex.map(_sa, [(ser, per, sweeps, 7000 + i, xvars, br) for i in range(WORKERS)]))
     en = np.array([e for o in out for e in o[0]])
     xs = [x for o in out for x in o[1]]
     t_read = np.mean([o[2] / per for o in out])
@@ -163,8 +192,8 @@ def sa_measure(q, bqm, name, w, estar, reads, sweeps):
     n = len(xs)
     p = hit / n
     tts = t_read * math.log(0.01) / math.log(1 - p) if 0 < p < 1 else (t_read if p >= 1 else math.inf)
-    p_e = float(np.mean(np.abs(en - estar) < 1e-9))
-    return {"reads": n, "p": p, "p_energy": p_e, "valid": valid / n, "below_estar": int(np.sum(en < estar - 1e-9)), "t_read": t_read, "tts99": tts}
+    p_e = float(np.mean(np.abs(en - estar) < TOL))
+    return {"reads": n, "p": p, "p_energy": p_e, "valid": valid / n, "below_estar": int(np.sum(en < estar - TOL)), "t_read": t_read, "tts99": tts, "beta_range": br}
 
 
 def _perm_sa(args):
@@ -233,13 +262,13 @@ def main():
             for sweeps in (1000, 10000, 50000):
                 reads = 640 if sweeps < 50000 else 320
                 r["sa"][sweeps] = sa_measure(q, bqm, name, w, estar[name], reads, sweeps)
-            if name == "O1_living_RRA":
+            if name in ("O1_living_RRA", "GEN_model"):
                 for lam in (0.5, 0.25):
                     q2, b2, w2 = build(t, name, K, lam)
                     r["lam"][lam] = sa_measure(q2, b2, name, w2, estar[name], 640, 10000)
             for steps in (300, 3000):
                 r["perm"][steps] = perm_measure(t, name, estar[name], steps)
-            if name == "O1_living_RRA":
+            if name in ("O1_living_RRA", "GEN_model"):
                 for tg in ("Pegasus P16", "Zephyr Z12"):
                     r["embed"][tg] = embed(bqm, tg)
             rows.append(r)
@@ -262,24 +291,24 @@ def report(rows):
         s = r["sa"]
         ks = sorted(s, key=int)
         L.append(f"| {r['instance']} | {r['arrangements']:,} | {r['objective']} | {r['vars']:,} | {r['quad']:,} | " + " / ".join(f"{s[k]['p']:.2%}" for k in ks) + " | " + " / ".join(f"{s[k]['p_energy']:.2%}" for k in ks) + " | " + " / ".join(fmt_t(s[k]["tts99"]) for k in ks) + f" | {sum(s[k]['below_estar'] for k in ks)} |")
-    L.append("\n## 2. 벌점 배수 λ (O1, 10k 스위프)\n")
-    L.append("| 인스턴스 | λ = 1 p / 유효율 | λ = 0.5 p / 유효율 / E*보다 낮음 | λ = 0.25 p / 유효율 / E*보다 낮음 |")
-    L.append("|---|---|---|---|")
+    L.append("\n## 2. 벌점 배수 λ (O1·GEN, 10k 스위프)\n")
+    L.append("| 인스턴스 | 목적 | λ = 1 p / 유효율 | λ = 0.5 p / 유효율 / E*보다 낮음 | λ = 0.25 p / 유효율 / E*보다 낮음 |")
+    L.append("|---|---|---|---|---|")
     for r in rows:
         if not r["lam"]:
             continue
         b = r["sa"][10000] if 10000 in r["sa"] else r["sa"]["10000"]
         lam = {str(k): v for k, v in r["lam"].items()}
-        L.append(f"| {r['instance']} | {b['p']:.2%} / {b['valid']:.0%} | " + " | ".join(f"{lam[k]['p']:.2%} / {lam[k]['valid']:.0%} / {lam[k]['below_estar']}" for k in ("0.5", "0.25")) + " |")
+        L.append(f"| {r['instance']} | {r['objective']} | {b['p']:.2%} / {b['valid']:.0%} | " + " | ".join(f"{lam[k]['p']:.2%} / {lam[k]['valid']:.0%} / {lam[k]['below_estar']}" for k in ("0.5", "0.25")) + " |")
     L.append("\n## 3. 순열 SA 기준선(QUBO 없이 배치를 직접 탐색)\n")
     L.append("| 인스턴스 | 목적 | p (300 / 3000 걸음) | TTS99 (300 / 3000) |")
     L.append("|---|---|---|---|")
     for r in rows:
         pp = {str(k): v for k, v in r["perm"].items()}
         L.append(f"| {r['instance']} | {r['objective']} | {pp['300']['p']:.0%} / {pp['3000']['p']:.0%} | {fmt_t(pp['300']['tts99'])} / {fmt_t(pp['3000']['tts99'])} |")
-    L.append("\n## 4. D-Wave 사전 임베딩(minorminer, QPU 없이, O1)\n")
-    L.append("| 인스턴스 | 논리 변수 | Pegasus P16 (5,640큐비트): 큐비트 / 최대 체인 | Zephyr Z12 (4,800큐비트): 큐비트 / 최대 체인 |")
-    L.append("|---|---|---|---|")
+    L.append("\n## 4. D-Wave 사전 임베딩(minorminer, QPU 없이, O1·GEN)\n")
+    L.append("| 인스턴스 | 목적 | 논리 변수 | Pegasus P16 (5,640큐비트): 큐비트 / 최대 체인 | Zephyr Z12 (4,800큐비트): 큐비트 / 최대 체인 |")
+    L.append("|---|---|---|---|---|")
     for r in rows:
         if not r["embed"]:
             continue
@@ -287,8 +316,11 @@ def report(rows):
         for tg in ("Pegasus P16", "Zephyr Z12"):
             e = r["embed"][tg]
             cells.append(f"{e['qubits']:,} / {e['max_chain']}" if e["ok"] else f"실패({e['time']:.0f}초 제한)")
-        L.append(f"| {r['instance']} | {r['vars']:,} | " + " | ".join(cells) + " |")
+        L.append(f"| {r['instance']} | {r['objective']} | {r['vars']:,} | " + " | ".join(cells) + " |")
     L.append("\n## 읽는 법과 한계\n")
+    L.append("- GEN_model = 사이트·논문의 생성 모형(5항 합친 정확 QUBO, 사이트 β). 나머지 셋은 단일 원리 목적(RQ4 목적별 생성과 같은 형태).")
+    L.append("- β 범위는 dwave 기본 함수를 부동소수 잔차(|편향| < 1e-9)를 0으로 정리한 편향에 적용했다(json의 beta_range). 2026-11-05 이전 실행은 정리하지 않은 기본값이었다.")
+    L.append("- 순열 SA 기준선의 온도(2.0 → 0.02, 기하)와 걸음 수는 조정하지 않은 고정값이다.")
     L.append("- 합성 인스턴스는 실제 평면이 아니라 규모 실험용이다(같은 정렬 틀·정식화에 실을 더함).")
     L.append("- 벌점 λ < 1은 바닥 상태가 유효하다는 보장이 없다. 'E*보다 낮음'이 0보다 크면 그 λ에서는 정식화가 틀린 답을 바닥 상태로 갖는다.")
     L.append("- 임베딩은 QPU 없이 위상 그래프에만 맞춘 것이다. 실제 QPU의 결함 큐비트·체인 강도·어닐링 시간은 반영하지 않았다.")

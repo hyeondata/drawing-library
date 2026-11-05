@@ -82,7 +82,7 @@ export function kindsTable(kinds = Object.keys(KINDS)) {
 /** 선택형(도면 생성 탭). */
 export const SELECT_STAGES = [
   { what: '실 목록과 목표 면적', kinds: ['rule'], algo: '닫힌 식(직접 계산)', q: { s: 'na', why: '고를 것이 없는 계산이라 최적화 대상이 아님' }, how: '면적 비율 × 전용면적 → 최소 면적으로 올림 → 합을 전용면적에 맞춤', code: 'layout.js programOf' },
-  { what: '앞 띠 작은방 수(템플릿)', kinds: ['rule', 'eval'], algo: '조건식 + 후보 2개 비교(argmax)', q: { s: 'no', why: '고르는 기준이 평가 점수 J(경로·분포 계산)라 이차식이 아님' }, how: '최소 폭 합(3.0 + 3.6 + 2.6k)이 띠 폭에 들어가는 k를 식으로 계산. k개·k−1개 두 템플릿을 모두 풀고 마지막에 점수로 고름', code: 'qubo.js frontBedCount, compare.js templates' },
+  { what: '앞 띠 작은방 수(템플릿)', kinds: ['rule', 'eval'], algo: '조건식 + 후보 2개 비교(argmax)', q: { s: 'no', why: '고르는 기준이 평가 점수 J(경로·분포 계산)라 이차식이 아님' }, how: '최소 폭 합(안방 + 거실 + 작은방 k개, 데이터 기준 최소 폭)이 띠 폭에 들어가는 k를 식으로 계산. k개·k−1개 두 템플릿을 모두 풀고 마지막에 점수로 고름', code: 'qubo.js frontBedCount, compare.js templates' },
   { what: '방 순서: 어느 실이 띠의 몇 번째 칸에 가나', kinds: ['qubo'], algo: 'QUBO + 풀이기 11종(D²TS·Tabu·SA·PT·SQA·SB·CP·전수 열거 등)', q: { s: 'done', why: '' }, how: 'x(실, 칸) 0/1 변수 + 인접 보상·감점 + 원-핫 벌점으로 만든 QUBO를 고른 풀이기로 풂(템플릿마다 한 번). 좋은 해 최대 4개를 다음 단계로 넘김', code: 'qubo.js buildQubo, solvers.js', key: true },
   { what: 'QUBO 해 → 실 순서', kinds: ['rule'], algo: '탐욕 복구(greedy repair)', q: { s: 'na', why: 'QUBO 해를 읽는 단계라 최적화 대상이 아님' }, how: '제약을 어긴 해는 켜진 변수부터 빈 칸에 채우는 탐욕 복구, 안방이 가운데면 가까운 끝으로 옮김', code: 'qubo.js decode' },
   { what: '치수 변수: 깊이 D·앞 띠 비율 f·작은방 폭 w·안방 깊이 g·면적 배수', kinds: ['search'], algo: '확률적 언덕 오르기(stochastic hill climbing, 30회)', q: { s: 'no', why: '연속값이고 목적(적합성 J)이 이차식이 아님. 값을 몇 단계로 나누고 J를 이차식으로 근사하면 QUBO로 쓸 수는 있으나 J와 어긋남' }, how: '기본값에서 출발해 30번, 변수 하나를 조금 바꿔 평면을 다시 만들고 J가 오르면 채택(순서는 그대로)', code: 'compare.js realize · tweak' },
@@ -123,7 +123,7 @@ export const GEN_STAGES = [
   {
     algo: '닫힌 식 + 후보 2개 비교(argmax)', q: { s: 'no', why: '템플릿을 고르는 기준이 평가 점수 J라 이차식이 아님' },
     kinds: ['rule', 'search', 'eval'],
-    method: ['<b>규칙(식)</b>: 앞 띠 깊이 = D × f, 뒤 띠 깊이 = D − D×f. 앞 띠에 둘 작은방 수 k는 최소 폭 합 3.0 + 3.6 + 2.6k가 띠 폭에 들어가는 가장 큰 값입니다.', '<b>탐색</b>: 앞 띠 비율 f는 다듬기에서 ±0.04씩 바꿔 봅니다(0.48~0.66).', '<b>평가</b>: k개와 k−1개 두 템플릿을 모두 풀고, 마지막에 점수로 더 좋은 쪽을 고릅니다.'],
+    method: ['<b>규칙(식)</b>: 앞 띠 깊이 = D × f, 뒤 띠 깊이 = D − D×f. 앞 띠에 둘 작은방 수 k는 최소 폭 합(안방 + 거실 + 작은방 k개, 실제 아파트 하위 5% 비율 × 침실 한 변)이 띠 폭에 들어가는 가장 큰 값입니다.', '<b>탐색</b>: 앞 띠 비율 f는 다듬기에서 ±0.04씩 바꿔 봅니다(0.48~0.66).', '<b>평가</b>: k개와 k−1개 두 템플릿을 모두 풀고, 마지막에 점수로 더 좋은 쪽을 고릅니다.'],
     code: [['src/generate/qubo.js', 'frontBedCount']],
   },
   {

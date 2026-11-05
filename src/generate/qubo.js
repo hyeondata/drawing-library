@@ -5,7 +5,7 @@
 // 벌점 계수는 한 변수를 뒤집을 때 목적함수가 바뀔 수 있는 최대폭 + 1(보수적 상한, 이 도구가 정함). Ayodele 2022(EvoCOP)는
 // 벌점이 너무 작으면 실행 불가능한 해, 너무 크면 느린 수렴이 생기며 최선의 설정은 문제·풀이기마다 다르다고 보고했다. 너비·깊이처럼 연속인 값과 공간구문 통합도는 QUBO에 넣지 않고,
 // 해를 판상형 문법(layout.js)으로 풀어 낸 뒤 적합성(규칙·면적·선호)으로 고른다.
-import { programOf } from './layout.js';
+import { minSidesFor, programOf } from './layout.js';
 import { SYNTAX, SYNTAX_LAMBDA } from './syntax-weights.js';
 
 /**
@@ -65,11 +65,16 @@ export function withSyntax(W, prefs = [], { lambda = SYNTAX_LAMBDA } = {}) {
 /** 선호(사양의 prefs)에 따라 커지는 항의 배수. */
 const boost = (spec, key, k = 1.6) => (spec.prefs.includes(key) ? k : 1);
 
-/** 앞 띠에 놓을 침실 수: 최소 폭(안방 3.0, 거실 3.6, 작은방 2.6m)으로 앞 띠 폭(전용 ÷ 깊이 약 7m, 생성 평면의 깊이 7.0~9.8m 중 얕은 쪽)에 들어가는 만큼. */
+/**
+ * 앞 띠에 놓을 침실 수: 그 사양의 최소 실 폭(layout.js minSidesFor = 실제 7,275장 하위 5% 비율 × 침실 한 변, 고정 기록 R5)으로
+ * 안방 + 거실 + 작은방 k개가 앞 띠 폭(전용 ÷ 깊이 약 7m, 생성 평면의 깊이 7.0~9.8m 중 얕은 쪽)에 들어가는 최대 k.
+ * (2026-11-05 이전에는 통상 치수 3.0 + 3.6 + 2.6k를 썼다 — 근거가 없어 R5와 같은 데이터 기준으로 바꿈. 사양 80개 중 19개의 템플릿이 달라짐.)
+ */
 export function frontBedCount(spec) {
   const W = spec.area / (7.0 * Math.sqrt(spec.area / 84) ** 0.6);
+  const m = minSidesFor(spec);
   let k = spec.bedrooms - 1; // 안방 외 작은방
-  while (k > 0 && 3.0 + 3.6 + 2.6 * k > W) k--;
+  while (k > 0 && m['안방'] + m['거실'] + m['침실'] * k > W) k--;
   return k;
 }
 
