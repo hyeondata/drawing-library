@@ -164,7 +164,7 @@ function drawCards(L, P) {
       values: `<table class="gen-table"><thead><tr><th>앞 띠 실</th><th>최소 폭 m</th><th>받은 폭 w</th><th>남는 몫</th></tr></thead><tbody>${front
         .map((r) => `<tr><td>${esc(r.name)}</td><td class="mono">${f2(minOf(r), 1)}</td><td class="mono">${f2(r.w)}</td><td class="mono">${f2(Math.max(0, r.w - minOf(r)))}</td></tr>`)
         .join('')}<tr><td>합</td><td class="mono">${f2(front.reduce((s, r) => s + minOf(r), 0), 1)}</td><td class="mono">${f2(front.reduce((s, r) => s + r.w, 0))}</td><td></td></tr></tbody></table>`,
-      why: '실마다 최소 폭(욕실 1.5, 현관 1.2, 침실 2.4, 안방 3.0, 거실 3.6m)을 먼저 보장하고, 남는 폭을 각 실이 최소 폭보다 더 원하는 만큼에 비례해 나눕니다. 치수 제약을 둔 평면 생성과 같은 생각입니다. 최소 폭 합이 W보다 크면 모두 비례해 줄어 좁은 실이 생깁니다.',
+      why: '실마다 최소 폭(실제 아파트의 실별 짧은 변 하위 5% 비율 × 이 평면의 침실 한 변, 표의 m)을 먼저 보장하고, 남는 폭을 각 실이 최소 폭보다 더 원하는 만큼에 비례해 나눕니다. 치수 제약을 둔 평면 생성과 같은 생각입니다. 최소 폭 합이 W보다 크면 모두 비례해 줄어 좁은 실이 생깁니다.',
       vars: ['depth', 'frontShare'],
       refs: ['upasani2020', 'rodrigues2013'],
     },

@@ -2,7 +2,9 @@
 import { GEN_STAGES, badges, kindsTable, quboHtml } from '../generate/pipeline.js';
 import { rulesOf, basisHtml, BASIS_LEGEND } from '../generate/gen-rules.js';
 import { FULL_LEGEND, layoutSvg } from '../generate/render.js';
-import { MIN_SIDE } from '../generate/layout.js';
+import { minSidesFor } from '../generate/layout.js';
+import { syntaxSupported } from '../generate/syntax-gen.js';
+import { SYNTAX_MODEL } from '../generate/syntax-model-data.js';
 import { renderFormulas } from './generate-formulas.js';
 import { renderDiagnosis } from './generate-diagnosis.js';
 import { deviation } from '../generate/metrics.js';
@@ -156,8 +158,31 @@ form.addEventListener('change', (e) => {
  * 지금 고른 조건으로 QUBO를 만들어 항별 계수를 보여 준다(생성기가 쓰는 것과 같은 buildQubo).
  * 실제 계수 = (기본 가중치 + 공간구문 대리 항) × 선호 배수. 이 조건에서 걸리는 변수가 없는 항은 흐리게 표시한다.
  */
+/** 이 사양의 최소 실 폭(min-width.js 비율 × 침실 한 변)을 한 줄로. */
+function minSideText(spec) {
+  const m = minSidesFor(spec);
+  return ['거실', '안방', '침실', '주방', '화장실', '현관'].filter((t) => m[t]).map((t) => `${t} ${m[t].toFixed(2)}m`).join('·');
+}
+
+const TERM_LABEL = { O1: '거실 RRA(거실 중심)', O2: '현관 RRA(현관에서 얕음)', O3: '공·사 깊이 차(침실이 더 깊음)', O7: '주방 RRA(주방 중심, 대조)', O2b: '현관→거실 깊이(현관–거실 1단계)' };
+const TERM_REF = { O1: 'Byun & Choi 2016; Choi et al. 2014', O2: 'Seo 2007', O3: 'Ham & Lee 2017', O7: 'Ham & Lee 2017', O2b: 'Seo 2007' };
+/** 연구 생성기의 에너지 식: 항 5개의 β와 실제 평균(syntax-model-data.js, analysis/gen_model_select.py가 만든 값). */
+function renderModelWeights() {
+  const M = SYNTAX_MODEL;
+  const rows = M.used.map((k) => {
+    const j = M.stats.indexOf(k);
+    const bz = M.beta_z[k];
+    return `<tr><td><b>${k}</b> <small>${TERM_LABEL[k] || ''}</small></td><td class="mono">${M.mean[j].toFixed(3)}</td><td class="mono">${M.sd[j].toFixed(3)}</td><td class="mono">${bz > 0 ? '+' : ''}${bz.toFixed(2)}</td><td class="mono"><b>${M.beta_raw[j] > 0 ? '+' : ''}${M.beta_raw[j].toFixed(3)}</b></td><td>${bz > 0 ? '실제가 균등 배치보다 이 원리 쪽' : '실제가 균등 배치보다 반대 쪽'}</td><td><small>${TERM_REF[k] || ''}</small></td></tr>`;
+  });
+  $('#gen-qw-table').innerHTML =
+    `<p class="note">에너지 E = Σ β·f, 확률 P(배치) ∝ exp(−E). β는 AI 허브 7,275장(거실 볼록 분할 P1, 서로 다른 그래프 ${M.real_graphs.toLocaleString()}개)의 실제 평균에 모형 평균이 같아지도록 맞춘 값(최대 엔트로피, Jaynes 1957; Park & Newman 2004)이며 이 화면의 조건과 무관하게 고정입니다. β_z는 표준화 단위(표준편차 1당), β는 원 단위 계수입니다. 정보 행렬 조건수 ${M.cond.toFixed(1)}(항끼리 겹치지 않음).</p>` +
+    `<div class="mt-scroll"><table class="gen-table"><thead><tr><th>항</th><th>실제 평균</th><th>표준편차</th><th>β_z</th><th>β(원 단위)</th><th>부호의 뜻</th><th>문헌</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` +
+    `<p class="note">다섯 항은 모두 정확한 QUBO로 쓸 수 있는 통계량입니다(정준 상태 에너지 = 그래프 값, 템플릿 160개·배치 18,480개 검증). 비율(습식 주변화)·경로 수(거실 선택도)·홀 중심 항은 정확 QUBO 밖이라 생성 모형에서 뺐습니다. 각 f는 작을수록 그 원리에 맞게 정의했으므로, 양수 β = 원리 쪽 배치의 에너지가 낮아 확률이 높음, 음수 β = 그 반대(실제 아파트가 틀의 균등 배치보다 그 원리에서 먼 쪽).</p>`;
+}
+
 function renderWeights() {
   const spec = buildSpec();
+  if (syntaxSupported(spec)) return renderModelWeights();
   const q = buildQubo(spec, { weights: WEIGHTS });
   const w0 = weightsOf(WEIGHTS);
   const f = (v, d = 2) => (Math.abs(v) < 1e-9 ? '0' : v.toFixed(d));
@@ -464,7 +489,7 @@ function renderResult() {
     </div>
     <p class="gen-applied">${applied.map((t) => `<span class="chip">${esc(t)}</span>`).join(' ')}</p>
     ${c.doorIssues ? `<p class="note error-text">문 동선 문제 ${c.doorIssues}개: ${esc([...c.layout.doorCheck.unreachable.map((k) => `현관에서 문으로 갈 수 없음(${k})`), ...c.layout.doorCheck.throughBedroom.map((k) => `침실을 지나야 함(${k})`)].join(', '))}</p>` : '<p class="note">문 동선: 현관에서 모든 실에 문으로 갈 수 있고, 침실을 지나야 하는 실이 없습니다.</p>'}
-    ${c.narrow ? `<p class="note error-text">최소 폭(욕실 1.5m·침실 2.4m·안방 3.0m·거실 3.6m)보다 좁은 실이 ${c.narrow}개 있습니다. 방 개수나 구성을 줄여 보세요.</p>` : ''}
+    ${c.narrow ? `<p class="note error-text">최소 폭(${minSideText(state.spec)})보다 좁은 실이 ${c.narrow}개 있습니다. 방 개수나 구성을 줄여 보세요.</p>` : ''}
     <h3>목표 면적과 생성 면적</h3>
     <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th><th>차이(±5% 띠)</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="note">초록 ±5% 이내, 노랑 ±10% 이내, 빨강 그 밖(실무 도구 Snaptrude의 기본 허용 범위 ±5%를 참고).</p>
@@ -603,7 +628,7 @@ function stageText(c, stage) {
     case 3:
       return `<p>각 띠에서 실의 순서(어느 실이 몇 번째 칸에 가는가)를 정합니다. 행 = 실, 열 = 칸이고 칠한 칸이 배정입니다(x = 1). ${qubo ? `이 안은 <b>${esc(c.algo.name)}</b>가 QUBO(실마다 칸 하나, 칸마다 실 하나 + 실 쌍 인접 항)를 풀어 나온 순서입니다.` : '이 안은 순서를 무작위로 바꿔 가며 찾은 것입니다.'}</p><div class="gen-matrices">${matrixSvg(front, '앞 띠')}${matrixSvg(back, '뒤 띠')}</div>`;
     case 4:
-      return `<p>칸마다 <b>최소 폭을 먼저</b> 주고(욕실 1.5·현관 1.2·침실 2.4·안방 3.0·거실 3.6m), 남는 폭은 원하는 폭(목표 면적 ÷ 깊이)이 최소 폭을 넘는 만큼에 비례해 나눕니다. 진한 부분이 최소 폭, 옅은 부분이 남는 몫입니다.</p><p class="mth-formula">폭 = 최소 폭 + (전체 − Σ최소 폭) × 초과분 ÷ Σ초과분</p>${widthSvg(front, L.W, '앞 띠')}${widthSvg(back, L.W, '뒤 띠')}`;
+      return `<p>칸마다 <b>최소 폭을 먼저</b> 주고(${minSideText(state.spec)} — 실제 아파트의 실별 짧은 변 하위 5% 비율 × 이 평면의 침실 한 변), 남는 폭은 원하는 폭(목표 면적 ÷ 깊이)이 최소 폭을 넘는 만큼에 비례해 나눕니다. 진한 부분이 최소 폭, 옅은 부분이 남는 몫입니다.</p><p class="mth-formula">폭 = 최소 폭 + (전체 − Σ최소 폭) × 초과분 ÷ Σ초과분</p>${widthSvg(front, L.W, '앞 띠')}${widthSvg(back, L.W, '뒤 띠')}`;
     case 5:
       return `<p>${halls.length ? `작은방을 거실보다 얕게 두고 그 뒤 <b>복도 ${halls.length}곳</b>(폭 ${halls.map((h) => h.h.toFixed(2)).join('·')}m)을 만들어 침실로 들어가게 합니다.` : '작은방이 앞 띠를 꽉 채워 복도가 없습니다.'} ${suite.length ? `안방 뒤에 <b>부속실(${suite.map((r) => r.name).join('·')})</b>을 나란히 붙여 모두 안방과 맞닿게 합니다.` : ''}</p><p class="note">밝게 표시한 실이 이 단계에서 정한 실입니다.</p>`;
     case 6:
