@@ -562,7 +562,11 @@ function exact(q, { deadline, pool, count, ev }) {
 /**
  * 화면에서 쓰는 풀이기. SA만 켠다(근거: evidence/18-SA-선택-근거.md). 나머지는 꺼 두고 실험하지 않으며 코드와 설명만 남긴다(QUBO 도면 생성 탭은 예외로 Tabu 기본).
  */
-export const ACTIVE = ['sa'];
+// 사이트 기본 생성기 = 연구 생성기(공간구문 최대 엔트로피, syntax-gen.js). 손 가중치 QUBO + SA('sa')는 코드에 남기되 기본에서 뺐다(2026-11-05 연구자: "생성모델은 연구기준으로").
+export const ACTIVE = ['syntax'];
+
+/** 연구 생성기(QUBO 풀이기가 아님, compare.js가 따로 처리). */
+export const RESEARCH_GEN = { key: 'syntax', name: '연구 생성기', full: '공간구문 최대 엔트로피(볼츠만) 모형 — 배치 전부 열거', family: '최대 엔트로피 분포(정확 열거), AI 허브 7,275장에 맞춘 β', cite: 'Jaynes 1957; Park & Newman 2004' };
 
 export const SOLVERS = [
   { key: 'd2ts', name: 'D²TS', full: 'Diversification-driven Tabu Search', family: '고전 메타휴리스틱(tabu)', cite: 'Glover, Lü & Hao 2010', run: d2ts },

@@ -655,7 +655,9 @@ function renderMethod(c, stage, isModel, kinds) {
   if (stage === 3 && !isModel) {
     const a = c.algo;
     const tpl = a.perTemplate?.find((p) => p.k === a.template);
-    run = `<p class="proc-run">이 안: 풀이기 <b>${esc(a.name)}</b>, 템플릿 앞 침실 ${a.template + 1}개, QUBO 에너지 <b>${Number(a.energy).toFixed(3)}</b>${tpl && !tpl.feasible ? ' (원-핫 제약 어김 → 규칙으로 복구)' : ''}, 예산 ${esc(a.budget || '')}.</p>`;
+    run = a.key === 'syntax'
+      ? `<p class="proc-run">이 안: <b>연구 생성기</b>(공간구문 최대 엔트로피), 템플릿 앞 침실 ${c.template + 1}개, 공간구문 에너지 <b>${Number(c.syntaxE).toFixed(3)}</b>, 확률 <b>${(100 * c.syntaxP).toFixed(1)}%</b>(${esc(a.budget || '')}), 점검 ${c.ok ? '통과' : '미통과'}.</p>`
+      : `<p class="proc-run">이 안: 풀이기 <b>${esc(a.name)}</b>, 템플릿 앞 침실 ${a.template + 1}개, QUBO 에너지 <b>${Number(a.energy).toFixed(3)}</b>${tpl && !tpl.feasible ? ' (원-핫 제약 어김 → 규칙으로 복구)' : ''}, 예산 ${esc(a.budget || '')}.</p>${a.note ? `<p class="note">${esc(a.note)}</p>` : ''}`;
   }
   if ((stage === 1 || stage === 2 || stage === 4) && c.params) {
     const p = c.params;

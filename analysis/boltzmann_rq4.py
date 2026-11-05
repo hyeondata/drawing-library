@@ -353,7 +353,6 @@ def main():
     L.append("- 생성 쪽은 판상형 정렬 모드 틀 안의 평면뿐이다. 실제와의 남은 거리(기준선 대비)는 틀이 설명하지 못하는 부분을 포함한다.")
     L.append("- 실제 쪽은 같은 그래프를 하나로 묶은 서로 다른 그래프 집합이다(빈도 정보는 쓰지 않음).")
     RES.joinpath(f"{OUT}.md").write_text("\n".join(L) + "\n")
-    RES.joinpath(f"{OUT}.json").write_text(json.dumps({"fits": fits, "point": point, "diff": diff, "curve": curve, "ref": {"nn": ref_nn, "tv": ref_tv.tolist()}, "ci": {m: {k: ci(v) for k, v in d.items()} for m, d in boot.items()}}, ensure_ascii=False, indent=1))
     print("\n".join(L))
 
 

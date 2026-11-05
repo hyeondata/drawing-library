@@ -1,6 +1,7 @@
 // QUBO 풀이기 비교: 풀이기마다 같은 시간 예산·같은 시드로 QUBO를 풀고, 좋은 해 몇 개를 판상형 문법으로 평면으로 풀어 낸 뒤
 // 같은 연속값 다듬기 예산을 주고 적합성 J(규칙 충족 + 목표 면적 + 선호 − 감점)로 고른다. 에너지와 규칙 충족률을 함께 보고한다.
 // QUBO 에너지는 J의 대리 지표라 에너지가 낮다고 J가 높다는 보장은 없다(그래서 순위상관을 함께 낸다).
+import { generateSyntax, syntaxSupported } from './syntax-gen.js';
 import { buildLayout, rng as makeRng } from './layout.js';
 import { optimize, scoreLayout, signature, snapshot } from './optimize.js';
 import { buildQubo, decode, energy, frontBedCount } from './qubo.js';
@@ -109,6 +110,9 @@ export function templates(spec, weights = 'hand') {
  * onProgress(p, key, info): p는 0~1, info = { ms(풀이에 쓴 시간), e(지금까지 최저 에너지), stopped }.
  */
 export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, maxEvals = null, refine = 30, samplesPer = 4, weights = 'hand', stopHits = null, align = false, onProgress } = {}) {
+  // 연구 생성기는 β를 맞춘 데이터 범위(침실 2~4개) 안에서만 쓴다. 밖이면 손 가중치 QUBO + SA로 대신하고 결과에 표시한다.
+  const fallback = algorithms.includes('syntax') && !syntaxSupported(spec);
+  if (fallback) algorithms = algorithms.map((k) => (k === 'syntax' ? 'sa' : k));
   const tpls = templates(spec, weights);
   const q = tpls[0].q;
   const results = [];
@@ -135,6 +139,21 @@ export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, 
         key, name: '기존: J 직접 탐색', family: '적합성 J 블랙박스 최적화', cite: '이 사이트 v1', energy: energyM, template: templateM, feasible: true, ms: performance.now() - t0, evals: 800, best, budget: '평가 800회',
         // 시간 과정: 탐색 구간 하나, 나은 안을 찾은 순간마다 평면
         time: { start, phases: [{ label: '무작위 탐색', start, end: start + timeline.randomEnd }, { label: '다듬기', start: start + timeline.randomEnd, end: start + timeline.total }], marks: timeline.improvements.map((m) => ({ t: start + m.t, layout: m.layout, note: m.phase })) },
+      });
+      return;
+    }
+    if (key === 'syntax') {
+      // 연구 생성기(공간구문 최대 엔트로피, src/generate/syntax-gen.js): 배치를 전부 열거해 정확한 분포에서 고른다.
+      const start = clock() - run0;
+      const out = generateSyntax(spec, { seed, count: 3, refine, onProgress: (p) => onProgress?.((idx + p) / total, key, { ms: clock() - run0 - start, e: null, budgetMs }) });
+      const best = out?.best || null;
+      const end = clock() - run0;
+      results.push({
+        key, name: '연구 생성기', full: '공간구문 최대 엔트로피(볼츠만) 모형 — 배치 전부 열거', family: '최대 엔트로피 분포(정확 열거)', cite: 'Jaynes 1957; Park & Newman 2004',
+        energy: best ? best.syntaxE : null, template: best ? best.template : tpls[0].k, feasible: true, perTemplate: [], ms: out ? out.ms : 0, evals: out ? out.n : 0, best,
+        cands: out ? out.cands : [], syntax: out ? { n: out.n, sampled: out.sampled, used: out.model.used, convention: out.model.convention } : null,
+        budget: out ? `배치 ${out.n.toLocaleString()}개${out.sampled ? '(표본)' : ' 전부'} 열거` : '—',
+        time: { start, phases: [{ label: '배치 열거·확률 계산', start, end: start + (end - start) * 0.6 }, { label: '평면으로 풀기·점검', start: start + (end - start) * 0.6, end }], marks: [] },
       });
       return;
     }
@@ -206,7 +225,9 @@ export function compareAlgorithms(spec, { algorithms, seed = 1, budgetMs = 300, 
   }
   const exactRes = results.find((x) => x.key === 'exact');
   const optimum = Object.fromEntries((exactRes?.perTemplate || []).filter((p) => p.info?.optimal).map((p) => [p.k, p.energy]));
+  if (fallback) for (const res of results) if (res.key === 'sa') res.note = '연구 생성기는 침실 2~4개(실제 데이터로 β를 맞춘 범위)에서만 씁니다. 이 조건은 손 가중치 QUBO + SA로 만들었습니다.';
   return {
+    fallback,
     qubo: { weights: typeof weights === 'string' ? weights : 'custom', templates: tpls.map((t) => ({ k: t.k, n: t.q.n, penalty: t.q.penalty, front: t.q.bands.front.rooms, back: t.q.bands.back.rooms })), terms: q.terms.length, optimum },
     results,
     rho: rhoN ? rhoSum / rhoN : null,

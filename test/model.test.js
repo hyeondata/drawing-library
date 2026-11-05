@@ -321,12 +321,31 @@ test('SA 생성: 화장실 3개 조건에서 욕실 3개를 놓고, 필수 규�
   const { buildChoices } = await import('../src/generate/choices.js');
   const { compareAlgorithms } = await import('../src/generate/compare.js');
   const { ACTIVE } = await import('../src/generate/solvers.js');
-  assert.deepEqual(ACTIVE, ['sa']);
+  assert.deepEqual(ACTIVE, ['syntax']);
   const c = buildChoices();
   const o = c.byBedrooms[5];
   const other = o.roomSize[1].share;
   const spec = { area: 135, bedrooms: 5, baths: 3, dress: true, multi: false, outdoorUnit: true, balcony: true, targets: { living: o.living.standard, ...o.targets, other, master: other * o.master[1].ratio }, prefs: [], etcMax: o.etcMax };
-  const r = compareAlgorithms(spec, { algorithms: ACTIVE, seed: 1, maxEvals: 3000000 }).results[0];
+  const r = compareAlgorithms(spec, { algorithms: ['sa'], seed: 1, maxEvals: 3000000 }).results[0];
+  assert.equal(r.cands.length, 3);
+  assert.equal(new Set(r.cands.map((x) => x.signature)).size, 3);
+  for (const x of r.cands) {
+    assert.equal(x.layout.rooms.filter((q) => q.type === '화장실').length, 3);
+    assert.ok(x.unit.validity.valid, x.unit.validity.failed.join());
+    assert.equal(x.doorIssues, 0);
+  }
+});
+
+test('연구 생성기(기본): 화장실 3개 조건에서 욕실 3개를 놓고, 필수 규칙을 지키는 서로 다른 3안을 낸다', async () => {
+  const { buildChoices } = await import('../src/generate/choices.js');
+  const { compareAlgorithms } = await import('../src/generate/compare.js');
+  const { ACTIVE } = await import('../src/generate/solvers.js');
+  assert.deepEqual(ACTIVE, ['syntax']);
+  const c = buildChoices();
+  const o = c.byBedrooms[5];
+  const other = o.roomSize[1].share;
+  const spec = { area: 135, bedrooms: 5, baths: 3, dress: true, multi: false, outdoorUnit: true, balcony: true, targets: { living: o.living.standard, ...o.targets, other, master: other * o.master[1].ratio }, prefs: [], etcMax: o.etcMax };
+  const r = compareAlgorithms(spec, { algorithms: ACTIVE, seed: 1 }).results[0];
   assert.equal(r.cands.length, 3);
   assert.equal(new Set(r.cands.map((x) => x.signature)).size, 3);
   for (const x of r.cands) {

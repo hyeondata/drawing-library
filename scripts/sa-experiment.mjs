@@ -8,7 +8,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildChoices } from '../src/generate/choices.js';
 import { compareAlgorithms, templates } from '../src/generate/compare.js';
-import { ACTIVE, SOLVERS, runSolver } from '../src/generate/solvers.js';
+import { SOLVERS, runSolver } from '../src/generate/solvers.js';
+const ACTIVE = ['sa']; // 손 가중치 QUBO + SA 실험(사이트 기본 생성기는 연구 생성기로 바뀜)
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const i = process.argv.indexOf('--seeds');

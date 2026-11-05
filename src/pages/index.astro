@@ -6,7 +6,7 @@ import Topbar from '../components/Topbar.astro';
 import { REFERENCES } from '../model/config.js';
 import { buildChoices } from '../generate/choices.js';
 import { LIFESTYLE_CHOICES, SYNTAX_CHOICES } from '../generate/preferences.js';
-import { ACTIVE, SOLVERS } from '../generate/solvers.js';
+import { ACTIVE, RESEARCH_GEN, SOLVERS } from '../generate/solvers.js';
 import { GEN_STAGES } from '../generate/pipeline.js';
 import { show, showSeg } from '../lib/source.js';
 import { largest, maskFromUnit } from '../freeform/outline.js';
@@ -16,7 +16,7 @@ import { largest, maskFromUnit } from '../freeform/outline.js';
 const SAX = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'evidence', 'results', 'sa-experiment.json'), 'utf8'));
 const stopOf = (k) => SAX.stop.find((r) => r.stopHits === k);
 const stopLabel = (k) => { const r = stopOf(k); return r ? `최적 ${Math.round(r.p * 100)}%, 보통 ${(r.ms.p50 / 1000).toFixed(1)}초` : ''; };
-const algos = SOLVERS.filter((s) => ACTIVE.includes(s.key)).map((s) => ({ key: s.key, name: s.name, family: s.family, cite: s.cite }));
+const algos = [RESEARCH_GEN, ...SOLVERS].filter((s) => ACTIVE.includes(s.key)).map((s) => ({ key: s.key, name: s.name, family: s.family, cite: s.cite }));
 
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 // 생성 과정 단계마다 실제 코드(빌드 때 소스에서 잘라 옴)
@@ -225,8 +225,11 @@ const steps = [
           <fieldset class="gen-algos" id="gen-algos">
             <legend>생성 알고리즘</legend>
             <p class="note">
-              실 배치를 <b>QUBO</b>(실×칸 이진 변수, 원-핫 벌점 + 실 쌍 인접 항)로 만들어 <b>SA(담금질)</b>로 풀고, 좋은 해를 평면으로 풀어 적합성 J(규칙 충족 + 목표 면적 + 선호)로 서로 다른 3안을 고릅니다.
-              다른 풀이기(tabu 계열·PT·SQA·SB·분기한정·열거)와 직접 탐색은 꺼 두었습니다. SA만 쓰는 이유: <a href={`${base}method/#sa-only`}>방법과 근거 5.0절</a>.
+              기본 생성기는 <b>연구 생성기</b>입니다. 방 배치(앞·뒤 띠의 방 순서)마다 공간구문 값(거실·현관·주방의 상대 깊이 RRA, 공·사 깊이 차, 습식 공간 주변화, 거실 선택도, 현관→거실 깊이)을 재고,
+              AI 허브 아파트 평면 7,275장의 실제 평균에 맞춘 <b>최대 엔트로피(볼츠만) 분포</b>로 배치마다 확률을 줍니다. 배치를 전부 열거하므로 근사가 없습니다.
+              확률이 높은 배치부터 치수를 다듬어 평면으로 만들고, 필수 규칙·좁은 실·문 동선 점검을 통과한 서로 다른 3안을 확률 순으로 보여 줍니다.
+              배치 틀은 QUBO 칸 모형의 맞닿음이 도면과 그대로 맞는 정렬 모드(복도 포함)입니다. 침실 1개·5개는 모형을 맞춘 실제 데이터(침실 2~4개) 밖이라 손 가중치 QUBO + SA로 만듭니다.
+              근거: Jaynes 1957, Park &amp; Newman 2004(최대 엔트로피), 거실 라벨은 볼록 공간으로 나눠 맞춤(Hillier &amp; Hanson 1984).
             </p>
             <div class="gen-algo-list">
               {algos.map((a) => (
