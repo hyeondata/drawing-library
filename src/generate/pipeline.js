@@ -64,7 +64,7 @@ export const badges = (kinds) => kinds.map(badge).join(' ');
 export function quboHtml(q, base = '/') {
   if (!q) return '';
   const T = { done: ['QUBO 사용', 'q-done'], other: ['가능 — QUBO 도면 생성 탭에 구현', 'q-other'], possible: ['가능(미구현)', 'q-pos'], no: ['불가', 'q-no'], na: ['대상 아님', 'q-na'] }[q.s];
-  const lab = q.s === 'other' ? `<a href="${base}qubo-gen/">${T[0]}</a>` : T[0];
+  const lab = q.s === 'other' ? `${T[0]}` : T[0];
   return `<span class="q-chip ${T[1]}">${lab}</span>${q.why ? `<small class="q-why">${q.why}</small>` : ''}`;
 }
 
@@ -130,7 +130,7 @@ export const GEN_STAGES = [
     algo: 'QUBO + 고른 풀이기', modelAlgo: '무작위 탐색 + 확률적 언덕 오르기', q: { s: 'done', why: '' }, modelQ: { s: 'no', why: '평가 점수 J를 그대로 쓰는 비교 기준이라 QUBO가 아님' },
     kinds: ['qubo'],
     modelKinds: ['search'],
-    method: ['<b>QUBO 최적화</b> — 이 단계만 QUBO입니다. 변수 x(실, 칸) = 1이면 그 실이 그 칸에 갑니다.', 'E(x) = Σ<sub>t</sub> w<sub>t</sub>·b<sub>t</sub>·φ<sub>t</sub>(x) + P·Σ<sub>묶음</sub>(Σx − 1)²: 앞의 합은 실 사이 관계(예: 주방–거실 맞닿음)의 보상·감점, 뒤의 합은 "실마다 칸 하나, 칸마다 실 하나"를 어기면 받는 벌점입니다.', '고른 풀이기가 이 에너지를 가장 낮게 만드는 x를 찾고(템플릿마다 한 번), 에너지가 낮은 해 최대 4개를 실 순서로 바꿔 다음 단계로 넘깁니다. 제약을 어긴 해는 규칙으로 복구합니다.', '위 행렬의 부부욕실·드레스룸은 QUBO 변수가 아닙니다. 안방 뒤에 붙이는 <b>규칙</b>(5단계)으로 놓입니다.', '단계별 식과 숫자: <a href="{base}qubo-step/">QUBO 따라가기</a>'],
+    method: ['<b>QUBO 최적화</b> — 이 단계만 QUBO입니다. 변수 x(실, 칸) = 1이면 그 실이 그 칸에 갑니다.', 'E(x) = Σ<sub>t</sub> w<sub>t</sub>·b<sub>t</sub>·φ<sub>t</sub>(x) + P·Σ<sub>묶음</sub>(Σx − 1)²: 앞의 합은 실 사이 관계(예: 주방–거실 맞닿음)의 보상·감점, 뒤의 합은 "실마다 칸 하나, 칸마다 실 하나"를 어기면 받는 벌점입니다.', '고른 풀이기가 이 에너지를 가장 낮게 만드는 x를 찾고(템플릿마다 한 번), 에너지가 낮은 해 최대 4개를 실 순서로 바꿔 다음 단계로 넘깁니다. 제약을 어긴 해는 규칙으로 복구합니다.', '위 행렬의 부부욕실·드레스룸은 QUBO 변수가 아닙니다. 안방 뒤에 붙이는 <b>규칙</b>(5단계)으로 놓입니다.', '단계별 식과 숫자: QUBO 따라가기'],
     modelMethod: ['<b>탐색</b> — 이 안은 "기존: J 직접 탐색"이라 QUBO를 쓰지 않았습니다. 실 순서와 치수를 무작위로 400번 뽑아 J를 재고, 좋은 4개에서 조금씩 바꿔 400번 더 찾았습니다(J가 오르면 채택).', '부부욕실·드레스룸은 안방 뒤에 붙이는 <b>규칙</b>(5단계)으로 놓입니다.'],
     code: [['src/generate/qubo.js', 'buildQubo'], ['src/generate/qubo.js', 'decode']],
     modelCode: [['src/generate/optimize.js', 'optimize']],

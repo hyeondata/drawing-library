@@ -102,7 +102,7 @@ export function createOutlineRunner({ base, setProgress, $ }) {
       </div>
       <h3>실별 면적</h3>
       <table class="gen-table"><thead><tr><th>실</th><th>목표 ㎡</th><th>생성 ㎡</th><th>차이</th><th>모양</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="note">목표 면적은 앞 단계에서 고른 면적비 × 전용면적입니다(정하지 않은 복도·기타는 남는 면적). 실 사이 인접(문을 낼 쌍)은 실 구성을 빌려 온 세대에서 가져옵니다. 자유형 엔진은 0.3m 칸을 실에 나눠 주는 담금질이라 실이 직사각형이 아닐 수 있습니다(<a href="${base}freeform/">자유형 평면</a>과 같은 엔진).</p>
+      <p class="note">목표 면적은 앞 단계에서 고른 면적비 × 전용면적입니다(정하지 않은 복도·기타는 남는 면적). 실 사이 인접(문을 낼 쌍)은 실 구성을 빌려 온 세대에서 가져옵니다. 자유형 엔진은 0.3m 칸을 실에 나눠 주는 담금질이라 실이 직사각형이 아닐 수 있습니다(자유형 평면과 같은 엔진).</p>
       ${ignored.length ? `<p class="note">이 형태에서는 공간구문 조건과 면적·실 구성만 반영합니다. 반영하지 않은 생활 조건: ${ignored.join(', ')}.</p>` : ''}`;
   }
 

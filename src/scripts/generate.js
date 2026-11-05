@@ -176,7 +176,7 @@ function renderWeights() {
   $('#gen-qw-table').innerHTML =
     `<p class="note">변수 ${q.n}개(앞 띠 ${q.bands.front.rooms.length}실 × ${q.bands.front.slots}칸, 뒤 띠 ${q.bands.back.rooms.length}실 × ${q.bands.back.slots}칸), 원-핫 벌점 P = ${q.penalty}. 에너지 = Σ 실제 계수 × 항 값 + P × 원-핫 위반, 실제 계수 = 기본 가중치 × 선호 배수 + 대리 항. 음수는 그 배치를 원함(보상), 양수는 피함(감점). ${syn}</p>` +
     `<div class="mt-scroll"><table class="gen-table"><thead><tr><th>항</th><th>기본 가중치</th><th>+ 대리 항</th><th>선호 배수(기본에만)</th><th>실제 계수</th><th></th><th>근거</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` +
-    `<p class="note">기본 가중치는 시공 가능성 규칙과 문헌을 보고 정한 값이고 점수에 맞춰 보정하지 않았습니다(<a href="${base}method/#qubo">방법과 근거 3.3절</a>). 굵은 선호 배수는 지금 고른 선호로 켜진 것, 흐린 줄은 이 조건에 해당 실이 없어 쓰지 않는 항입니다.</p>`;
+    `<p class="note">기본 가중치는 시공 가능성 규칙과 문헌을 보고 정한 값이고 점수에 맞춰 보정하지 않았습니다(방법과 근거 3.3절). 굵은 선호 배수는 지금 고른 선호로 켜진 것, 흐린 줄은 이 조건에 해당 실이 없어 쓰지 않는 항입니다.</p>`;
 }
 
 // ---------- 생성 ----------
@@ -664,7 +664,7 @@ function renderMethod(c, stage, isModel, kinds) {
     run = `<p class="proc-run">이 안의 탐색 결과: 깊이 D ${Number(p.depth).toFixed(2)}m · 앞 띠 비율 f ${Number(p.frontShare).toFixed(2)} · 작은방 폭 w ${Number(p.bedWidth ?? 3).toFixed(2)}m · 안방 깊이 g ${Number(p.masterDepth ?? 1).toFixed(2)}</p>`;
   }
   const tpl = document.querySelector(`template[data-proc-code="${stage}${useModel ? 'm' : ''}"]`);
-  $('#proc-method').innerHTML = `<div class="proc-method-head"><b>${stage}단계에서 쓰인 규칙</b> ${badges(kinds)}</div><div class="proc-algo"><span><b>알고리즘</b> ${useModel ? g.modelAlgo : g.algo}</span><span><b>QUBO로 바꿀 수 있나</b> ${quboHtml(useModel ? g.modelQ : g.q, base)}</span></div>${rulesTable(rulesOf(stage, c, state.spec))}<details class="pl-what"><summary>이 단계는 어떻게 정해지나(설명)</summary><ul>${lines}</ul></details>${run}<details class="pl-what"><summary>배지(${kinds.map((k) => k === 'qubo' ? 'QUBO 최적화' : k === 'sa' ? '담금질 최적화' : k === 'rule' ? '규칙' : k === 'search' ? '탐색' : '평가').join('·')})는 무슨 뜻인가요?</summary>${kindsTable(kinds)}<p class="note">다섯 가지 방식 전체 비교: <a href="${base}how/#kinds">생성 원리 0절</a></p></details><details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;
+  $('#proc-method').innerHTML = `<div class="proc-method-head"><b>${stage}단계에서 쓰인 규칙</b> ${badges(kinds)}</div><div class="proc-algo"><span><b>알고리즘</b> ${useModel ? g.modelAlgo : g.algo}</span><span><b>QUBO로 바꿀 수 있나</b> ${quboHtml(useModel ? g.modelQ : g.q, base)}</span></div>${rulesTable(rulesOf(stage, c, state.spec))}<details class="pl-what"><summary>이 단계는 어떻게 정해지나(설명)</summary><ul>${lines}</ul></details>${run}<details class="pl-what"><summary>배지(${kinds.map((k) => k === 'qubo' ? 'QUBO 최적화' : k === 'sa' ? '담금질 최적화' : k === 'rule' ? '규칙' : k === 'search' ? '탐색' : '평가').join('·')})는 무슨 뜻인가요?</summary>${kindsTable(kinds)}<p class="note">다섯 가지 방식 전체 비교: 생성 원리 0절</p></details><details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;
 }
 function setStage(k, stop = false) {
   proc.stage = Math.max(1, Math.min(STAGES.length, k));
