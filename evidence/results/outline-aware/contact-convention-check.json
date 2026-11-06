@@ -1,0 +1,728 @@
+{
+ "arrangements": 15072,
+ "keys": 2880,
+ "singleSpecKeys": 0,
+ "K1": {
+  "old": 0,
+  "aihub": 272,
+  "aihubExamples": [
+   {
+    "key": "bathMaster:화장실,bathPublic:화장실,bed1:침실,bed2:침실,bed3:침실,dress:드레스룸,entrance:현관,hall0:기타,kitchen:주방,living:거실,master:침실#living,master,bed1,bed2/kitchen,entrance,bathPublic,bed3#living,bed1,bed2/kitchen,entrance,bathPublic,bed3",
+    "graphs": [
+     {
+      "edges": "bathMaster|dress,bathMaster|kitchen,bathPublic|bed3,bathPublic|entrance,bathPublic|hall0,bed1|bed2,bed1|hall0,bed1|living,bed2|hall0,bed3|hall0,dress|kitchen,dress|master,entrance|hall0,entrance|kitchen,hall0|living,kitchen|living,living|master",
+      "specs": 4
+     },
+     {
+      "edges": "bathMaster|dress,bathMaster|kitchen,bathPublic|bed3,bathPublic|entrance,bathPublic|hall0,bed1|bed2,bed1|hall0,bed1|living,bed2|hall0,bed3|hall0,dress|kitchen,dress|master,entrance|hall0,entrance|kitchen,entrance|living,hall0|living,kitchen|living,living|master",
+      "specs": 11
+     }
+    ]
+   },
+   {
+    "key": "bathMaster:화장실,bathPublic:화장실,bed1:침실,bed2:침실,bed3:침실,dress:드레스룸,entrance:현관,hall0:기타,kitchen:주방,living:거실,master:침실#living,master,bed1,bed2/kitchen,entrance,bathPublic,bed3#living,bed1,bed2/kitchen,bathPublic,entrance,bed3",
+    "graphs": [
+     {
+      "edges": "bathMaster|dress,bathMaster|kitchen,bathPublic|entrance,bathPublic|hall0,bathPublic|kitchen,bed1|bed2,bed1|hall0,bed1|living,bed2|hall0,bed3|entrance,bed3|hall0,dress|kitchen,dress|master,entrance|hall0,hall0|living,kitchen|living,living|master",
+      "specs": 4
+     },
+     {
+      "edges": "bathMaster|dress,bathMaster|kitchen,bathPublic|entrance,bathPublic|hall0,bathPublic|kitchen,bathPublic|living,bed1|bed2,bed1|hall0,bed1|living,bed2|hall0,bed3|entrance,bed3|hall0,dress|kitchen,dress|master,entrance|hall0,hall0|living,kitchen|living,living|master",
+      "specs": 11
+     }
+    ]
+   },
+   {
+    "key": "bathMaster:화장실,bathPublic:화장실,bed1:침실,bed2:침실,bed3:침실,dress:드레스룸,entrance:현관,hall0:기타,kitchen:주방,living:거실,master:침실#living,master,bed1,bed2/kitchen,entrance,bathPublic,bed3#living,bed1,bed2/entrance,bathPublic,kitchen,bed3",
+    "graphs": [
+     {
+      "edges": "bathMaster|dress,bathMaster|entrance,bathPublic|entrance,bathPublic|kitchen,bathPublic|living,bed1|bed2,bed1|hall0,bed1|living,bed2|hall0,bed3|hall0,bed3|kitchen,dress|entrance,dress|master,entrance|living,hall0|kitchen,hall0|living,living|master",
+      "specs": 4
+     },
+     {
+      "edges": "bathMaster|dress,bathMaster|entrance,bathPublic|entrance,bathPublic|hall0,bathPublic|kitchen,bathPublic|living,bed1|bed2,bed1|hall0,bed1|living,bed2|hall0,bed3|hall0,bed3|kitchen,dress|entrance,dress|master,entrance|living,hall0|kitchen,hall0|living,living|master",
+      "specs": 11
+     }
+    ]
+   },
+   {
+    "key": "bathMaster:화장실,bathPublic:화장실,bed1:침실,bed2:침실,bed3:침실,dress:드레스룸,entrance:현관,hall0:기타,kitchen:주방,living:거실,master:침실#living,master,bed1,bed2/kitchen,entrance,bathPublic,bed3#living,bed1,bed2/bathPublic,entrance,kitchen,bed3",
+    "graphs": [
+     {
+      "edges": "bathMaster|bathPublic,bathMaster|dress,bathPublic|dress,bathPublic|entrance,bathPublic|living,bed1|bed2,bed1|hall0,bed1|living,bed2|hall0,bed3|hall0,bed3|kitchen,dress|master,entrance|kitchen,entrance|living,hall0|kitchen,hall0|living,living|master",
+      "specs": 4
+     },
+     {
+      "edges": "bathMaster|bathPublic,bathMaster|dress,bathPublic|dress,bathPublic|entrance,bathPublic|living,bed1|bed2,bed1|hall0,bed1|living,bed2|hall0,bed3|hall0,bed3|kitchen,dress|master,entrance|hall0,entrance|kitchen,entrance|living,hall0|kitchen,hall0|living,living|master",
+      "specs": 11
+     }
+    ]
+   },
+   {
+    "key": "bathMaster:화장실,bathPublic:화장실,bed1:침실,bed2:침실,bed3:침실,dress:드레스룸,entrance:현관,hall0:기타,kitchen:주방,living:거실,master:침실#living,master,bed1,bed2/kitchen,entrance,bathPublic,bed3#living,bed2,bed1/kitchen,entrance,bathPublic,bed3",
+    "graphs": [
+     {
+      "edges": "bathMaster|dress,bathMaster|kitchen,bathPublic|bed3,bathPublic|entrance,bathPublic|hall0,bed1|bed2,bed1|hall0,bed2|hall0,bed2|living,bed3|hall0,dress|kitchen,dress|master,entrance|hall0,entrance|kitchen,hall0|living,kitchen|living,living|master",
+      "specs": 4
+     },
+     {
+      "edges": "bathMaster|dress,bathMaster|kitchen,bathPublic|bed3,bathPublic|entrance,bathPublic|hall0,bed1|bed2,bed1|hall0,bed2|hall0,bed2|living,bed3|hall0,dress|kitchen,dress|master,entrance|hall0,entrance|kitchen,entrance|living,hall0|living,kitchen|living,living|master",
+      "specs": 11
+     }
+    ]
+   }
+  ]
+ },
+ "K2": {
+  "specs": 80,
+  "optOrderChanged": 1,
+  "optGraphChanged": 10
+ },
+ "K3": {
+  "oldOptWithShort": 10,
+  "of": 80
+ },
+ "perSpec": [
+  {
+   "spec": 0,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 1,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 2,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 3,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 4,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 5,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 6,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 7,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 8,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 9,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 10,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 11,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 12,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 13,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 14,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 15,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 16,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 17,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 18,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 19,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 20,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 21,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 22,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 23,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 24,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 25,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 26,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 27,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 28,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 29,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 30,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 31,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 32,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 33,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 34,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 35,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 36,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 37,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 38,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 39,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 40,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 41,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 42,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 43,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 44,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 45,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 46,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 47,
+   "bedrooms": 4,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 48,
+   "bedrooms": 4,
+   "area": 114,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 49,
+   "bedrooms": 4,
+   "area": 125,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 50,
+   "bedrooms": 4,
+   "area": 135,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 51,
+   "bedrooms": 4,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 52,
+   "bedrooms": 4,
+   "area": 114,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 53,
+   "bedrooms": 4,
+   "area": 125,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 54,
+   "bedrooms": 4,
+   "area": 135,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 55,
+   "bedrooms": 4,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 56,
+   "bedrooms": 4,
+   "area": 114,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 57,
+   "bedrooms": 4,
+   "area": 125,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 58,
+   "bedrooms": 4,
+   "area": 135,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 59,
+   "bedrooms": 4,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 60,
+   "bedrooms": 4,
+   "area": 114,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 61,
+   "bedrooms": 4,
+   "area": 125,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 62,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 63,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 64,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 65,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 66,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 67,
+   "bedrooms": 3,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 68,
+   "bedrooms": 3,
+   "area": 84,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 69,
+   "bedrooms": 2,
+   "area": 59,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 70,
+   "bedrooms": 2,
+   "area": 64,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 71,
+   "bedrooms": 2,
+   "area": 74,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 72,
+   "bedrooms": 4,
+   "area": 135,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 73,
+   "bedrooms": 4,
+   "area": 101,
+   "sameOrder": false,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 74,
+   "bedrooms": 4,
+   "area": 114,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 75,
+   "bedrooms": 4,
+   "area": 125,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 76,
+   "bedrooms": 2,
+   "area": 59,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 77,
+   "bedrooms": 2,
+   "area": 64,
+   "sameOrder": true,
+   "sameGraph": true,
+   "oldOptHasShort": false
+  },
+  {
+   "spec": 78,
+   "bedrooms": 3,
+   "area": 94,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  },
+  {
+   "spec": 79,
+   "bedrooms": 3,
+   "area": 101,
+   "sameOrder": true,
+   "sameGraph": false,
+   "oldOptHasShort": true
+  }
+ ],
+ "verdict": "QUBO 규약 변경 불가(현행 유지, 민감도 보고)"
+}
