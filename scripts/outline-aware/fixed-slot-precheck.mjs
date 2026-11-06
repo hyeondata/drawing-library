@@ -1,7 +1,9 @@
-// 외곽 비고정 트랙 10-01 사전 점검: 고정 칸 틀(p.fixedSlots)에서 외곽으로 잘라 낸 평면의 맞닿음 그래프가
+// 외곽 비고정 트랙 사전 점검(10-01 판정 그대로, 10-02에서 틀 수정 후 재실행): 고정 칸 틀(p.fixedSlots)에서 외곽으로 잘라 낸 평면의 맞닿음 그래프가
 // '실 쌍의 배정'만으로 정해지는가(= 이차 할당 문제 형식, 정확 QUBO로 쓸 수 있는 조건).
 //
-// 사전 등록(결과를 보기 전에 정함, 이 파일의 첫 commit이 기록. Confluence 10-01):
+// 사전 등록(결과를 보기 전에 정함, 이 파일의 첫 commit이 기록. Confluence 10-01).
+// 10-02(결과를 본 뒤의 수정, Confluence 10-02): 10-01에서 안방 폭이 뒤 띠 순서에 따라 달라짐을 확인(최소 폭 보정 frontMins).
+//   틀만 고친다: 고정 칸에서 안방 폭 = 보정 전 배분값. 판정 기준·대상·지표는 10-01과 같다. 결과 파일 이름에 버전을 붙인다(10-01 결과는 보존).
 //   틀 = 정렬 모드 + 고정 칸: 안방 폭은 기존 배분, 나머지 앞 칸은 균등, 뒤 칸 경계도 균등(칸 모형 j/k 위치). 생성기 기본 동작은 그대로.
 //   대상 = outline-projection.mjs와 같다: 외곽 o1~o12 대표 세대 × 침실 2~4(그 묶음에 세대가 있는 것) × SPECS=rq4 사양 전부 × 템플릿 × 배치 전부, 고운 칸 0.1 m.
 //   칸 열쇠: 앞 띠 실 = 'f'+앞 칸 번호, 뒤 띠 실 = 'b'+뒤 칸 번호, 부속실(드레스룸·부부욕실) = 'S'(늘 안방 아래), 복도 = 'L'+거실의 앞 칸 번호
@@ -29,6 +31,7 @@ import { specs } from '../lib/rq4-specs.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUTL = JSON.parse(fs.readFileSync(path.join(root, 'public/data/outlines.json'), 'utf8'));
 const CELL = 0.3;
+const VER = process.env.VER || '10-01';
 const SUITE = new Set(['dress', 'bathMaster']);
 
 function* perms(a) {
@@ -146,13 +149,14 @@ for (const o of OUTL.outlines)
   }
 const outDir = path.join(root, 'evidence/results/outline-aware');
 fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(path.join(outDir, 'fixed-slot-precheck.json'), JSON.stringify(rows, null, 1));
+const tag = VER === '10-01' ? '' : '-' + VER;
+fs.writeFileSync(path.join(outDir, `fixed-slot-precheck${tag}.json`), JSON.stringify(rows, null, 1));
 const ctrl = rows.filter((r) => r.outline.startsWith('대조'));
 const real = rows.filter((r) => !r.outline.startsWith('대조'));
 const m0ok = ctrl.every((r) => r.m0a === 0 && r.m0b === 0);
 const m1ok = real.every((r) => r.stateConf === 0 && r.edgeConf === 0);
 const f = (x) => (x == null ? '—' : `${(100 * x).toFixed(0)}%`);
-const L = ['# 외곽 비고정 트랙 10-01: 고정 칸 틀의 이차 형식 사전 점검\n', '> `SPECS=rq4 node scripts/outline-aware/fixed-slot-precheck.mjs` · 판정은 이 파일 첫 commit에 사전 등록(Confluence 10-01)\n'];
+const L = [`# 외곽 비고정 트랙 ${VER}: 고정 칸 틀의 이차 형식 사전 점검\n`, '> `SPECS=rq4 node scripts/outline-aware/fixed-slot-precheck.mjs` · 판정은 이 파일 첫 commit에 사전 등록(Confluence 10-01)\n'];
 L.push(`- M0 대조: ${m0ok ? '**통과**' : '**실패(점검 무효)**'} — ${ctrl.map((r) => `${r.bedrooms}침실 ${r.n}배치: 고정 칸≠기존 ${r.m0a}, 자르기 전후 다름 ${r.m0b}`).join(' · ')}`);
 L.push(`- M1 결정성(모든 단위 어긋남 0): ${m1ok ? '**성립**' : '**불성립**'}`);
 L.push(`- 설계 (a) 채택 규칙: ${m0ok && m1ok ? '**충족**' : '**불충족**'}\n`);
@@ -163,5 +167,5 @@ const bad = real.filter((r) => r.stateConf || r.edgeConf);
 if (bad.length) L.push(`\n- 어긋난 열쇠 예: ${bad.slice(0, 4).map((r) => `${r.outline}·${r.bedrooms}: ${r.confExamples.join('; ')}`).join(' / ')}`);
 L.push(`- 범위 밖(실행 가능 배치 0): ${real.filter((r) => !r.feasible).map((r) => `${r.outline}·${r.bedrooms}`).join(', ') || '없음'}`);
 L.push('- 면적 오차는 판정에 쓰지 않는다(보고만). 기존 정렬 틀 열은 모든 실이 남은 배치만 센다.');
-fs.writeFileSync(path.join(outDir, 'fixed-slot-precheck.md'), L.join('\n') + '\n');
+fs.writeFileSync(path.join(outDir, `fixed-slot-precheck${tag}.md`), L.join('\n') + '\n');
 console.log(L.join('\n'));

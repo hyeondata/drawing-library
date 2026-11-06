@@ -193,6 +193,7 @@ export function buildLayout(spec, p) {
   // 정렬 모드: 뒤 띠 실이 칸 모형상 앞 칸 하나 안에 통째로 들어가면, 그 앞 칸은 그 실들의 최소 폭 합 + 양끝 여유(0.1 m)만큼은 넓어야 한다.
   // 그러지 않으면 겹침 양상을 지키는 한 뒤 띠 실(현관·욕실·침실)이 최소 폭보다 좁아질 수밖에 없다. 앞 칸 최소 폭만 올리고 나머지는 면적대로 나눈다.
   const frontMins = front.map(minW);
+  const baseMins = frontMins.slice(); // 고정 칸(10-02): 뒤 띠 순서에 따른 최소 폭 보정 전 값
   if (align) {
     const backRooms = p.backOrder.map((key) => by[key]).filter(Boolean);
     const rest = front.map((room, i) => i).filter((i) => front[i] !== master);
@@ -212,7 +213,10 @@ export function buildLayout(spec, p) {
   // 그러면 실의 칸 모양이 '그 실의 칸·종류'만으로 정해져, 외곽으로 잘라도 맞닿음이 실 쌍의 배정에만 달린다(이차 할당 문제 형식).
   if (align && p.fixedSlots) {
     const im = front.indexOf(master);
-    const rest = W - frontWidths[im];
+    // 10-02: 안방 폭도 배치와 무관하게 — 뒤 띠 순서로 바뀌는 최소 폭 보정(frontMins) 전의 배분값을 쓴다.
+    const wm = allocate(front.map((room) => room.area / depthOf(room)), baseMins, W)[im];
+    frontWidths[im] = wm;
+    const rest = W - wm;
     front.forEach((_, i) => { if (i !== im) frontWidths[i] = rest / (front.length - 1); });
   }
   // (보기용 기록) p.trace 배열을 주면 폭 나누기 계산을 남긴다. 계산에는 영향 없음.
