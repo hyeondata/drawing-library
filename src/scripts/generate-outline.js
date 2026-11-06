@@ -3,6 +3,7 @@
 // 실 면적 목표 = 뒤 단계에서 고른 값(거실·작은방·안방·주방·화장실·현관·드레스룸·다목적실 면적비). 데이터: scripts/build-outlines.mjs.
 import { CELL, SYNTAX_TARGETS, buildProblem } from '../freeform/engine.js';
 import { largest, maskFromUnit } from '../freeform/outline.js';
+import { minSidesFor } from '../generate/layout.js';
 import { planSvg, roomNames } from '../freeform/render.js';
 
 const OUTDOOR = new Set(['발코니', '실외기실']);
@@ -37,16 +38,28 @@ export function retarget(P, spec) {
   return P;
 }
 
+/**
+ * 빌려 온 실제 세대 실 구성에 안방 표시: 가장 큰 침실 = key 'master'(retarget과 같은 규칙). 원본 데이터는 바꾸지 않는다.
+ * 최소 실 폭을 베이스라인 R5(minSidesFor(사양), 안방 별도)로 쓰기 위함(변경 8, Confluence 10-12).
+ */
+export function withMaster(prog) {
+  const beds = prog.rooms.map((r, i) => [r, i]).filter(([r]) => r.type === '침실').sort((a, b) => b[0].area - a[0].area);
+  const mi = beds[0]?.[1];
+  return { ...prog, rooms: prog.rooms.map((r, i) => (i === mi ? { ...r, key: 'master' } : r)) };
+}
+
 export function createOutlineRunner({ base, setProgress, $ }) {
   const st = { worker: null, cands: [], current: 0, P: null, o: null, prog: null, spec: null };
 
   async function run(spec, outlineId, seed) {
     const all = (await load(base)).outlines;
     const o = all.find((x) => x.id === outlineId);
-    const prog = programOf(all, o, spec);
-    if (!prog) return render(`침실 ${spec.bedrooms}개 세대가 이 데이터 묶음에 없습니다. 침실 수를 바꿔 보세요.`);
+    const prog0 = programOf(all, o, spec);
+    if (!prog0) return render(`침실 ${spec.bedrooms}개 세대가 이 데이터 묶음에 없습니다. 침실 수를 바꿔 보세요.`);
+    const prog = withMaster(prog0);
     const mask = largest(maskFromUnit(o.rep, spec.area));
-    const outline = { mode: 'mask', mask, balcony: spec.balcony, balconySides: spec.balcony ? ['S'] : [], outdoorUnit: spec.outdoorUnit };
+    // 최소 실 폭 = 베이스라인 R5(사양의 침실 한 변 × 실측 비, 안방 별도, 복도 1.2 m). 변경 8.
+    const outline = { mode: 'mask', mask, balcony: spec.balcony, balconySides: spec.balcony ? ['S'] : [], outdoorUnit: spec.outdoorUnit, minWidths: minSidesFor(spec) };
     const syntaxPrefs = spec.prefs.filter((k) => SYNTAX_TARGETS[k]);
     const P = retarget(buildProblem(prog, { outline, syntaxPrefs }), spec);
     Object.assign(st, { P, o, prog, spec, mask, cands: [], current: 0 });

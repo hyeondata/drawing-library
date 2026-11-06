@@ -36,3 +36,23 @@ test('외곽 형태: 목표 칸 수 합은 그대로, 거실 몫은 고른 면�
   const res = anneal(P, { seed: 1, steps: 3000 });
   assert.ok(openings(res.assign, P).openings.length > 0);
 });
+
+test('외곽 형태(변경 8): 사이트 자유형 엔진 최소 실 폭 = R5(가장 큰 침실 = 안방), 원본 데이터는 그대로', async () => {
+  const { withMaster } = await import('../src/scripts/generate-outline.js');
+  const { minSidesFor } = await import('../src/generate/layout.js');
+  const { minWidthOf } = await import('../src/freeform/engine.js');
+  const s = spec(3);
+  const o = outlines[1];
+  const prog0 = programOf(outlines, o, s);
+  const prog = withMaster(prog0);
+  assert.ok(!prog0.rooms.some((r) => r.key === 'master'));
+  assert.equal(prog.rooms.filter((r) => r.key === 'master').length, 1);
+  const mw = minSidesFor(s);
+  const P = buildProblem(prog, { outline: { mode: 'mask', mask: largest(maskFromUnit(o.rep, 84)), balconySides: ['S'], minWidths: mw } });
+  for (const k of P.movable) {
+    const r = P.rooms[k];
+    const key = prog.rooms[P.unit.rooms.indexOf(P.unit.rooms[r.src])]?.key;
+    const want = key === 'master' ? mw['안방'] : mw[r.type] ?? (r.type === '기타' ? 1.2 : undefined);
+    if (want !== undefined) assert.equal(minWidthOf(P, k), want, `${r.type} ${key ?? ''}`);
+  }
+});
