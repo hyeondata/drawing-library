@@ -48,14 +48,13 @@ const CMD = 'node scripts/paper/build-tables.mjs';
   const md = read('rq1-syntax-convexP1.md');
   const t = tables(md);
   const types = t[0]; const top = t.find((x) => x.head[0] === '1위 유형');
-  types.head = types.head.map((h) => (h === '세대 수' ? '그래프 수' : h));
   const keep = types.rows.filter((r) => ['거실', '주방', '현관', '침실', '화장실', '드레스룸'].includes(r[0]));
   const idx = ['유형', '세대 수', '연결도', '현관에서 깊이', '통합도(1/RRA)'].map((h) => types.head.indexOf(h));
   const n = md.match(/전체 세대 ([\d,]+)개 중 그래프가 서로 다른[^)]*\) ([\d,]+)개/);
   out('tables', 'T1-rq1-real-syntax.md', header('T1', 'rq1-syntax-convexP1.md', CMD) + `
 **표 1. 한국 아파트(AI Hub APT_FP_SPA 7,275장)의 실 유형별 공간구문 지표 (중앙값 [사분위], 뿌리 = 현관, 거실 볼록 분할 P1).**
 
-${mdTable(idx.map((i) => types.head[i]), keep.map((r) => idx.map((i) => r[i])))}
+${mdTable(idx.map((i) => (types.head[i] === '세대 수' ? '그래프 수' : types.head[i])), keep.map((r) => idx.map((i) => r[i])))}
 
 가장 통합된 실(유전형 1위): ${top.rows.map((r) => `${r[0]} ${r[1]}세대(${r[2]})`).join(', ')}. 분석 단위: 전체 세대 ${n[1]}개 중 서로 다른 그래프 ${n[2]}개(침실 2~4개).
 
