@@ -1,0 +1,853 @@
+[
+ {
+  "outline": "대조: 직사각형",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.32401232613366515,
+   "p90": 0.6704659244130711,
+   "max": 1.216268911882278
+  },
+  "devOld": {
+   "med": null,
+   "p90": null,
+   "max": null
+  }
+ },
+ {
+  "outline": "대조: 직사각형",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7404,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10428,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.3959112198292095,
+   "p90": 1.217245123027153,
+   "max": 2.191727445544553
+  },
+  "devOld": {
+   "med": null,
+   "p90": null,
+   "max": null
+  }
+ },
+ {
+  "outline": "대조: 직사각형",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7488,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5946,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.18642811529309866,
+   "p90": 1.4929166666666664,
+   "max": 2.3649199999999997
+  },
+  "devOld": {
+   "med": null,
+   "p90": null,
+   "max": null
+  }
+ },
+ {
+  "outline": "o1",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.3271359832635985,
+   "p90": 0.6580546753441818,
+   "max": 1.1710389340887621
+  },
+  "devOld": {
+   "med": 0.17930555555555572,
+   "p90": 0.5036270849885629,
+   "max": 1.6240472365038552
+  }
+ },
+ {
+  "outline": "o1",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7404,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10428,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.41142563531140275,
+   "p90": 1.1156389902955999,
+   "max": 2.4319353069306913
+  },
+  "devOld": {
+   "med": 0.16670234798594474,
+   "p90": 0.8366536289379387,
+   "max": 2.928578206250135
+  }
+ },
+ {
+  "outline": "o1",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7488,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5946,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.24975869179995236,
+   "p90": 1.4895376066071941,
+   "max": 2.4853526492500717
+  },
+  "devOld": {
+   "med": 0.16344248227502933,
+   "p90": 1.1330365760158752,
+   "max": 2.922469135991568
+  }
+ },
+ {
+  "outline": "o2",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.381642494802495,
+   "p90": 0.7320450810810811,
+   "max": 1.0014265173630776
+  },
+  "devOld": {
+   "med": 0.2545804251269037,
+   "p90": 0.608735638134208,
+   "max": 1.216268911882278
+  }
+ },
+ {
+  "outline": "o2",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 4764,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10253,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.4392747463436151,
+   "p90": 0.8999427547529841,
+   "max": 1.5086524091783606
+  },
+  "devOld": {
+   "med": 0.23421283683117777,
+   "p90": 0.8419234653465347,
+   "max": 2.371205735061113
+  }
+ },
+ {
+  "outline": "o2",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 576,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5789,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.45119306727480013,
+   "p90": 1.190750913272899,
+   "max": 1.8377631578947362
+  },
+  "devOld": {
+   "med": 0.2510285062713795,
+   "p90": 0.7238695710999861,
+   "max": 2.2161315789473677
+  }
+ },
+ {
+  "outline": "o3",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.3877196969696963,
+   "p90": 0.6968286504600254,
+   "max": 1.3745738341595835
+  },
+  "devOld": {
+   "med": 0.23200936641498027,
+   "p90": 0.5191393872027557,
+   "max": 1.713798667610953
+  }
+ },
+ {
+  "outline": "o3",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7404,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10428,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.4179248117620509,
+   "p90": 1.0941992558850155,
+   "max": 2.09568534947554
+  },
+  "devOld": {
+   "med": 0.3110754245907257,
+   "p90": 0.8187862065972846,
+   "max": 3.243834482060331
+  }
+ },
+ {
+  "outline": "o4",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.4191925246643815,
+   "p90": 0.8807328680203046,
+   "max": 1.3218055267338151
+  },
+  "devOld": {
+   "med": 0.2603915254237291,
+   "p90": 0.6228665579394037,
+   "max": 1.6534920305529313
+  }
+ },
+ {
+  "outline": "o4",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7404,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10428,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.45668383372066357,
+   "p90": 0.9972854534742752,
+   "max": 3.4838800792079176
+  },
+  "devOld": {
+   "med": 0.30917693617021236,
+   "p90": 0.9284167900207896,
+   "max": 3.4838800792079176
+  }
+ },
+ {
+  "outline": "o4",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7488,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5936,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.3986188961571544,
+   "p90": 1.3355336653571683,
+   "max": 2.7809892787524353
+  },
+  "devOld": {
+   "med": 0.25520503399636807,
+   "p90": 0.9088063753213367,
+   "max": 3.36537524507401
+  }
+ },
+ {
+  "outline": "o5",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.43307604426772106,
+   "p90": 0.7979084708121829,
+   "max": 1.4348804712176046
+  },
+  "devOld": {
+   "med": 0.37046423076923085,
+   "p90": 0.6789883050847458,
+   "max": 0.8550050067417513
+  }
+ },
+ {
+  "outline": "o5",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7404,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10428,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.3880701785328292,
+   "p90": 0.9266217861727672,
+   "max": 2.4300265106382977
+  },
+  "devOld": {
+   "med": 0.3020390269471773,
+   "p90": 0.8228299121593813,
+   "max": 3.1205701957899485
+  }
+ },
+ {
+  "outline": "o5",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7488,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5946,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.37121096893430794,
+   "p90": 0.8787469999999997,
+   "max": 2.94651111111111
+  },
+  "devOld": {
+   "med": 0.2994743530782764,
+   "p90": 0.7174428553966505,
+   "max": 3.515905425938632
+  }
+ },
+ {
+  "outline": "o6",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 156,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 528,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.39578792792792816,
+   "p90": 0.8813263174807198,
+   "max": 1.4725721193788681
+  },
+  "devOld": {
+   "med": 0.3803738247338242,
+   "p90": 0.7320450810810811,
+   "max": 1.9361793917624057
+  }
+ },
+ {
+  "outline": "o6",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 5724,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10218,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.5211525045045047,
+   "p90": 0.9882074006874584,
+   "max": 2.060752758601176
+  },
+  "devOld": {
+   "med": 0.35860608028624585,
+   "p90": 0.9244182635972478,
+   "max": 3.186367616353471
+  }
+ },
+ {
+  "outline": "o6",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7488,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5946,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.508056137763224,
+   "p90": 1.2105969722936303,
+   "max": 2.7227271652288976
+  },
+  "devOld": {
+   "med": 0.3436962131668968,
+   "p90": 0.9746004888136868,
+   "max": 3.3016893993235943
+  }
+ },
+ {
+  "outline": "o7",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.3468334602346801,
+   "p90": 0.674494354414173,
+   "max": 1.4876487786433734
+  },
+  "devOld": {
+   "med": 0.32674601527646563,
+   "p90": 0.6592214958158991,
+   "max": 1.8193352824624895
+  }
+ },
+ {
+  "outline": "o7",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 5760,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5909,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.48848747920503643,
+   "p90": 1.5007324561403501,
+   "max": 2.7510986842105254
+  },
+  "devOld": {
+   "med": 0.3413256991852016,
+   "p90": 0.9398984053497943,
+   "max": 3.3100055555555556
+  }
+ },
+ {
+  "outline": "o8",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.33977459459459425,
+   "p90": 0.7415690987526546,
+   "max": 1.5253404268046369
+  },
+  "devOld": {
+   "med": 0.3074145254606635,
+   "p90": 0.667871049803356,
+   "max": 1.1069631322146147
+  }
+ },
+ {
+  "outline": "o8",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7404,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10428,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.4040820031505552,
+   "p90": 0.8416963670402839,
+   "max": 3.2243451485148498
+  },
+  "devOld": {
+   "med": 0.33590716067203474,
+   "p90": 0.7182967730239305,
+   "max": 3.2243451485148498
+  }
+ },
+ {
+  "outline": "o8",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7488,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5946,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.3952208622715476,
+   "p90": 0.9165449561403505,
+   "max": 3.4897563352826495
+  },
+  "devOld": {
+   "med": 0.3454112615153223,
+   "p90": 0.7515040528052799,
+   "max": 3.7708645833333323
+  }
+ },
+ {
+  "outline": "o9",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 518,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.5004704200326562,
+   "p90": 0.8850292225174492,
+   "max": 1.4009579878724678
+  },
+  "devOld": {
+   "med": 0.32926655855855813,
+   "p90": 0.6637020338983052,
+   "max": 1.6497228657368055
+  }
+ },
+ {
+  "outline": "o9",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7404,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 9854,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.4843390992033858,
+   "p90": 1.0234110145708444,
+   "max": 3.696477841584156
+  },
+  "devOld": {
+   "med": 0.4139067821782174,
+   "p90": 0.9141946313748099,
+   "max": 3.696477841584156
+  }
+ },
+ {
+  "outline": "o9",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7488,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5618,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.44454892261980905,
+   "p90": 1.2694780589170018,
+   "max": 3.1880533333333325
+  },
+  "devOld": {
+   "med": 0.3486653306613223,
+   "p90": 0.8206514720812182,
+   "max": 3.643208796296296
+  }
+ },
+ {
+  "outline": "o10",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.524970849484087,
+   "p90": 0.9719289830508469,
+   "max": 1.9173335676817742
+  },
+  "devOld": {
+   "med": 0.4319847959063854,
+   "p90": 0.9682810960451977,
+   "max": 2.2414817418686375
+  }
+ },
+ {
+  "outline": "o10",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 3756,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10167,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.5761763827259505,
+   "p90": 1.1769111605038045,
+   "max": 2.591389981326391
+  },
+  "devOld": {
+   "med": 0.4032165462210737,
+   "p90": 0.9818751891891891,
+   "max": 3.8206617794824016
+  }
+ },
+ {
+  "outline": "o10",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 576,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5789,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.49859384863833234,
+   "p90": 2.065832,
+   "max": 3.320036
+  },
+  "devOld": {
+   "med": 0.3493200000000001,
+   "p90": 1.3124592973436155,
+   "max": 3.882407894736841
+  }
+ },
+ {
+  "outline": "o11",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 544,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.4343574181524943,
+   "p90": 0.9712149862639685,
+   "max": 1.894718578785016
+  },
+  "devOld": {
+   "med": 0.3275584745762714,
+   "p90": 0.8558231638418079,
+   "max": 3.7039176905256506
+  }
+ },
+ {
+  "outline": "o11",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 7404,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 10428,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.49699636981360373,
+   "p90": 1.4151084285714282,
+   "max": 2.8355016787569833
+  },
+  "devOld": {
+   "med": 0.24749641084494578,
+   "p90": 0.969791981981982,
+   "max": 4.799588938895848
+  }
+ },
+ {
+  "outline": "o11",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 5616,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5946,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.4662888727374749,
+   "p90": 1.8040999999999996,
+   "max": 3.4811676918929493
+  },
+  "devOld": {
+   "med": 0.2518645519522712,
+   "p90": 1.3585651468001623,
+   "max": 4.397341473875109
+  }
+ },
+ {
+  "outline": "o12",
+  "bedrooms": 2,
+  "n": 180,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 180,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 494,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.4533025084745761,
+   "p90": 0.8445433898305079,
+   "max": 1.7288753268754578
+  },
+  "devOld": {
+   "med": 0.46973489717223593,
+   "p90": 0.8581415135135135,
+   "max": 1.989803181233932
+  }
+ },
+ {
+  "outline": "o12",
+  "bedrooms": 3,
+  "n": 7404,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 5100,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 9168,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.5696805445544555,
+   "p90": 1.1091495772156512,
+   "max": 2.3801549082197804
+  },
+  "devOld": {
+   "med": 0.4500384013943881,
+   "p90": 0.9917395945945946,
+   "max": 3.482901989178509
+  }
+ },
+ {
+  "outline": "o12",
+  "bedrooms": 4,
+  "n": 7488,
+  "m0a": 0,
+  "m0b": 0,
+  "feasible": 144,
+  "stateConf": 0,
+  "edgeConf": 0,
+  "edgeKeysTrue": 5030,
+  "confExamples": [],
+  "other": [],
+  "devFixed": {
+   "med": 0.6852250855188142,
+   "p90": 1.3320833333333328,
+   "max": 2.0471219999999994
+  },
+  "devOld": {
+   "med": 0.48679109404068854,
+   "p90": 0.9750247160988644,
+   "max": 3.478761574074073
+  }
+ }
+]
