@@ -53,3 +53,19 @@ test('C-1: 간선 비교·McNemar mid-p', () => {
   assert.ok(Math.abs(mcnemarMidP(1, 5) - 0.125) < 1e-12);
   assert.ok(Math.abs(mcnemarMidP(5, 1) - 0.125) < 1e-12);
 });
+
+test('C-1(10-11): minWidths를 주면 실별 최소 폭 = R5(안방 별도, 복도 1.2 m), 안 주면 기존 값', async () => {
+  const { minSidesFor } = await import('../src/generate/layout.js');
+  const { minWidthOf, MIN_WIDTH } = await import('../src/freeform/engine.js');
+  const { mask, lay } = rectCase();
+  const u = unitFromLayout(lay);
+  const mw = minSidesFor(spec);
+  const P = setupMask(u, mask, { balconySides: ['S'], outdoorUnit: true, exactGraph: true, minWidths: mw });
+  u.keys.forEach((key, i) => {
+    const t = u.rooms[i].type;
+    const want = key === 'master' ? mw['안방'] : mw[t] ?? (t === '기타' ? 1.2 : MIN_WIDTH[t] ?? 1);
+    assert.equal(minWidthOf(P, i), want, key);
+  });
+  const P0 = setupMask(u, mask, { balconySides: ['S'], outdoorUnit: true, exactGraph: true });
+  assert.equal(minWidthOf(P0, u.keys.indexOf('living')), MIN_WIDTH['거실']);
+});

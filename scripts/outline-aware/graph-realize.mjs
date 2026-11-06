@@ -1,6 +1,10 @@
 // 후보 C-1 외곽 실현률 판정(Confluence 10-05 결정, 10-07 사전 등록). 정확 QUBO가 고르는 그래프(정렬 틀 배치의 맞닿음 그래프)를
 // 틀 없이 실제 AI 허브 외곽 안에 자유형 엔진(SA)으로 실현했을 때, 실현된 그래프가 목표 그래프와 정확히 같은 비율을 잰다.
 //
+// 10-11 수정(사용자 결정, 어떤 보정·시험 결과도 보기 전; 첫 실행은 보정 도중 멈췄고 결과 파일이 하나도 쓰이지 않았다):
+//   실현 엔진의 최소 실 폭을 엔진 고정값(거실 3.0·침실 2.4 m 등)에서 베이스라인 R5(minSidesFor(사양): 실측 비 × 그 사양 침실 한 변,
+//   안방 별도, 복도 = R4 1.2 m)로 바꾼다. 같은 연구에서 최소 폭 정의를 하나로 맞추기 위함. 판정·대상·지표·보정 격자는 그대로.
+//
 // 사전 등록(결과를 보기 전에 정함, 이 파일의 첫 commit이 기록):
 //   단위 = 외곽 묶음 o1~o12 × 침실 2~4(그 묶음에 세대가 있는 것) = outline-projection과 같은 34개. 투영 통과 여부로 고르지 않는다.
 //   외곽 = 묶음 대표 세대 실내 외곽 largest(maskFromUnit(rep, 사양 면적)), 0.3 m 칸. 평면 상자·깊이는 outline-projection과 같다.
@@ -39,7 +43,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
-import { buildLayout } from '../../src/generate/layout.js';
+import { buildLayout, minSidesFor } from '../../src/generate/layout.js';
 import { defaultParams, templates } from '../../src/generate/compare.js';
 import { evalArrangement, layoutGraph } from '../../src/generate/syntax-gen.js';
 import { modelBeta } from '../../src/generate/qubo-sa.js';
@@ -106,7 +110,7 @@ if (!isMainThread) {
     const { mask, spec2, base, fm } = cache.get(key);
     const lay = layoutOf(spec2, base, job.rp, job.bp);
     const t0 = Date.now();
-    const r = realizeInOutline(lay, mask, { seed: job.seed, steps: job.steps, weights: { adj: job.w, extra: job.w } });
+    const r = realizeInOutline(lay, mask, { seed: job.seed, steps: job.steps, weights: { adj: job.w, extra: job.w }, minWidths: minSidesFor(specs[job.spec]) });
     const ms = Date.now() - t0;
     const j = r.judge;
     const out = { id: job.id, ok: j.ok, hasAll: j.hasAll, entryOk: j.entryOk, missing: j.missing.length, extra: j.extra.length, ms };

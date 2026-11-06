@@ -19,6 +19,8 @@ export const CELL = 0.3; // m
 const OUTDOOR = new Set(['발코니', '실외기실']);
 export const FIXED = new Set(['현관', '발코니', '실외기실']);
 export const MIN_WIDTH = { 거실: 3.0, 침실: 2.4, 주방: 1.8, 화장실: 1.2, 드레스룸: 1.0, 다목적공간: 1.2, 기타: 0.9 };
+/** 실 k의 최소 폭(m). P.minWidthM(실별, setupMask minWidths 옵션 = 베이스라인 R5)이 있으면 그것, 없으면 기존 고정값. */
+export const minWidthOf = (P, k) => P.minWidthM?.[k] ?? MIN_WIDTH[P.rooms[k].type] ?? 1;
 const NEEDS_WINDOW = new Set(['거실', '침실']);
 const PUBLIC = new Set(['현관', '거실', '주방', '기타']);
 
@@ -212,7 +214,7 @@ export function balconyRuns(mask, sides, depth = BALCONY_CELLS, minRun = 8) {
  * 모든 실내 실을 남기고(1.5㎡ 미만도), 목표 간선은 전부 need, 목표에 없는 실내 실 쌍은 forbid가 된다.
  * 맞닿음 판정은 공유 변 minTouch칸(기본 2칸 = 0.6 m, AI 허브 minContact 40px ≈ 0.44 m를 넘는 가장 짧은 칸 길이).
  */
-export function setupMask(unit, mask, { balcony = true, balconySides = null, outdoorUnit = false, exactGraph = false, minTouch = 2 } = {}) {
+export function setupMask(unit, mask, { balcony = true, balconySides = null, outdoorUnit = false, exactGraph = false, minTouch = 2, minWidths = null } = {}) {
   const sides = balconySides ?? (balcony ? ['S'] : []);
   const BAL = sides.length ? BALCONY_CELLS : 0;
   const M = MARGIN + BAL; // 발코니가 어느 면에나 들어가게 사방에 여유
@@ -308,6 +310,15 @@ export function setupMask(unit, mask, { balcony = true, balconySides = null, out
     for (let a = 0; a < src.length; a++) for (let b = a + 1; b < src.length; b++) if (!has.has(`${a},${b}`)) out.forbid.push([a, b]);
     Object.assign(out, { exactGraph: true, minTouch });
   }
+  // minWidths(10-11): 베이스라인 R5 최소 폭(minSidesFor(사양), 실 종류 → m, 안방은 key 'master'). R5에 없는 복도(기타)는 R4 복도 폭 1.2 m.
+  if (minWidths)
+    out.minWidthM = rooms.map((r, i) => {
+      if (i >= src.length) return null; // 발코니·실외기실(고정 실)
+      const key = src[i].key;
+      if (key === 'master' && minWidths['안방'] != null) return minWidths['안방'];
+      if (minWidths[r.type] != null) return minWidths[r.type];
+      return r.type === '기타' ? 1.2 : null;
+    });
   return out;
 }
 
@@ -467,7 +478,7 @@ export function initial(P, seed = 1, jitter = 0.5) {
     grow(k, strip(k, dirs[0]), dirs[0], true);
   }
   // 2) ㄱ자 성장: 줄의 비어 있는 연속 칸만
-  const minRun = (k) => Math.max(2, Math.round((MIN_WIDTH[rooms[k].type] ?? 1) / P.cellM));
+  const minRun = (k) => Math.max(2, Math.round(minWidthOf(P, k) / P.cellM));
   guard = 0;
   let progress = true;
   while (progress && guard++ < 20000) {
@@ -578,7 +589,7 @@ export function roomStats(a, P, room) {
       else if (s === 2 && tl === br) corners += 2;
     }
   // 얇은 칸
-  const minW = Math.max(1, Math.round((MIN_WIDTH[rooms[room].type] ?? 1) / P.cellM));
+  const minW = Math.max(1, Math.round(minWidthOf(P, room) / P.cellM));
   let thin = 0;
   for (let j = y0; j <= y1; j++)
     for (let i = x0; i <= x1; i++) {

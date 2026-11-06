@@ -48,9 +48,9 @@ export function judgeRealized(assign, P, unit, { minCells = P.minTouch ?? 2 } = 
 }
 
 /** 외곽 마스크 안에 layout의 그래프를 실현(시드 하나). weights: 엔진 가중치 덮어쓰기(보정 단계에서 고정). */
-export function realizeInOutline(layout, mask, { seed = 1, steps = 30000, weights = null, balconySides = ['S'], minTouch = 2 } = {}) {
+export function realizeInOutline(layout, mask, { seed = 1, steps = 30000, weights = null, balconySides = ['S'], minTouch = 2, minWidths = null } = {}) {
   const unit = unitFromLayout(layout);
-  const P = setupMask(unit, mask, { balconySides, outdoorUnit: true, exactGraph: true, minTouch });
+  const P = setupMask(unit, mask, { balconySides, outdoorUnit: true, exactGraph: true, minTouch, minWidths });
   if (weights) P.weightOverride = weights;
   const res = anneal(P, { seed, steps });
   const judge = judgeRealized(res.assign ?? res.best?.a, P, unit);
