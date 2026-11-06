@@ -275,6 +275,29 @@ const steps = [
               <figure class="gen-plan" id="gen-ff-plan"></figure>
               <div class="gen-detail" id="gen-ff-detail"></div>
             </div>
+            <section class="gen-process" id="ff-process" aria-label="생성 과정(자유형)">
+              <div class="gen-process-head">
+                <h3>생성 과정</h3>
+                <div class="gen-process-ctl">
+                  <button type="button" class="button-ghost small" id="ff-prev" aria-label="이전 단계">←</button>
+                  <span class="mono" id="ff-count">1 / 6</span>
+                  <button type="button" class="button-ghost small" id="ff-next" aria-label="다음 단계">→</button>
+                  <button type="button" class="button-ghost small" id="ff-play">▶ 자동 재생</button>
+                </div>
+              </div>
+              <ol class="gen-process-steps" id="ff-steps"></ol>
+              <div class="gen-process-body">
+                <figure class="gen-plan" id="ff-proc-plan"></figure>
+                <div class="gen-process-text" id="ff-proc-text" aria-live="polite"></div>
+              </div>
+            </section>
+            <div class="gen-actions">
+              <span class="gen-aihub" role="group" aria-label="AI 허브 형식 JSON 내려받기">
+                <span class="note">AI 허브 JSON</span>
+                <button type="button" class="button-ghost small" id="ff-spa" title="공간(실 다각형)">SPA</button>
+              </span>
+              <button type="button" class="button-ghost small" id="ff-svg">SVG</button>
+            </div>
           </div>
           <div id="gen-result" hidden>
             <div class="gen-toolbar">

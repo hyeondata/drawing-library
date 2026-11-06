@@ -94,6 +94,28 @@ export function toAihubSPA(layout, number = '900000000') {
   return doc('SPA', number, anns);
 }
 
+/**
+ * SPA(다각형 실): 외곽 투영·자유형 평면처럼 실이 직사각형이 아닐 때. rooms = [{ type, loops: [[[x, y], …], …] }](m, 칸 경계 고리).
+ * 고리가 여럿이면(구멍·떨어진 조각) 면적이 가장 큰 고리 하나를 실 다각형으로 쓴다(AI 허브 SPA는 실마다 다각형 하나). 평면 상자를 종이 가운데에.
+ */
+export function toAihubSPAPolys(rooms, number = '900000000') {
+  const pts = rooms.flatMap((r) => r.loops.flat());
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs);
+  const y0 = Math.min(...ys);
+  const ox = (SHEET.w - (Math.max(...xs) - x0) * PX) / 2 - x0 * PX;
+  const oy = (SHEET.h - (Math.max(...ys) - y0) * PX) / 2 - y0 * PX;
+  const anns = [];
+  for (const r of rooms) {
+    const loop = [...r.loops].sort((a, b) => polygonArea(b) - polygonArea(a))[0];
+    if (!loop || loop.length < 3) continue;
+    anns.push(polyAnn(anns.length, `공간_${r.type}`, loop.map(([x, y]) => [ox + x * PX, oy + y * PX]), { occluded: false }));
+  }
+  anns.push(background(anns.length));
+  return doc('SPA', number, anns);
+}
+
 /** 선분을 두께 t(m)의 사각형으로(선분 가운데 정렬), 종이 좌표 px. */
 function bandPts(seg, t, ox, oy) {
   const h = t / 2;

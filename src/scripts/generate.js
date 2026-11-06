@@ -14,7 +14,8 @@ import { renderDiagnosis } from './generate-diagnosis.js';
 import { deviation } from '../generate/metrics.js';
 import { WALL, netDims } from '../generate/net-dims.js';
 import { scatterLegend, scatterPanel, spearman } from '../generate/scatter.js';
-import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSTR } from '../generate/aihub.js';
+import { generatedNumber, toAihubOBJ, toAihubSPA, toAihubSPAPolys, toAihubSTR } from '../generate/aihub.js';
+import { roomPolygons } from '../freeform/engine.js';
 import { ACTIVE } from '../generate/solvers.js';
 import { TERMS, buildQubo, weightsOf } from '../generate/qubo.js';
 import { createOutlineRunner } from './generate-outline.js';
@@ -526,7 +527,7 @@ function renderResult() {
   if (c.proj) {
     const interior = c.proj.area.reduce((a, b) => a + b, 0);
     const keep = c.proj.rooms.map((r, i) => [r, c.proj.area[i] / c.proj.rectArea[i]]).filter(([, k]) => k < 0.5);
-    $('#gen-plan').innerHTML = `${projSvg(c.proj, { title: `${titleOf(spec, state.current)} · 외곽 ${esc(state.proj.shape)}`, fillOf: (t) => roomGroupOf(t).fill })}<figcaption class="note">외곽 투영: QUBO + SA 배치를 실제 세대 외곽(${esc(state.proj.shape)} 대표 세대, ${state.proj.W.toFixed(1)} × ${state.proj.D.toFixed(1)}m 상자)에 잘라 넣은 평면입니다. 실내 ${interior.toFixed(1)}㎡. 이 외곽·침실 수는 모든 배치에서 공간구문 그래프가 유지됨을 확인한 조합입니다(외곽 투영 검증). 치수는 검증과 같게 다듬지 않습니다.${keep.length ? ` <span class="error-text">외곽에 많이 잘린 실(직사각형 대비 50% 미만): ${keep.map(([r, k]) => `${esc(r.name)} ${Math.round(k * 100)}%`).join(', ')}</span>` : ''} 문·창·설비, 아래 표·진단·생성 과정은 잘라 내기 전 직사각형 평면 기준입니다.</figcaption>`;
+    $('#gen-plan').innerHTML = `${projSvg(c.proj, { title: `${titleOf(spec, state.current)} · 외곽 ${esc(state.proj.shape)}`, fillOf: (t) => roomGroupOf(t).fill })}<figcaption class="note">외곽 투영: QUBO + SA 배치를 실제 세대 외곽(${esc(state.proj.shape)} 대표 세대, ${state.proj.W.toFixed(1)} × ${state.proj.D.toFixed(1)}m 상자)에 잘라 넣은 평면입니다. 실내 ${interior.toFixed(1)}㎡. 이 외곽·침실 수는 모든 배치에서 공간구문 그래프가 유지됨을 확인한 조합입니다(외곽 투영 검증). 치수는 검증과 같게 다듬지 않습니다.${keep.length ? ` <span class="error-text">외곽에 많이 잘린 실(직사각형 대비 50% 미만): ${keep.map(([r, k]) => `${esc(r.name)} ${Math.round(k * 100)}%`).join(', ')}</span>` : ''} 문·창·설비와 아래 표·진단은 잘라 내기 전 직사각형 평면 기준입니다. 생성 과정 9단계에서 잘라 넣는 과정을, SPA 내보내기는 잘라 낸 실 다각형을 씁니다.</figcaption>`;
   } else
   $('#gen-plan').innerHTML = `${layoutSvg(c.layout, { title: titleOf(spec, state.current), mode: state.view, dims: state.dims || 'center' })}${legend}<figcaption class="note">전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡ (${(c.layout.W).toFixed(2)} × ${c.layout.D.toFixed(2)}m) · ${top.length}안 중 ${state.current + 1}번째 · 후보 ${state.ms ? `${Math.round(state.ms / 100) / 10}초` : ''}</figcaption>`;
 
@@ -579,6 +580,12 @@ function renderResult() {
       <table class="gen-table"><thead><tr><th>실</th><th>중심선 폭 × 깊이 m</th><th>중심선 ㎡</th><th>안목 폭 × 깊이 m</th><th>안목 ㎡</th></tr></thead><tbody>${roomRows}</tbody></table>
       <p class="note">중심선 치수는 벽 가운데선 기준, 안목 치수는 벽 두께의 절반씩을 뺀 실내 유효 치수입니다(외벽·발코니 쪽 ${WALL.rc}m, 내벽 ${WALL.inner}m, AI 허브 형식 내보내기의 벽체와 같은 규칙). 실내 안목 면적 합계 ${netSum.toFixed(1)}㎡ (중심선 전용 ${(c.layout.W * c.layout.D).toFixed(1)}㎡의 ${((netSum / (c.layout.W * c.layout.D)) * 100).toFixed(0)}%). 법정 전용면적은 벽 중심선 기준이라 중심선 값과 비교합니다.</p>
     </details>`;
+  document.querySelectorAll('[data-aihub]').forEach((b) => {
+    b.dataset.aihubTitle ??= b.title;
+    const off = !!c.proj && (b.dataset.aihub === 'STR' || b.dataset.aihub === 'OBJ');
+    b.disabled = off;
+    b.title = off ? '외곽 투영 평면은 SPA(잘라 낸 실 다각형)만 내보냅니다' : b.dataset.aihubTitle || b.title;
+  });
   renderProcess();
   renderDiagnosis({ top, current: state.current, spec });
   renderFormulas({ spec, cand: c, weights: WEIGHTS });
@@ -602,11 +609,16 @@ const fileBase = () => `generated_${state.spec.area}m2_${state.spec.bedrooms}bed
 // AI 허브 Sample과 같은 형식: SPA(공간)·STR(벽체·출입문·창호)·OBJ(설비)를 따로, 파일 이름은 APT_FP_<종류>_<9자리 번호>.json
 const AIHUB = { SPA: toAihubSPA, STR: toAihubSTR, OBJ: toAihubOBJ };
 const numberOf = () => generatedNumber({ area: state.spec.area, bedrooms: state.spec.bedrooms, candidate: state.current + 1, seed: state.seed });
-const aihub = (kind) => AIHUB[kind](state.top[state.current].layout, numberOf());
+// 외곽 투영 평면의 SPA는 잘라 낸 실 다각형(0.1 m 칸 경계)으로. STR·OBJ는 직사각형 기준이라 투영 평면에서는 끈다.
+const aihub = (kind) => {
+  const c = state.top[state.current];
+  return c.proj && kind === 'SPA' ? toAihubSPAPolys(projRooms(c.proj), numberOf()) : AIHUB[kind](c.layout, numberOf());
+};
 const saveAihub = (kind) => download(new Blob([JSON.stringify(aihub(kind))], { type: 'application/json' }), `APT_FP_${kind}_${numberOf()}.json`);
 document.querySelectorAll('[data-aihub]').forEach((b) =>
   b.addEventListener('click', () => {
-    if (b.dataset.aihub === 'ALL') ['SPA', 'STR', 'OBJ'].forEach((k, i) => setTimeout(() => saveAihub(k), i * 400));
+    if (b.dataset.aihub === 'ALL' && state.top[state.current]?.proj) saveAihub('SPA');
+    else if (b.dataset.aihub === 'ALL') ['SPA', 'STR', 'OBJ'].forEach((k, i) => setTimeout(() => saveAihub(k), i * 400));
     else saveAihub(b.dataset.aihub);
   }),
 );
@@ -646,6 +658,11 @@ const STAGES = [
   ['설비', '욕실·주방 설비 놓기'],
 ];
 const proc = { stage: 1, timer: null };
+// 외곽 투영 평면은 8단계(직사각형) 뒤에 '외곽에 잘라 넣기'를 9단계로 더 보여 준다.
+const PROJ_STAGE = ['외곽에 잘라 넣기', '실제 세대 외곽 밖을 잘라 냄'];
+const nStages = () => STAGES.length + (state.top?.[state.current]?.proj ? 1 : 0);
+/** 투영 결과(0.1 m 칸) → 실별 다각형 고리(m). */
+const projRooms = (pr) => pr.rooms.map((r, k) => ({ type: r.type, name: r.name, loops: roomPolygons(pr.grid, { nx: pr.fm.nx, ny: pr.fm.ny, sx: pr.fm.cell, sy: pr.fm.cell }, k) }));
 const bandsOf = (layout) => {
   const indoor = layout.rooms.filter((r) => r.type !== '발코니' && r.type !== '실외기실');
   const front = indoor.filter((r) => Math.abs(r.y + r.h - layout.D) < 1e-6 && r.type !== '기타').sort((a, b) => a.x - b.x);
@@ -724,14 +741,25 @@ function stageText(c, stage) {
 function renderProcess() {
   const c = state.top[state.current];
   if (!c) return;
+  if (proc.stage > nStages()) proc.stage = nStages();
   const isModel = !(c.algo && c.algo.key !== 'model');
   const kindsOf = (i) => (i === 2 && isModel ? GEN_STAGES[i].modelKinds : GEN_STAGES[i].kinds);
-  $('#proc-steps').innerHTML = STAGES.map(([t, sub], i) => `<li><button type="button" data-stage="${i + 1}" aria-current="${proc.stage === i + 1 ? 'step' : 'false'}"><span class="gen-num">${i + 1}</span><span><b>${t}</b><small>${sub}</small><span class="pl-mini">${badges(kindsOf(i))}</span><small class="pl-algo">${i === 2 && isModel ? GEN_STAGES[i].modelAlgo : GEN_STAGES[i].algo}</small></span></button></li>`).join('');
+  const cur = (n) => (proc.stage === n ? 'step' : 'false');
+  $('#proc-steps').innerHTML = STAGES.map(([t, sub], i) => `<li><button type="button" data-stage="${i + 1}" aria-current="${cur(i + 1)}"><span class="gen-num">${i + 1}</span><span><b>${t}</b><small>${sub}</small><span class="pl-mini">${badges(kindsOf(i))}</span><small class="pl-algo">${i === 2 && isModel ? GEN_STAGES[i].modelAlgo : GEN_STAGES[i].algo}</small></span></button></li>`).join('')
+    + (c.proj ? `<li><button type="button" data-stage="${STAGES.length + 1}" aria-current="${cur(STAGES.length + 1)}"><span class="gen-num">${STAGES.length + 1}</span><span><b>${PROJ_STAGE[0]}</b><small>${PROJ_STAGE[1]}</small><span class="pl-mini">${badges(['rule'])}</span><small class="pl-algo">외곽 투영(R10)</small></span></button></li>` : '');
   $('#proc-steps').querySelectorAll('[data-stage]').forEach((b) => b.addEventListener('click', () => setStage(Number(b.dataset.stage), true)));
-  $('#proc-plan').innerHTML = layoutSvg(c.layout, { stage: proc.stage, title: `${proc.stage}. ${STAGES[proc.stage - 1][0]}` });
-  $('#proc-text').innerHTML = stageText(c, proc.stage);
-  $('#proc-count').textContent = `${proc.stage} / ${STAGES.length}`;
-  renderMethod(c, proc.stage, isModel, kindsOf(proc.stage - 1));
+  $('#proc-count').textContent = `${proc.stage} / ${nStages()}`;
+  if (c.proj && proc.stage === STAGES.length + 1) {
+    const pr = c.proj;
+    const lost = pr.rooms.map((r, i) => [r, pr.area[i] / pr.rectArea[i]]).filter(([, k]) => k < 0.5);
+    $('#proc-plan').innerHTML = projSvg(pr, { title: `${proc.stage}. ${PROJ_STAGE[0]} · 외곽 ${state.proj.shape}`, fillOf: (t) => roomGroupOf(t).fill });
+    $('#proc-text').innerHTML = `<p>1~8단계로 만든 직사각형 평면(외곽 상자 <b>${state.proj.W.toFixed(1)} × ${state.proj.D.toFixed(1)}m</b>)을 실제 세대 외곽(${esc(state.proj.shape)} 대표 세대)에 겹쳐 <b>외곽 밖 칸(0.1 m)을 잘라 냅니다</b>. 실 배치·QUBO·β·SA는 그대로입니다.</p><p>이 외곽 × 침실 수는 사전 등록한 검증(모든 배치에서 ① 모든 실이 남고 한 덩어리 ② 잘라 낸 그래프 = QUBO 그래프)을 통과한 조합입니다. 실내 ${pr.area.reduce((a, b) => a + b, 0).toFixed(1)}㎡.</p>${lost.length ? `<p class="note error-text">많이 잘린 실(직사각형 대비 50% 미만): ${lost.map(([r, k]) => `${esc(r.name)} ${Math.round(k * 100)}%`).join(', ')}</p>` : ''}`;
+    $('#proc-method').innerHTML = `<div class="proc-method-head"><b>${proc.stage}단계에서 쓰인 규칙</b> ${badges(['rule'])}</div><div class="proc-algo"><span><b>알고리즘</b> 외곽 마스크로 자르기(projection.js project)</span><span><b>QUBO로 바꿀 수 있나</b> 바꾸지 않음 — QUBO 밖의 실현 규칙</span></div><p class="note">AI 허브 SPA 내보내기는 이 단계의 잘라 낸 실 다각형을 씁니다. 문·창·설비(STR·OBJ)는 잘라 내기 전 직사각형 기준이라 투영 평면에서는 내보내지 않습니다.</p>`;
+  } else {
+    $('#proc-plan').innerHTML = layoutSvg(c.layout, { stage: proc.stage, title: `${proc.stage}. ${STAGES[proc.stage - 1][0]}` });
+    $('#proc-text').innerHTML = stageText(c, proc.stage);
+    renderMethod(c, proc.stage, isModel, kindsOf(proc.stage - 1));
+  }
   renderAllRules(c);
 }
 /** 규칙 표: 번호 · 방식 · 규칙 · 이 평면에서의 결과 · 지켜짐 */
@@ -779,7 +807,7 @@ function renderMethod(c, stage, isModel, kinds) {
   $('#proc-method').innerHTML = `<div class="proc-method-head"><b>${stage}단계에서 쓰인 규칙</b> ${badges(kinds)}</div><div class="proc-algo"><span><b>알고리즘</b> ${useModel ? g.modelAlgo : g.algo}</span><span><b>QUBO로 바꿀 수 있나</b> ${quboHtml(useModel ? g.modelQ : g.q, base)}</span></div>${rulesTable(rulesOf(stage, c, state.spec))}<details class="pl-what"><summary>이 단계는 어떻게 정해지나(설명)</summary><ul>${lines}</ul></details>${run}<details class="pl-what"><summary>배지(${kinds.map((k) => k === 'qubo' ? 'QUBO 최적화' : k === 'sa' ? '담금질 최적화' : k === 'rule' ? '규칙' : k === 'search' ? '탐색' : '평가').join('·')})는 무슨 뜻인가요?</summary>${kindsTable(kinds)}<p class="note">다섯 가지 방식 전체 비교: 생성 원리 0절</p></details><details class="cd-code"><summary>실제 코드 보기</summary>${tpl ? tpl.innerHTML : ''}</details>`;
 }
 function setStage(k, stop = false) {
-  proc.stage = Math.max(1, Math.min(STAGES.length, k));
+  proc.stage = Math.max(1, Math.min(nStages(), k));
   if (stop) stopPlay();
   renderProcess();
 }
@@ -792,10 +820,10 @@ $('#proc-prev').addEventListener('click', () => setStage(proc.stage - 1, true));
 $('#proc-next').addEventListener('click', () => setStage(proc.stage + 1, true));
 $('#proc-play').addEventListener('click', () => {
   if (proc.timer) return stopPlay();
-  if (proc.stage >= STAGES.length) proc.stage = 0;
+  if (proc.stage >= nStages()) proc.stage = 0;
   $('#proc-play').textContent = '❚❚ 멈춤';
   setStage(proc.stage + 1);
-  proc.timer = setInterval(() => (proc.stage >= STAGES.length ? stopPlay() : setStage(proc.stage + 1)), 1600);
+  proc.timer = setInterval(() => (proc.stage >= nStages() ? stopPlay() : setStage(proc.stage + 1)), 1600);
 });
 
 // ---------- 계산 시간에 따른 과정 ----------
