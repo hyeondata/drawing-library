@@ -55,6 +55,15 @@ export function freeformSPA(assign, P, number) {
   return toAihubSPAPolys(rooms, number);
 }
 
+/**
+ * 자유형 안 순서: 문 동선이 끊긴 안(현관에서 문으로 못 가는 실이 있음)은 뒤로, 그다음 에너지 낮은 순.
+ * 에너지의 access 항은 칸 인접으로 도달을 보지만 문 배치는 공유 변이 문 폭보다 짧으면 문을 못 달아,
+ * 현관이 고립된 안이 에너지 최저가 될 수 있다(Confluence 10-14 댓글). 계산은 그대로, 보여 주는 순서만.
+ */
+export function rankCands(cands) {
+  return cands.sort((a, b) => (a.unreachable.length > 0) - (b.unreachable.length > 0) || a.summary.total - b.summary.total);
+}
+
 /** 자유형 생성 과정 단계(번호 = 화면 번호). */
 export const FF_STAGES = [
   ['외곽', '실제 세대 외곽을 0.3 m 칸으로'],
@@ -167,7 +176,7 @@ export function createOutlineRunner({ base, setProgress, $ }) {
       if (m.type === 'progress') setProgress((m.i + m.p) / m.n, `담금질 ${m.i + 1} / ${m.n}안… ${Math.round(m.p * 100)}%`);
       else if (m.type === 'cand') st.cands[m.i] = m.cand;
       else if (m.type === 'done') {
-        st.cands.sort((a, b) => a.summary.total - b.summary.total);
+        rankCands(st.cands);
         render();
       }
     };

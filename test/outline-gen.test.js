@@ -56,3 +56,10 @@ test('외곽 형태(변경 8): 사이트 자유형 엔진 최소 실 폭 = R5(�
     if (want !== undefined) assert.equal(minWidthOf(P, k), want, `${r.type} ${key ?? ''}`);
   }
 });
+
+test('rankCands: door-connected candidates first, then lower energy', async () => {
+  const { rankCands } = await import('../src/scripts/generate-outline.js');
+  const c = (id, un, total) => ({ id, unreachable: Array(un).fill(0), summary: { total } });
+  const r = rankCands([c('a', 10, 14.3), c('b', 0, 17.7), c('c', 0, 14.9)]);
+  assert.deepEqual(r.map((x) => x.id), ['c', 'b', 'a']);
+});
