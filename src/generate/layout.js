@@ -208,6 +208,13 @@ export function buildLayout(spec, p) {
     frontMins,
     W,
   );
+  // 고정 칸(외곽 비고정 트랙, p.fixedSlots, 기본 꺼짐): 안방을 뺀 앞 칸 폭을 실과 무관하게 같게 나눈다(안방 폭은 위 배분 그대로 — 안방은 늘 끝 칸이라 배치와 무관).
+  // 그러면 실의 칸 모양이 '그 실의 칸·종류'만으로 정해져, 외곽으로 잘라도 맞닿음이 실 쌍의 배정에만 달린다(이차 할당 문제 형식).
+  if (align && p.fixedSlots) {
+    const im = front.indexOf(master);
+    const rest = W - frontWidths[im];
+    front.forEach((_, i) => { if (i !== im) frontWidths[i] = rest / (front.length - 1); });
+  }
   // (보기용 기록) p.trace 배열을 주면 폭 나누기 계산을 남긴다. 계산에는 영향 없음.
   p.trace?.push({ band: 'front', A, D, W, Df, Db, names: front.map((r) => r.name), areas: front.map((r) => r.area), depths: front.map(depthOf), desired: front.map((room) => room.area / depthOf(room)), mins: front.map(minW), total: W, out: frontWidths });
   const rooms = [];
@@ -416,7 +423,8 @@ function finishAligned(spec, p, { by, front, frontWidths, rooms, bayOf, D, W, Df
   const desired = back.map((r) => r.area / Db);
   const dsum = desired.reduce((a, b2) => a + b2, 0);
   const span = Xs[mm] - Xs[0];
-  const B = backBoundaries(Xs, k, back.map((r) => MIN_SIDE[r.type] || 0.3), back.map((_, j) => Xs[0] + (span * desired.slice(0, j).reduce((a, b2) => a + b2, 0)) / dsum));
+  // 고정 칸: 뒤 칸 경계도 실과 무관하게 균등(칸 모형 j/k와 같은 위치).
+  const B = p.fixedSlots ? Array.from({ length: k + 1 }, (_, j) => Xs[0] + (span * j) / k) : backBoundaries(Xs, k, back.map((r) => MIN_SIDE[r.type] || 0.3), back.map((_, j) => Xs[0] + (span * desired.slice(0, j).reduce((a, b2) => a + b2, 0)) / dsum));
   back.forEach((room, j) => rooms.push({ key: room.key, type: room.type, name: room.name, x: B[j], y: 0, w: B[j + 1] - B[j], h: Db }));
   // 부속실: 안방 아래 열(폭 = 안방 폭, 높이 = 뒤 띠 깊이)에 위에서부터 드레스룸, 부부욕실
   const suite = [by.dress, by.bathMaster].filter(Boolean);
