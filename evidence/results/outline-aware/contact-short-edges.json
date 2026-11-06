@@ -1,0 +1,79 @@
+{
+ "layouts": 15072,
+ "withShort": 2464,
+ "frac": 0.16348195329087048,
+ "disconnectedIfDropped": 0,
+ "termsChanged": 1246,
+ "termsChangedFrac": 0.08266985138004246,
+ "lenQ": [
+  0.1,
+  0.2,
+  0.25
+ ],
+ "topPairs": [
+  [
+   "기타(hall) – 화장실(bathPublic)",
+   638
+  ],
+  [
+   "기타(hall) – 현관(entrance)",
+   638
+  ],
+  [
+   "기타(hall) – 다목적공간(multi)",
+   572
+  ],
+  [
+   "기타(hall) – 주방(kitchen)",
+   348
+  ],
+  [
+   "기타(hall) – 침실(bed)",
+   280
+  ],
+  [
+   "거실(living) – 현관(entrance)",
+   76
+  ],
+  [
+   "거실(living) – 화장실(bathPublic)",
+   76
+  ],
+  [
+   "거실(living) – 다목적공간(multi)",
+   52
+  ]
+ ],
+ "termAbsChange": {
+  "O1": [
+   0,
+   0,
+   0.091
+  ],
+  "O2": [
+   0,
+   0.151,
+   0.393
+  ],
+  "O3": [
+   0,
+   0.333,
+   0.75
+  ],
+  "O7": [
+   0,
+   0.075,
+   0.383
+  ],
+  "O2b": [
+   0,
+   0,
+   1
+  ]
+ },
+ "dE": [
+  0.015,
+  0.526,
+  1.304
+ ]
+}

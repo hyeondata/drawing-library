@@ -116,6 +116,7 @@ ${mdTable(['항', 'β_z (템플릿 = 데이터 최소 폭, 현재)', 'β_z (템�
 
 // ===== T4 RQ3 =====
 const R3 = Object.values(json(read('rq3-scaling.json')));
+const TIES = json(read('rq3-outlier-ties.json'));
 const byInst = new Map();
 for (const r of R3) { if (!byInst.has(r.instance)) byInst.set(r.instance, {}); byInst.get(r.instance)[r.objective] = r; }
 {
@@ -134,7 +135,7 @@ for (const r of R3) { if (!byInst.has(r.instance)) byInst.set(r.instance, {}); b
   const emb = (o) => Object.values(o.embed).map((e) => (e.ok ? '성공' : '실패'));
   const embGen = genAll.every((r) => Object.values(r.embed).every((e) => !e.ok));
   const o1ok = R3.filter((r) => r.objective === 'O1_living_RRA' && Object.values(r.embed).some((e) => e.ok)).map((r) => `${r.vars}변수`);
-  out('tables', 'T4-rq3-sa-performance.md', header('T4', 'rq3-scaling.json', CMD) + `
+  out('tables', 'T4-rq3-sa-performance.md', header('T4', 'rq3-scaling.json, rq3-outlier-ties.json', CMD) + `
 **표 4. 정확 QUBO에 대한 시뮬레이티드 어닐링(dwave-samplers) 최적 도달률 p (%, 스위프 1k / 10k / 50k, 읽기 640(50k는 320)).** p = 유효한 배치이면서 열거 최적 E*와 같은 목적값에 닿은 읽기 비율. 마지막 열은 같은 목적에 대한 순열 SA 기준선(3,000걸음, QUBO를 풀지 않음)의 p. 각 셀 앞 숫자는 QUBO 변수 수.
 
 ${mdTable(['인스턴스', 'O1 거실 중심', 'O3 공·사 위계', 'GEN(5항 생성 모형)', '순열 SA p: O1 / GEN'], rows)}
@@ -142,7 +143,7 @@ ${mdTable(['인스턴스', 'O1 거실 중심', 'O3 공·사 위계', 'GEN(5항 �
 *주요 결과와 한계(그대로 보고):*
 - **생성 모형(GEN)에서 SA는 실패한다.** GEN의 0이 아닌 p는 ${nonzero.length ? nonzero.join('; ') : '없음'}뿐이고 나머지 ${genAll.length * 3 - nonzero.length}개 조건은 모두 0%다. 스위프를 늘려도, 벌점 배수 λ를 0.5·0.25로 낮춰도 개선이 없다.
 - E*보다 낮은 에너지를 읽은 경우: 모든 조건(스위프·λ)에서 ${below}건(정식화가 틀린 바닥 상태를 갖지 않음).
-- 단일 원리에서도 규모가 커질수록 p가 떨어지고 O3(최단 깊이 하한 포함)가 가장 어렵다. 합성 +3b+1f의 O1(${pct(byInst.get('synthetic +3 back +1 front').O1_living_RRA.sa['50000'].p, 0)})은 이상값이며 원인(동점 최적해 수 등)은 결과 파일로 확인되지 않았다.
+- 단일 원리에서도 규모가 커질수록 p가 떨어지고 O3(최단 깊이 하한 포함)가 가장 어렵다. 합성 +3b+1f의 O1(${pct(byInst.get('synthetic +3 back +1 front').O1_living_RRA.sa['50000'].p, 0)})은 이상값이며, 동점 최적 배치가 ${pct(TIES.find((t) => t.instance.startsWith('synthetic +3 back +1')).opt_frac_of_all, 0)}(${TIES.find((t) => t.instance.startsWith('synthetic +3 back +1')).n_opt.toLocaleString()}개)로 인접 규모(${TIES.filter((t) => /synthetic \+(3 back \+0|4 back)/.test(t.instance)).map((t) => pct(t.opt_frac_of_all, 0)).join('·')})보다 많아 맞히기 쉬운 인스턴스의 성질로 설명된다(rq3-outlier-ties.json). SA 성능 향상으로 쓰지 않는다.
 - D-Wave 사전 임베딩(QPU 없이 위상에만 맞춤): O1은 ${o1ok.join('·')}에서만 성공, GEN은 ${embGen ? '모든 인스턴스에서 실패' : '일부 성공'}.
 - 순열 SA는 같은 목적(GEN 포함)에서 3,000걸음에 대부분 98~100%지만, 이는 QUBO 없이 배치를 직접 바꾸는 기준선이며 효율 우위 주장의 근거가 아니다. 합성 인스턴스는 규모 실험용이다.
 `);
@@ -235,6 +236,80 @@ ${mdTable(['항', 'β 변경 전', 'β 변경 후', '부호'], rows)}
 템플릿 ${jn.rows.length}개 중 배치 수가 달라진 것 ${changed}개, 전체 배치 ${arrOf(jo).toLocaleString()} → ${arrOf(jn).toLocaleString()}.
 
 *한계:* 템플릿 규칙만 바꿔도 위 표에서 부호가 바뀐 항(예: O1, O9)이 있다. 이들은 틀에 강건한 결론이 아니라 **민감도 결과**로만 보고하며, 부호가 유지된 항만 '틀에 강건'이라 쓴다. 변경 전 값은 이전 commit(${PRE6})의 결과 파일이다.
+`);
+}
+// ===== 부록 D 맞닿음 규약 민감도 =====
+{
+  const k = json(read('outline-aware/contact-convention-check.json'));
+  const e = json(read('outline-aware/contact-short-edges.json'));
+  out('tables', 'TD-contact-convention.md', header('TD', 'outline-aware/contact-convention-check.json, outline-aware/contact-short-edges.json', CMD) + `
+**부록 표 D. 맞닿음 규약 민감도: QUBO 모형 그래프(공유 변 > 0.05 m) 대 AI Hub 실제 그래프 규약(≥ 0.44 m, minContact 40 px).** 사양 80개 기본 치수의 정렬 틀 배치 전부.
+
+${mdTable(['점검', '값', '비고'], [
+    ['K1 순서 결정성(대조 0.05 m): 같은 순서인데 그래프가 다른 열쇠', `${k.K1.old} / ${k.keys.toLocaleString()}`, '대조 통과'],
+    ['K1 순서 결정성(0.44 m): 같은 순서인데 그래프가 다른 열쇠', `**${k.K1.aihub} / ${k.keys.toLocaleString()}**`, '0.44 m에서는 배치 순서만으로 그래프가 정해지지 않음 → 정확 QUBO 유지 위해 현 규약'],
+    ['0.44 m 미만 간선이 있는 배치', `${e.withShort.toLocaleString()} / ${e.layouts.toLocaleString()} (**${pct(e.frac)}**)`, `짧은 간선 길이 10·50·90%: ${e.lenQ.join(' · ')} m`],
+    ['그 간선을 빼면 그래프가 끊기는 배치', String(e.disconnectedIfDropped), ''],
+    ['GEN 항(β·f)이 바뀌는 배치', `${e.termsChanged.toLocaleString()} (**${pct(e.termsChangedFrac)}**)`, `abs(ΔE_GEN) 중앙값·90%·최대 ${e.dE.join(' · ')}`],
+    ['K2 사양별 GEN 최적 배치가 바뀜', `${k.K2.optOrderChanged} / ${k.K2.specs}`, `최적 그래프가 바뀜 ${k.K2.optGraphChanged} / ${k.K2.specs}`],
+    ['K3 GEN 최적 배치에 0.44 m 미만 간선', `${k.K3.oldOptWithShort} / ${k.K3.of}`, ''],
+  ])}
+
+많은 쌍: ${e.topPairs.slice(0, 5).map(([p, c]) => `${p} ${c.toLocaleString()}`).join('; ')}.
+
+*한계:* 짧은 간선은 대부분 복도(hall)와 뒤 띠 실의 0.1–0.25 m 모서리 스침이다. 판정(K1)은 사전 등록(10-08)이고 나머지는 보고만 한다. 사양 기본 치수만 보았다. 0.6 m 기준으로 센 예전 수치(53.7%)는 AI Hub 규약 차이로 쓰지 않는다.
+`);
+}
+
+// ===== 부록 E 그래프 우선 실현(C-1, 부정 결과) =====
+{
+  const g = json(read('outline-aware/graph-realize.json'));
+  const cal = json(read('outline-aware/graph-realize-calibration.json'));
+  const S = g.summary;
+  const ci = (a) => `[${pct(a[0])}, ${pct(a[1])}]`;
+  const row = (name, x) => [name, String(x.n.toLocaleString()), `${pct(x.c1)} ${ci(x.c1CI)}`, `${pct(x.proj)} ${ci(x.projCI)}`, `**${pct(x.delta)}** ${ci(x.deltaCI)}`, `${pct(x.deltaOrig)} ${ci(x.deltaOrigCI)}`];
+  const fails = g.rows.filter((r) => !r.ok);
+  const ft = { gone: fails.filter((r) => !r.hasAll).length, entry: fails.filter((r) => r.hasAll && !r.entryOk).length };
+  const rest = fails.filter((r) => r.hasAll && r.entryOk);
+  ft.miss = rest.filter((r) => r.missing && !r.extra).length; ft.extra = rest.filter((r) => !r.missing && r.extra).length; ft.both = rest.filter((r) => r.missing && r.extra).length;
+  const grid = cal.grid.steps.map((st) => [st.toLocaleString(), ...cal.grid.w.map((w) => { const c = cal.calib.find((x) => x.w === w && x.steps === st); return `${pct(c.rate)}${c.w === cal.chosen.w && c.steps === cal.chosen.steps ? ' (선택)' : ''}`; })]);
+  out('tables', 'TE-graph-first-realization.md', header('TE', 'outline-aware/graph-realize.json, graph-realize-calibration.json', CMD) + `
+**부록 표 E. 그래프 우선 실현(C-1) 대 외곽 투영: 사전 등록 비교(부정 결과).** 정확 QUBO + SA가 고른 정렬 틀 그래프를 자유형 엔진(0.3 m 격자 SA, 정확 그래프 모드)으로 실제 외곽 안에 다시 실현했을 때, 실현 그래프가 목표와 같은 항목 비율. 같은 맞닿음 규약(공유 변 ≥ 0.6 m). 괄호는 단위 34개 군집 부트스트랩 95% 구간(10,000회). Δ' = 투영을 원 규약(0.1 m)으로 판정.
+
+${mdTable(['집합', '항목', 'C-1', '투영', 'Δ = C-1 − 투영', "Δ'"], [row('주 분석 (a)+(b)', S.primary), row('(a) GEN 최적', S.setA), row('(b) 그래프 공간 표본', S.setB)])}
+
+판정(사전 등록): **${S.verdict}** (Δ 상한 < 0). 보정(시험과 겹치지 않는 실제 외곽 ${cal.items}항목)의 실현률:
+
+${mdTable(['단계 \\ w', ...cal.grid.w.map(String)], grid)}
+
+보고만: 직사각형 대조 ${S.control.ok}/${S.control.n} = ${pct(S.control.ok / S.control.n)}. McNemar mid-p(군집 무시): C-1만 성공 ${S.primary.mcnemar.onlyC1}, 투영만 성공 ${S.primary.mcnemar.onlyProj}. 맞닿음 1칸(0.3 m) ${pct(S.primary.sens1)}, 3칸(0.9 m) ${pct(S.primary.sens3)}. 실패 ${fails.length.toLocaleString()}건(배타적 분류, 앞 항목에 걸리면 뒤에서 세지 않음): 실 사라짐 ${ft.gone}, 현관 조건 ${ft.entry}, 누락만 ${ft.miss}, 초과만 ${ft.extra}, 둘 다 ${ft.both.toLocaleString()}(${pct(ft.both / fails.length, 0)}). graph-realize.md의 실패 유형은 현관 조건 실패를 누락·초과에도 함께 세어 합이 실패 수보다 크다.
+
+*한계:* 보정 선택점이 격자 모서리(가장 큰 w, 가장 많은 단계)여서 더 큰 예산에서는 실현률이 오를 수 있으나, 결과를 본 뒤 예산을 늘려 같은 데이터로 확인하지 않는다(10 트랙 종료). 외곽은 묶음 대표 세대 하나, 시드는 항목마다 한 번. 직사각형에서도 39%라 병목은 외곽이 아니라 격자 실현 단계다. 단위별로 C-1이 높은 외곽(투영이 실패하는 곳)은 탐색적 관찰로만 쓴다.
+`);
+}
+
+// ===== 부록 F 고정 칸 틀 (10-01 → 10-02) =====
+{
+  const v1 = read('outline-aware/fixed-slot-precheck.md'), v2 = read('outline-aware/fixed-slot-precheck-10-02.md');
+  const verdict = (md) => md.match(/설계 \(a\) 채택 규칙: \*\*([^*]+)\*\*/)[1];
+  const t1 = tables(v1)[0], t2 = tables(v2)[0];
+  const H = (t, h) => t.head.indexOf(h);
+  const bad1 = t1.rows.filter((r) => !r[0].startsWith('대조') && (num(r[H(t1, '상태 어긋남')]) > 0 || num(r[H(t1, '맞닿음 어긋남')]) > 0));
+  const units = t2.rows.filter((r) => !r[0].startsWith('대조'));
+  const med = (a) => { const b = a.slice().sort((x, y) => x - y); const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+    // 면적 오차는 반올림 전 값(json)으로: 외곽 단위(대조 제외)별 중앙값 → 그 중앙값
+  const J2 = json(read('outline-aware/fixed-slot-precheck-10-02.json')).filter((u) => /^o\d+$/.test(u.outline) && u.devFixed && u.devOld);
+  const fs_ = J2.map((u) => 100 * u.devFixed.med), al = J2.map((u) => 100 * u.devOld.med);
+  const worse = J2.filter((u) => u.devFixed.med > u.devOld.med).length;
+  out('tables', 'TF-fixed-slot-frame.md', header('TF', 'outline-aware/fixed-slot-precheck.md (10-01), fixed-slot-precheck-10-02.md·.json (10-02)', CMD) + `
+**부록 표 F. 고정 칸 틀(실 쌍 배정만으로 맞닿음이 정해지는 틀)의 이차 형식 사전 점검.** 판정: 모든 외곽 × 침실 수 단위에서 같은 배정이 다른 상태·맞닿음을 내는 경우 0(사전 등록).
+
+${mdTable(['판', '판정', '어긋난 단위', '면적 오차 중앙값(단위별 중앙값의 중앙값): 고정 칸 / 정렬 틀'], [
+    ['10-01(사전 등록)', verdict(v1), bad1.length ? bad1.map((r) => `${r[0]}·${r[1]}`).join(', ') : '없음', '—'],
+    ['10-02(틀만 수정)', verdict(v2), '없음', `${med(fs_).toFixed(1)}% / ${med(al).toFixed(1)}% (${worse}/${J2.length} 단위에서 고정 칸이 더 큼)`],
+  ])}
+
+*한계:* 10-01은 안방 폭이 뒤 띠 순서에 따른 최소 폭 보정으로 배치마다 달라져 불충족이었다(사전 등록의 전제 오류). 10-02는 **결과를 본 뒤** 틀만 고친 것(안방 폭 = 보정 전 값)이며 판정은 같다. 틀 안의 '이차 형식으로 쓸 수 있다'는 조건까지만 확인했고, 외곽을 아는 QUBO 구현·정확성 검증은 하지 않았다. 두 띠 구조가 남아 틀 밖 목표의 답이 아니다.
 `);
 }
 console.log('done');
