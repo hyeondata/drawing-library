@@ -1,0 +1,93 @@
+[
+ {
+  "instance": "real 0/1 (2+4)",
+  "arrangements": 48,
+  "valid": 48,
+  "distinct_values": 2,
+  "estar": 0.363636364,
+  "n_opt": 24,
+  "opt_frac_of_all": 0.5,
+  "opt_frac_of_valid": 0.5,
+  "gap_to_next_level": 0.272727272,
+  "n_within_1pct_of_opt": 24,
+  "t": 0.034323930740356445
+ },
+ {
+  "instance": "real 47/2 (3+4)",
+  "arrangements": 144,
+  "valid": 144,
+  "distinct_values": 3,
+  "estar": 0.37678267,
+  "n_opt": 48,
+  "opt_frac_of_all": 0.3333333333333333,
+  "opt_frac_of_valid": 0.3333333333333333,
+  "gap_to_next_level": 0.06996760000000002,
+  "n_within_1pct_of_opt": 48,
+  "t": 0.039737701416015625
+ },
+ {
+  "instance": "real 72/2 (3+5)",
+  "arrangements": 720,
+  "valid": 720,
+  "distinct_values": 3,
+  "estar": 0.382928803,
+  "n_opt": 240,
+  "opt_frac_of_all": 0.3333333333333333,
+  "opt_frac_of_valid": 0.3333333333333333,
+  "gap_to_next_level": 0.002002453000000015,
+  "n_within_1pct_of_opt": 480,
+  "t": 0.1371757984161377
+ },
+ {
+  "instance": "synthetic +2 back +0 front",
+  "arrangements": 4320,
+  "valid": 4320,
+  "distinct_values": 3,
+  "estar": 0.384931256,
+  "n_opt": 1440,
+  "opt_frac_of_all": 0.3333333333333333,
+  "opt_frac_of_valid": 0.3333333333333333,
+  "gap_to_next_level": 0.047542216000000026,
+  "n_within_1pct_of_opt": 1440,
+  "t": 1.1488280296325684
+ },
+ {
+  "instance": "synthetic +3 back +0 front",
+  "arrangements": 30240,
+  "valid": 30240,
+  "distinct_values": 3,
+  "estar": 0.336368256,
+  "n_opt": 10080,
+  "opt_frac_of_all": 0.3333333333333333,
+  "opt_frac_of_valid": 0.3333333333333333,
+  "gap_to_next_level": 0.046000222000000035,
+  "n_within_1pct_of_opt": 10080,
+  "t": 13.67540693283081
+ },
+ {
+  "instance": "synthetic +3 back +1 front",
+  "arrangements": 120960,
+  "valid": 120960,
+  "distinct_values": 3,
+  "estar": 0.379371306,
+  "n_opt": 60480,
+  "opt_frac_of_all": 0.5,
+  "opt_frac_of_valid": 0.5,
+  "gap_to_next_level": 0.0029971719999999924,
+  "n_within_1pct_of_opt": 90720,
+  "t": 50.796501874923706
+ },
+ {
+  "instance": "synthetic +4 back +1 front",
+  "arrangements": 967680,
+  "valid": 967680,
+  "distinct_values": 3,
+  "estar": 0.379371306,
+  "n_opt": 241920,
+  "opt_frac_of_all": 0.25,
+  "opt_frac_of_valid": 0.25,
+  "gap_to_next_level": 0.03059910299999996,
+  "n_within_1pct_of_opt": 241920,
+  "t": 636.0688881874084
+ }
+]
