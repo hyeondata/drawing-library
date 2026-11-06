@@ -207,14 +207,19 @@ export function balconyRuns(mask, sides, depth = BALCONY_CELLS, minRun = 8) {
  *   실외기실: 첫 발코니(앞쪽 우선) 끝 1.5m.
  * 초기 배치: 기준 세대 실 중심을 새 외곽 상자로 옮긴 가중 보로노이(면적이 큰 실이 넓게) + 한 덩어리로 정리.
  */
-export function setupMask(unit, mask, { balcony = true, balconySides = null, outdoorUnit = false } = {}) {
+/**
+ * exactGraph(10-07 C-1, 기본 꺼짐): unit.edges를 목표 그래프로 보고 정확히 실현하게 한다.
+ * 모든 실내 실을 남기고(1.5㎡ 미만도), 목표 간선은 전부 need, 목표에 없는 실내 실 쌍은 forbid가 된다.
+ * 맞닿음 판정은 공유 변 minTouch칸(기본 2칸 = 0.6 m, AI 허브 minContact 40px ≈ 0.44 m를 넘는 가장 짧은 칸 길이).
+ */
+export function setupMask(unit, mask, { balcony = true, balconySides = null, outdoorUnit = false, exactGraph = false, minTouch = 2 } = {}) {
   const sides = balconySides ?? (balcony ? ['S'] : []);
   const BAL = sides.length ? BALCONY_CELLS : 0;
   const M = MARGIN + BAL; // 발코니가 어느 면에나 들어가게 사방에 여유
   const nx = mask.nx + 2 * M;
   const ny = mask.ny + 2 * M;
   const grid = new Int16Array(nx * ny).fill(-1);
-  const src = unit.rooms.map((r, k) => ({ ...r, k })).filter((r) => !OUTDOOR.has(r.type) && r.area >= 1.5);
+  const src = unit.rooms.map((r, k) => ({ ...r, k })).filter((r) => !OUTDOOR.has(r.type) && (exactGraph || r.area >= 1.5));
   const rooms = src.map((r, i) => ({ k: i, type: r.type, fixed: false, cells: 0, src: r.k }));
   const inside = [];
   for (let j = 0; j < mask.ny; j++) for (let i = 0; i < mask.nx; i++) if (mask.cells[j * mask.nx + i]) inside.push((j + M) * nx + i + M);
@@ -294,11 +299,16 @@ export function setupMask(unit, mask, { balcony = true, balconySides = null, out
   for (const k of movable) target[k] = (src[k].area / total) * inside.length;
   const index = new Map(src.map((r, i) => [r.k, i]));
   const matter = (x, y) => PUBLIC.has(x.type) || (['드레스룸', '화장실'].includes(x.type) && y.type === '침실');
-  const need = unit.edges
-    .filter(([a, b]) => index.has(a) && index.has(b))
-    .map(([a, b]) => [index.get(a), index.get(b)])
-    .filter(([a, b]) => matter(rooms[a], rooms[b]) || matter(rooms[b], rooms[a]));
-  return { unit, scale: 1, nx, ny, sx: CELL, sy: CELL, grid, rooms, movable, target, need, cellM: CELL, custom: true };
+  const edges = unit.edges.filter(([a, b]) => index.has(a) && index.has(b)).map(([a, b]) => [index.get(a), index.get(b)]);
+  const need = exactGraph ? edges : edges.filter(([a, b]) => matter(rooms[a], rooms[b]) || matter(rooms[b], rooms[a]));
+  const out = { unit, scale: 1, nx, ny, sx: CELL, sy: CELL, grid, rooms, movable, target, need, cellM: CELL, custom: true };
+  if (exactGraph) {
+    const has = new Set(edges.map(([a, b]) => `${Math.min(a, b)},${Math.max(a, b)}`));
+    out.forbid = [];
+    for (let a = 0; a < src.length; a++) for (let b = a + 1; b < src.length; b++) if (!has.has(`${a},${b}`)) out.forbid.push([a, b]);
+    Object.assign(out, { exactGraph: true, minTouch });
+  }
+  return out;
 }
 
 /** 실마다 가장 큰 덩어리만 남기고, 떨어진 칸은 이웃 실에 준다. */
@@ -587,7 +597,12 @@ export function roomStats(a, P, room) {
   return { n, perim, corners, thin, ext, out, touch, bbox: [x0, y0, x1, y1] };
 }
 
-export const WEIGHTS = { area: 6, compact: 1.2, corner: 1.2, thin: 3, adj: 1.5, window: 0.6, access: 10, through: 1.5, entry: 6, outline: 0.8, syntax: 4 };
+export const WEIGHTS = { area: 6, compact: 1.2, corner: 1.2, thin: 3, adj: 1.5, extra: 1.5, window: 0.6, access: 10, through: 1.5, entry: 6, outline: 0.8, syntax: 4 };
+
+/** 두 실이 맞닿은 칸 변 수. 담금질 중 바뀌지 않은 실의 touch는 새로 생긴 맞닿음을 놓칠 수 있어(작게만 틀림) 양쪽 중 큰 값. */
+export function touchCount(S, p, q) {
+  return Math.max(S[p]?.touch.get(q) || 0, S[q]?.touch.get(p) || 0);
+}
 
 /** 모양 자유도: 'rect' 직사각형 위주, 'L' ㄱ자까지, 'free' ㄷ자·자유형. */
 export const FREEDOM = {
@@ -712,7 +727,7 @@ export function energy(a, P, freedom = 'L', stats = null, outline = null) {
   const S = stats || {};
   for (const k of P.movable) S[k] ||= roomStats(a, P, k);
   for (const r of P.rooms) if (r.fixed && !S[r.k]) S[r.k] = roomStats(a, P, r.k);
-  const t = { area: 0, compact: 0, corner: 0, thin: 0, adj: 0, window: 0, access: 0, through: 0, entry: 0, outline: 0, syntax: 0 };
+  const t = { area: 0, compact: 0, corner: 0, thin: 0, adj: 0, extra: 0, window: 0, access: 0, through: 0, entry: 0, outline: 0, syntax: 0 };
   const doorCells = Math.ceil(0.9 / P.cellM);
   for (const k of P.movable) {
     const s = S[k];
@@ -726,10 +741,14 @@ export function energy(a, P, freedom = 'L', stats = null, outline = null) {
     t.thin += s.thin / s.n;
     if (NEEDS_WINDOW.has(P.rooms[k].type)) t.window += Math.max(0, 2.0 - s.ext * P.cellM);
   }
-  for (const [p, q] of P.need) {
-    const c = (S[p]?.touch.get(q) || 0);
-    if (c < doorCells) t.adj += 1;
-  }
+  if (P.exactGraph) {
+    for (const [p, q] of P.need) if (touchCount(S, p, q) < P.minTouch) t.adj += 1;
+    for (const [p, q] of P.forbid) if (touchCount(S, p, q) >= P.minTouch) t.extra += 1;
+  } else
+    for (const [p, q] of P.need) {
+      const c = (S[p]?.touch.get(q) || 0);
+      if (c < doorCells) t.adj += 1;
+    }
   const ac = access(P, S);
   t.access = ac.unreach.length;
   t.through = ac.through.length;
@@ -748,7 +767,7 @@ export function energy(a, P, freedom = 'L', stats = null, outline = null) {
     oc = outline ?? outlineCorners(a, P);
     t.outline = Math.max(0, oc - F.Kout);
   }
-  const w = { ...WEIGHTS, compact: F.compact };
+  const w = { ...WEIGHTS, compact: F.compact, ...(P.weightOverride || {}) };
   const total = Object.keys(t).reduce((s, k) => s + w[k] * t[k], 0);
   return { total, terms: t, weights: w, stats: S, outlineCorners: oc, syntax: sx };
 }
